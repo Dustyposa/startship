@@ -1,0 +1,37 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "starship"
+version = "1.0.0"
+description = "AI Stars GitHub Knowledge Engine - Transform your GitHub stars into an intelligent knowledge base"
+authors = [
+    {name = "Starship Team", email = "zmzposa@outlook.com"},
+]
+readme = "README.md"
+requires-python = ">=3.12"
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Intended Audience :: Developers",
+    "License :: OSI Approved :: MIT License",
+    "Operating System :: OS Independent",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.12",
+    "Topic :: Software Development :: Libraries :: Python Modules",
+    "Topic :: Scientific/Engineering :: Artificial Intelligence",
+]
+keywords = ["ai", "github", "knowledge-base", "rag", "vector-search", "autogen"]
+dependencies = []
+
+[project.urls]
+Homepage = "https://github.com/dustyposa/starship"
+Documentation = "https://starship-ai.github.io/starship"
+Repository = "https://github.com/dustyposa/starship"
+"Bug Tracker" = "https://github.com/dustyposa/starship/issues"
+
+[project.scripts]
+starship = "starship.cli:main"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/starship"]

@@ -1,0 +1,48 @@
+# 数据库配置文件
+# 包含ChromaDB和其他数据存储的配置
+
+# ChromaDB向量数据库配置
+chroma_db:
+  host: "localhost"
+  port: 8000
+  persist_directory: "./data/chroma_db"
+  collection_settings:
+    default_collection: "github_repos"
+    embedding_function: "sentence-transformers/all-MiniLM-L6-v2"
+    distance_metric: "cosine"
+  performance:
+    batch_size: 100
+    max_connections: 10
+    connection_timeout: 30  # 秒
+    query_timeout: 60  # 秒
+
+# 嵌入模型配置
+embedding:
+  model_name: "sentence-transformers/all-MiniLM-L6-v2"
+  model_kwargs:
+    device: "cpu"  # 或 "cuda" 如果有GPU
+  encode_kwargs:
+    normalize_embeddings: true
+    batch_size: 32
+  cache:
+    enabled: true
+    cache_dir: "./data/embedding_cache"
+    max_size_gb: 2
+
+# 数据持久化配置
+persistence:
+  data_directory: "./data"
+  backup:
+    enabled: true
+    interval_hours: 24
+    max_backups: 7
+    backup_directory: "./backups"
+
+# 性能监控配置
+monitoring:
+  metrics_enabled: true
+  log_queries: true
+  slow_query_threshold: 5.0  # 秒
+  health_check:
+    enabled: true
+    interval: 300  # 秒

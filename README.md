@@ -1,240 +1,250 @@
-# Starship - AI GitHub Knowledge Engine
+# GitHub Star Helper
 
-🚀 Transform your GitHub stars into an intelligent knowledge base powered by AI agents and vector search.
+基于AutoGen和MCP的GitHub项目分析助手，提供对话式的项目分析和推荐服务。
 
-## Overview
+## 功能特性
 
-Starship is an innovative AI-powered platform that converts your GitHub starred repositories into a searchable, intelligent knowledge base. Using AutoGen multi-agent systems, ChromaDB vector database, and advanced RAG (Retrieval-Augmented Generation) techniques, Starship helps developers discover, understand, and leverage code from their favorite repositories.
+### 🎯 核心功能
+- **年度总结**: 生成个人GitHub年度报告，分析技术栈和项目趋势
+- **宝藏发现**: 找到你收藏但可能遗忘的优质项目
+- **技术研究**: 深度分析特定技术栈和框架对比
+- **学习路径**: 基于你的技术栈推荐个性化学习路线
+- **趋势分析**: 分析技术趋势和团队技术选型
+- **智能推荐**: AI驱动的项目和技术推荐
 
-## Key Features
+### 💬 对话式交互
+- 自然语言查询
+- 智能意图识别
+- 上下文理解
+- 富文本结果展示
+- 实时对话体验
 
-- 🤖 **Multi-Agent System**: AutoGen-powered agents for data collection, analysis, and processing
-- 🔍 **Intelligent Search**: RAG-based search with semantic understanding
-- 📊 **Health Scoring**: Advanced algorithms to evaluate repository quality and relevance
-- 🌳 **Code Analysis**: Tree-sitter powered code parsing and intelligent chunking
-- 💾 **Vector Storage**: ChromaDB for efficient similarity search and retrieval
-- 🎨 **Modern UI**: Streamlit-based web interface for intuitive interaction
-- ⚡ **High Performance**: Optimized for large-scale repository processing
+### 🔧 技术架构
+- **前端**: 现代化Web界面，响应式设计
+- **后端**: FastAPI + AutoGen Agent
+- **集成**: MCP协议与GitHub工具通信
+- **AI**: 智能工作流编排和意图分类
 
-## Architecture
+## 快速开始
 
-### Core Components
+### 环境要求
+- Python 3.8+
+- Node.js (可选，用于开发)
 
-1. **AutoGen Agents**
-   - GitHub Data Agent: Fetches repository information and code
-   - Code Analysis Agent: Parses and chunks code using tree-sitter
-   - Health Scoring Agent: Evaluates repository quality
+### 安装步骤
 
-2. **Vector Database**
-   - ChromaDB for storing and retrieving code embeddings
-   - Sentence transformers for generating embeddings
-   - Optimized for similarity search
-
-3. **RAG Search Engine**
-   - Retrieval: Vector-based similarity search
-   - Generation: LLM-powered response generation
-   - Context-aware results
-
-4. **User Interface**
-   - Streamlit web application
-   - Real-time search and filtering
-   - Repository management dashboard
-
-## Quick Start
-
-### Prerequisites
-
-- Python 3.12+
-- [uv](https://docs.astral.sh/uv/) package manager
-- Git
-- GitHub Personal Access Token
-
-### Installation
-
-1. Clone the repository:
+1. **克隆项目**
 ```bash
-git clone https://github.com/starship-ai/starship.git
-cd starship
+git clone <repository-url>
+cd startship
 ```
 
-2. Install uv if you haven't already:
+2. **安装Python依赖**
 ```bash
-curl -LsSf https://astral.sh/uv/install.sh | sh
+pip install -r requirements.txt
 ```
 
-3. Install dependencies:
+3. **启动服务**
 ```bash
-uv sync
+python main.py
 ```
 
-Or install in development mode:
+4. **访问应用**
+打开浏览器访问: http://localhost:8000
+
+### 使用方法
+
+1. **连接GitHub账户**
+   - 在顶部输入框中输入GitHub用户名
+   - 点击"连接"按钮
+
+2. **开始对话**
+   - 使用快捷操作按钮快速开始
+   - 或直接输入自然语言问题
+
+3. **示例查询**
+   ```
+   生成我的2024年度总结
+   推荐一些Python机器学习项目
+   帮我分析React和Vue的技术趋势
+   为我制定学习Rust的路径
+   发现一些有趣的开源工具
+   ```
+
+## 项目结构
+
+```
+startship/
+├── src/                    # 源代码目录
+│   ├── __init__.py
+│   ├── api.py             # FastAPI后端服务
+│   ├── autogen_agent.py   # AutoGen Agent实现
+│   └── mcp_client.py      # MCP客户端
+├── static/                # 前端静态文件
+│   ├── index.html         # 主页面
+│   ├── style.css          # 样式文件
+│   └── app.js             # 前端逻辑
+├── .trae/                 # 文档目录
+│   └── documents/
+│       ├── product_plan.md
+│       ├── autogen_implementation_guide.md
+│       └── autogen_mvp_implementation.md
+├── main.py                # 主启动文件
+├── requirements.txt       # Python依赖
+└── README.md             # 项目说明
+```
+
+## 核心使用场景
+
+### 1. 快速全面的年度总结
+**场景**: 年终回顾，了解自己一年来的技术成长轨迹
+
+**示例对话**:
+```
+用户: "生成我的2024年度GitHub总结"
+AI: 分析你的star历史，生成包含技术栈分布、项目亮点、成长趋势的可视化报告
+```
+
+### 2. 特定技术栈的深度研究
+**场景**: 学习新技术前的调研，了解生态和最佳实践
+
+**示例对话**:
+```
+用户: "我想深入了解Rust生态，推荐一些优质项目"
+AI: 提供Rust核心库、工具链、应用案例的分类推荐和学习路径
+```
+
+### 3. 发现被遗忘的宝藏项目
+**场景**: 重新发现早期收藏但遗忘的优质项目
+
+**示例对话**:
+```
+用户: "帮我找找那些被遗忘的宝藏项目"
+AI: 基于项目质量、更新活跃度等维度，挖掘你收藏中的隐藏宝藏
+```
+
+### 4. 团队技术趋势分析
+**场景**: 技术选型决策，了解行业趋势和最佳实践
+
+**示例对话**:
+```
+用户: "分析一下前端框架的技术趋势"
+AI: 对比React、Vue、Angular等框架的发展趋势、社区活跃度、适用场景
+```
+
+### 5. 自动化学习路径生成
+**场景**: 制定个性化学习计划，基于现有技能推荐进阶方向
+
+**示例对话**:
+```
+用户: "我会Python和Django，想学习云原生技术"
+AI: 基于你的技能基础，推荐Docker→Kubernetes→微服务的渐进式学习路径
+```
+
+### 6. 技术选型支持
+**场景**: 项目技术选型时的决策支持
+
+**示例对话**:
+```
+用户: "对比一下FastAPI和Flask的优缺点"
+AI: 从性能、生态、学习曲线等维度对比，并根据项目需求给出建议
+```
+
+## API接口
+
+### REST API
+- `GET /` - 主页面
+- `GET /health` - 健康检查
+- `POST /api/chat` - 聊天接口
+- `GET /api/quick-actions` - 获取快捷操作
+- `GET /api/conversation-history` - 获取对话历史
+
+### WebSocket
+- `WS /ws` - 实时对话连接
+
+## 开发指南
+
+### 本地开发
+
+1. **启动开发服务器**
 ```bash
-uv sync --extra dev
+python main.py
 ```
 
-4. Set up environment variables:
+2. **代码格式化**
 ```bash
-cp .env.example .env
-# Edit .env with your configuration
+black src/
+flake8 src/
 ```
 
-5. Initialize the database:
+3. **运行测试**
 ```bash
-uv run starship init
+pytest
 ```
 
-6. Start the application:
+### 扩展功能
+
+1. **添加新的意图类型**
+   - 在 `autogen_agent.py` 中的 `IntentClassifier` 添加新模式
+   - 在 `WorkflowOrchestrator` 中实现对应工作流
+
+2. **自定义MCP工具**
+   - 扩展 `mcp_client.py` 中的工具集合
+   - 添加新的API调用方法
+
+3. **前端界面定制**
+   - 修改 `static/style.css` 调整样式
+   - 扩展 `static/app.js` 添加新功能
+
+## 配置说明
+
+### 环境变量
+- `ENVIRONMENT`: 运行环境 (development/production)
+- `GITHUB_TOKEN`: GitHub API令牌 (可选)
+- `MCP_SERVER_COMMAND`: MCP服务器启动命令
+
+### 生产部署
+
+1. **设置环境变量**
 ```bash
-uv run streamlit run src/ui/streamlit_app.py
+export ENVIRONMENT=production
 ```
 
-## Configuration
-
-### Environment Variables
-
-Create a `.env` file with the following variables:
-
-```env
-# GitHub Configuration
-GITHUB_TOKEN=your_github_personal_access_token
-
-# Database Configuration
-CHROMA_DB_HOST=localhost
-CHROMA_DB_PORT=8000
-CHROMA_DB_PERSIST_DIR=./data/chroma_db
-
-# AI Model Configuration
-OPENAI_API_KEY=your_openai_api_key
-ANTHROPIC_API_KEY=your_anthropic_api_key
-
-# Application Configuration
-APP_ENV=development
-LOG_LEVEL=INFO
-```
-
-### Configuration Files
-
-- `config/app.yaml`: Main application configuration
-- `config/agents.yaml`: AutoGen agents configuration
-- `config/database.yaml`: Database and embedding configuration
-
-## Usage
-
-### Command Line Interface
-
+2. **使用Gunicorn部署**
 ```bash
-# Initialize the system
-uv run starship init
-
-# Import GitHub stars
-uv run starship import --user your_username
-
-# Process repositories
-uv run starship process --batch-size 10
-
-# Start the web interface
-uv run starship serve
-
-# Health check
-uv run starship health
+gunicorn main:app -w 4 -k uvicorn.workers.UvicornWorker
 ```
 
-### Web Interface
+## 故障排除
 
-1. **Search**: Enter queries to find relevant code and repositories
-2. **Manage**: Add, remove, or update repositories
-3. **Analytics**: View repository health scores and statistics
-4. **Settings**: Configure search parameters and filters
+### 常见问题
 
-## Development
+1. **MCP连接失败**
+   - 检查MCP服务器是否正确安装
+   - 确认服务器命令配置正确
+   - 查看日志获取详细错误信息
 
-### Project Structure
+2. **GitHub API限制**
+   - 配置GitHub Token提高API限制
+   - 实现请求缓存减少API调用
 
-```
-starship/
-├── src/
-│   ├── agents/          # AutoGen agents
-│   ├── data/            # Data processing modules
-│   ├── vector_db/       # Vector database integration
-│   ├── health/          # Health scoring algorithms
-│   └── ui/              # User interface components
-├── config/              # Configuration files
-├── tests/               # Test suites
-├── docs/                # Documentation
-├── pyproject.toml       # Project configuration
-└── requirements.txt     # Dependencies
-```
+3. **前端加载问题**
+   - 检查静态文件路径
+   - 确认浏览器控制台无错误
+   - 验证API接口可访问性
 
-### Running Tests
+## 贡献指南
 
-```bash
-# Run all tests
-uv run pytest
+1. Fork项目
+2. 创建功能分支
+3. 提交更改
+4. 推送到分支
+5. 创建Pull Request
 
-# Run with coverage
-uv run pytest --cov=src
+## 许可证
 
-# Run specific test categories
-uv run pytest -m unit
-uv run pytest -m integration
-```
+MIT License
 
-### Code Quality
+## 联系方式
 
-```bash
-# Format code
-uv run black src tests
-uv run isort src tests
-
-# Lint code
-uv run flake8 src tests
-uv run mypy src
-
-# Security check
-uv run bandit -r src
-```
-
-## Contributing
-
-We welcome contributions! Please see our [Contributing Guide](CONTRIBUTING.md) for details.
-
-### Development Setup
-
-1. Fork the repository
-2. Create a feature branch
-3. Install development dependencies: `uv sync --group dev`
-4. Make your changes
-5. Run tests and quality checks
-6. Submit a pull request
-
-## License
-
-This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
-
-## Support
-
-- 📖 [Documentation](https://starship-ai.github.io/starship)
-- 🐛 [Issue Tracker](https://github.com/starship-ai/starship/issues)
-- 💬 [Discussions](https://github.com/starship-ai/starship/discussions)
-- 📧 [Email Support](mailto:support@starship.ai)
-
-## Roadmap
-
-- [ ] Multi-language support for UI
-- [ ] Advanced filtering and search operators
-- [ ] Integration with more code hosting platforms
-- [ ] Real-time collaboration features
-- [ ] Mobile application
-- [ ] Enterprise features and deployment options
-
-## Acknowledgments
-
-- [AutoGen](https://github.com/microsoft/autogen) for multi-agent framework
-- [ChromaDB](https://github.com/chroma-core/chroma) for vector database
-- [Streamlit](https://streamlit.io/) for the web interface
-- [Tree-sitter](https://tree-sitter.github.io/) for code parsing
-- All the amazing open-source projects that make this possible
-
----
-
-⭐ If you find Starship useful, please consider giving it a star on GitHub!
+如有问题或建议，请创建Issue或联系项目维护者。

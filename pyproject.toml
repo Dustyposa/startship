@@ -22,7 +22,22 @@ classifiers = [
     "Topic :: Scientific/Engineering :: Artificial Intelligence",
 ]
 keywords = ["ai", "github", "knowledge-base", "rag", "vector-search", "autogen"]
-dependencies = []
+dependencies = [
+    "autogen-agentchat>=0.6.1",
+    "autogen-ext[ollama,openai,chromadb]>=0.4.6",
+    "mcp[cli]>=1.0.0",
+    "fastapi>=0.116.1",
+    "python-dotenv>=1.0.0",
+    "uvicorn[standard]>=0.24.0",
+    "chromadb>=0.4.0",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pyyaml>=6.0.2",  # Only used in tests
+    "pytest>=7.0.0",
+    "pytest-asyncio>=0.21.0",
+]
 
 [project.urls]
 Homepage = "https://github.com/dustyposa/starship"
@@ -34,4 +49,4 @@ Repository = "https://github.com/dustyposa/starship"
 starship = "starship.cli:main"
 
 [tool.hatch.build.targets.wheel]
-packages = ["src/starship"]
+packages = ["src"]

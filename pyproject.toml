@@ -24,12 +24,15 @@ classifiers = [
 keywords = ["ai", "github", "knowledge-base", "rag", "vector-search", "autogen"]
 dependencies = [
     "autogen-agentchat>=0.6.1",
-    "autogen-ext[ollama,openai,chromadb]>=0.4.6",
+    "autogen-ext[ollama,chromadb]>=0.4.6",
     "mcp[cli]>=1.0.0",
     "fastapi>=0.116.1",
     "python-dotenv>=1.0.0",
     "uvicorn[standard]>=0.24.0",
     "chromadb>=0.4.0",
+    "loguru>=0.7.3",
+    "sentence-transformers>=5.0.0",
+    "orjson>=3.11.1",
 ]
 
 [project.optional-dependencies]
@@ -45,8 +48,21 @@ Documentation = "https://starship-ai.github.io/starship"
 Repository = "https://github.com/dustyposa/starship"
 "Bug Tracker" = "https://github.com/dustyposa/starship/issues"
 
+[tool.uv]
+index-url = "https://pypi.tuna.tsinghua.edu.cn/simple/"
+
+[[tool.uv.index]]
+name = "tsinghua"
+url = "https://pypi.tuna.tsinghua.edu.cn/simple/"
+
 [project.scripts]
 starship = "starship.cli:main"
 
 [tool.hatch.build.targets.wheel]
 packages = ["src"]
+
+[dependency-groups]
+dev = [
+    "pytest>=8.4.1",
+    "pytest-asyncio>=1.1.0",
+]

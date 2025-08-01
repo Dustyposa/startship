@@ -17,7 +17,14 @@ from autogen_ext.memory.chromadb import (
 from loguru import logger
 
 
-
+def convert_value(value):
+    if isinstance(value, list):
+        return ','.join(map(str, value))
+    elif isinstance(value, (int, float)):
+        return str(value)
+    else:
+        # 字符串或其他类型保持不变
+        return value
 
 class GitHubRepositoryMemory(Memory):
     """GitHub仓库信息的ChromaDB向量存储实现 - 实现AutoGen Memory协议"""
@@ -62,7 +69,7 @@ class GitHubRepositoryMemory(Memory):
         self.memory = ChromaDBVectorMemory(config=self.config)
         
         logger.info(f"GitHubRepositoryMemory initialized with collection: {collection_name}")
-    
+
 
     
     @property
@@ -161,32 +168,46 @@ class GitHubRepositoryMemory(Memory):
             # 构建用于嵌入的文本内容
             content_parts = []
             
-            # 仓库名称和所有者
-            if 'name_with_owner' in repo_data:
-                content_parts.append(f"Repository: {repo_data['name_with_owner']}")
+            # 仓库名称和所有者 - 根据mcp_models.py的StartedRepository模型
+            name_with_owner = repo_data.get('name_with_owner') or repo_data.get('full_name')
+            if name_with_owner:
+                content_parts.append(f"Repository: {name_with_owner}")
             elif 'name' in repo_data and 'owner' in repo_data:
-                content_parts.append(f"Repository: {repo_data['owner']}/{repo_data['name']}")
+                # 兼容不同的owner格式
+                if isinstance(repo_data['owner'], dict):
+                    owner_login = repo_data['owner'].get('login', 'unknown')
+                elif isinstance(repo_data['owner'], str):
+                    owner_login = repo_data['owner']
+                else:
+                    owner_login = str(repo_data['owner'])
+                name_with_owner = f"{owner_login}/{repo_data['name']}"
+                content_parts.append(f"Repository: {name_with_owner}")
+            elif 'name' in repo_data:
+                content_parts.append(f"Repository: {repo_data['name']}")
             
             # 描述
             if repo_data.get('description'):
                 content_parts.append(f"Description: {repo_data['description']}")
             
-            # 主要语言
-            if repo_data.get('primary_language'):
-                content_parts.append(f"Language: {repo_data['primary_language']}")
+            # 主要语言 - 使用primary_language字段
+            primary_language = repo_data.get('primary_language')
+            if primary_language:
+                content_parts.append(f"Language: {primary_language}")
             
-            # 主题标签
-            if repo_data.get('topics'):
-                topics = repo_data['topics']
+            # 主题标签 - 使用repository_topics字段
+            topics = repo_data.get('repository_topics') or repo_data.get('topics')
+            if topics:
                 if isinstance(topics, list):
                     content_parts.append(f"Topics: {', '.join(topics)}")
                 elif isinstance(topics, str):
                     content_parts.append(f"Topics: {topics}")
             
             # README内容（如果有）
-            if repo_data.get('readme_content'):
-                # 截取README的前500个字符避免内容过长
-                readme_snippet = repo_data['readme_content'][:500]
+            readme_content = repo_data.get('readme_content')
+            if readme_content:
+                # 截取README的前800个字符，支持更好的语义搜索
+                # readme_snippet = readme_content[:800]
+                readme_snippet = readme_content
                 content_parts.append(f"README: {readme_snippet}")
             
             # 合并所有内容
@@ -198,25 +219,44 @@ class GitHubRepositoryMemory(Memory):
                 mime_type=MemoryMimeType.TEXT
             )
             
-            # 添加元数据
+            # 添加元数据 - 根据mcp_models.py的StartedRepository模型
             metadata = {
-                "repo_id": repo_data.get('repo_id', ''),
-                "name_with_owner": repo_data.get('name_with_owner', ''),
+                # 核心字段
+                "repo_id": repo_data.get('repo_id', repo_data.get('id', '')),
+                "name_with_owner": name_with_owner or '',
+                "name": repo_data.get('name', ''),
+                "owner": repo_data.get('owner', ''),
+                "description": repo_data.get('description'),
                 "stargazer_count": repo_data.get('stargazer_count', 0),
-                "primary_language": repo_data.get('primary_language', ''),
-                "created_at": repo_data.get('created_at', ''),
-                "updated_at": repo_data.get('updated_at', ''),
-                "starred_at": repo_data.get('starred_at', ''),
+                "url": repo_data.get('url', repo_data.get('html_url', '')),
+                "primary_language": repo_data.get('primary_language'),
+                
+                # 时间字段
+                "starred_at": repo_data.get('starred_at'),
+                "pushed_at": repo_data.get('pushed_at'),
+                
+                # 额外字段
+                "disk_usage": repo_data.get('disk_usage'),
+                "repository_topics": repo_data.get('repository_topics', []),
+                "languages": repo_data.get('languages', []),
+                
+                # README内容（如果是StartedRepoWithReadme）
+                "readme_content": repo_data.get('readme_content'),
+                
+                # 内部管理字段
                 "added_to_memory_at": datetime.now().isoformat()
             }
             
             # 将元数据作为JSON字符串添加到内容中
             memory_content.content += f"\n\nMetadata: {orjson.dumps(metadata).decode('utf-8')}"
-            
+            # meta 信息不存储 readme
+            metadata.pop("readme_content")
+            # 处理 list / nest list
+            memory_content.metadata = {key: convert_value(value) for key, value in metadata.items() if value is not None}
             # 添加到向量存储
             await self.memory.add(memory_content)
             
-            logger.info(f"Added repository to memory: {repo_data.get('name_with_owner', 'Unknown')}")
+            logger.info(f"Added repository to memory: {name_with_owner or repo_data.get('name', 'Unknown')}")
             
         except Exception as e:
             logger.error(f"Failed to add repository to memory: {e}", exc_info=True)
@@ -247,13 +287,20 @@ class GitHubRepositoryMemory(Memory):
         """
         try:
             # 查询向量存储
-            results = await self.memory.query(query)
+            query_content = MemoryContent(content=query, mime_type=MemoryMimeType.TEXT)
+            results = await self.memory.query(query_content)
             
             repositories = []
             for result in results:
                 try:
+                    # 检查result是否有content属性
+                    if hasattr(result, 'content'):
+                        content = result.content
+                    else:
+                        # 如果result是tuple或其他格式，尝试获取内容
+                        content = str(result)
+                    
                     # 解析内容中的元数据
-                    content = result.content
                     if "\n\nMetadata: " in content:
                         content_text, metadata_json = content.rsplit("\n\nMetadata: ", 1)
                         metadata = orjson.loads(metadata_json)
@@ -261,16 +308,27 @@ class GitHubRepositoryMemory(Memory):
                         # 构建仓库信息
                         repo_info = {
                             "content": content_text,
-                            "score": getattr(result, 'score', 0.0),
-                            **metadata
+                            "metadata": metadata,
+                            "score": getattr(result, 'score', 0.0)
+                        }
+                        repositories.append(repo_info)
+                    else:
+                        # 如果没有元数据，检查是否有metadata属性
+                        metadata = getattr(result, 'metadata', {})
+                        repo_info = {
+                            "content": content,
+                            "metadata": metadata,
+                            "score": getattr(result, 'score', 0.0)
                         }
                         repositories.append(repo_info)
                         
                 except (orjson.JSONDecodeError, AttributeError) as e:
                     logger.warning(f"Failed to parse repository metadata: {e}")
                     # 如果解析失败，至少返回内容
+                    content = getattr(result, 'content', str(result))
                     repositories.append({
-                        "content": result.content,
+                        "content": content,
+                        "metadata": {},
                         "score": getattr(result, 'score', 0.0)
                     })
             

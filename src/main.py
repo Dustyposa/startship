@@ -52,7 +52,7 @@ agent = AssistantAgent(
     model_client_stream=True,
     model_context=BufferedChatCompletionContext(buffer_size=5),  # Only use the last 5 messages in the context.
     workbench=work_bench,
-    memory=[memory]
+    memory=[memory],
 )
 
 team = RoundRobinGroupChat(

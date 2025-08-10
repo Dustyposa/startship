@@ -1,7 +1,7 @@
 from autogen_ext.models.ollama import OllamaChatCompletionClient
 
 model_client = OllamaChatCompletionClient(
-    model="qwen2:7b",
+    model="qwen3:8b",
     # model_info={
     #     "vision": False,
     #     "function_calling": True,

@@ -6,6 +6,7 @@ from autogen_agentchat.agents import AssistantAgent, UserProxyAgent
 from autogen_agentchat.conditions import TextMentionTermination
 from autogen_agentchat.teams import RoundRobinGroupChat, Swarm
 from autogen_agentchat.ui import Console
+from autogen_core.memory import ListMemory
 from autogen_core.model_context import BufferedChatCompletionContext
 from autogen_ext.tools.mcp import StdioServerParams
 from model import model_client
@@ -42,8 +43,10 @@ termination = TextMentionTermination("exit")
 user_proxy = UserProxyAgent("user_proxy", input_func=input)
 
 
-memory = create_github_repository_memory()
-work_bench = CustomMcpWorkbench(server_params=server_params, memory=memory)
+github_memory = create_github_repository_memory()
+chat_memory = ListMemory()
+
+work_bench = CustomMcpWorkbench(server_params=server_params, memory=github_memory)
 agent = AssistantAgent(
     "qwen_agent",
     model_client=model_client,
@@ -52,7 +55,7 @@ agent = AssistantAgent(
     model_client_stream=True,
     model_context=BufferedChatCompletionContext(buffer_size=5),  # Only use the last 5 messages in the context.
     workbench=work_bench,
-    memory=[memory],
+    memory=[chat_memory],
 )
 
 team = RoundRobinGroupChat(

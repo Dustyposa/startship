@@ -68,6 +68,7 @@ url = "https://pypi.tuna.tsinghua.edu.cn/simple/"
 
 [project.scripts]
 starship = "starship.cli:main"
+starship-server = "src.server:main"
 
 [tool.hatch.build.targets.wheel]
 packages = ["src"]

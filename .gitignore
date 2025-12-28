@@ -173,7 +173,11 @@ cache/
 # ChromaDB
 chroma_db/
 *.db
+*.db-shm
+*.db-wal
 *.sqlite
+*.sqlite-shm
+*.sqlite-wal
 
 # Model cache
 models/

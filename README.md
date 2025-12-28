@@ -2,6 +2,28 @@
 
 基于AutoGen和MCP的GitHub项目分析助手，提供对话式的项目分析和推荐服务。
 
+## Development Status
+
+### Phase 1: Foundation Framework ✅ COMPLETED
+- [x] Project structure
+- [x] Configuration management
+- [x] Database layer (SQLite)
+- [x] Basic FastAPI application
+- [x] Testing framework (22 tests passing)
+
+See [docs/plans/README.phase1.md](docs/plans/README.phase1.md) for Phase 1 details.
+
+### Phase 2: Core Services 🚧 PLANNED
+- [ ] GitHub API client
+- [ ] LLM abstraction layer
+- [ ] Initialization service
+- [ ] Search service
+- [ ] Chat service
+
+See [docs/plans/2025-12-28-phase1-foundation.md](docs/plans/2025-12-28-phase1-foundation.md) for full implementation plan.
+
+---
+
 ## 功能特性
 
 ### 🎯 核心功能

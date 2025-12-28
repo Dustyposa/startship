@@ -9,7 +9,7 @@ from fastapi.responses import JSONResponse
 from fastapi.staticfiles import StaticFiles
 from src.config import settings
 from src.db import create_database
-from src.api.routes import chat
+from src.api.routes import chat, search
 
 
 # Global database instance
@@ -65,11 +65,13 @@ app.add_middleware(
 
 # Include routers
 app.include_router(chat.router)
+app.include_router(search.router)
 
 # Mount static files for frontend
-frontend_path = Path(__file__).parent.parent.parent / "frontend" / "dist"
-if frontend_path.exists():
-    app.mount("/", StaticFiles(directory=str(frontend_path), html=True), name="frontend")
+# TODO: Uncomment when frontend is built
+# frontend_path = Path(__file__).parent.parent.parent / "frontend" / "dist"
+# if frontend_path.exists():
+#     app.mount("/", StaticFiles(directory=str(frontend_path), html=True), name="frontend")
 
 
 @app.get("/")

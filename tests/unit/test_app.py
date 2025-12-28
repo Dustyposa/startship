@@ -27,12 +27,13 @@ def test_health_endpoint(client):
     assert data["status"] == "healthy"
 
 
-def test_stats_endpoint(client):
-    """Test stats endpoint"""
-    response = client.get("/stats")
-    assert response.status_code == 200
-    data = response.json()
-    assert "status" in data
+def test_stats_endpoint():
+    """Test stats endpoint - requires lifespan for database"""
+    with TestClient(app) as client:
+        response = client.get("/stats")
+        assert response.status_code == 200
+        data = response.json()
+        assert "success" in data
 
 
 def test_cors_headers(client):

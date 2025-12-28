@@ -2,9 +2,11 @@
 FastAPI application for GitHub Star RAG Service.
 """
 from contextlib import asynccontextmanager
+from pathlib import Path
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
+from fastapi.staticfiles import StaticFiles
 from src.config import settings
 from src.db import create_database
 from src.api.routes import chat
@@ -63,6 +65,11 @@ app.add_middleware(
 
 # Include routers
 app.include_router(chat.router)
+
+# Mount static files for frontend
+frontend_path = Path(__file__).parent.parent.parent / "frontend" / "dist"
+if frontend_path.exists():
+    app.mount("/", StaticFiles(directory=str(frontend_path), html=True), name="frontend")
 
 
 @app.get("/")

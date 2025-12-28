@@ -51,6 +51,25 @@ class SearchService:
 
         return results
 
+    async def search_fulltext(
+        self,
+        query: str,
+        limit: int = 20
+    ) -> List[Dict[str, Any]]:
+        """Full-text search using FTS5
+
+        Args:
+            query: Search query string
+            limit: Maximum number of results
+
+        Returns:
+            List of matching repositories
+        """
+        return await self.db.search_repositories_fulltext(
+            query=query,
+            limit=limit
+        )
+
     async def get_categories(self) -> Dict[str, int]:
         """
         Get all available categories with counts.

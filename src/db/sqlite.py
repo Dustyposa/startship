@@ -46,11 +46,52 @@ class SQLiteDatabase(Database):
         else:
             raise FileNotFoundError(f"Schema file not found: {schema_path}")
 
+        # Add FTS5 full-text search table
+        await self.execute("""
+            CREATE VIRTUAL TABLE IF NOT EXISTS repositories_fts USING fts5(
+                name_with_owner,
+                name,
+                description,
+                summary,
+                content='repositories',
+                content_rowid='rowid'
+            )
+        """)
+
+        # Add FTS5 triggers to keep FTS5 table in sync
+        await self.execute("""
+            CREATE TRIGGER IF NOT EXISTS repositories_ai AFTER INSERT ON repositories BEGIN
+                INSERT INTO repositories_fts(rowid, name_with_owner, name, description, summary)
+                VALUES (new.rowid, new.name_with_owner, new.name, new.description, new.summary);
+            END
+        """)
+
+        await self.execute("""
+            CREATE TRIGGER IF NOT EXISTS repositories_ad AFTER DELETE ON repositories BEGIN
+                INSERT INTO repositories_fts(repositories_fts, rowid, name_with_owner, name, description, summary)
+                VALUES ('delete', old.rowid, old.name_with_owner, old.name, old.description, old.summary);
+            END
+        """)
+
+        await self.execute("""
+            CREATE TRIGGER IF NOT EXISTS repositories_au AFTER UPDATE ON repositories BEGIN
+                INSERT INTO repositories_fts(repositories_fts, rowid, name_with_owner, name, description, summary)
+                VALUES ('delete', old.rowid, old.name_with_owner, old.name, old.description, old.summary);
+                INSERT INTO repositories_fts(rowid, name_with_owner, name, description, summary)
+                VALUES (new.rowid, new.name_with_owner, new.name, new.description, new.summary);
+            END
+        """)
+
     async def close(self) -> None:
         """Close database connection"""
         if self._connection:
             await self._connection.close()
             self._connection = None
+
+    async def execute(self, sql: str) -> None:
+        """Execute a SQL statement"""
+        await self._connection.execute(sql)
+        await self._connection.commit()
 
     # ==================== Repository Operations ====================
 
@@ -155,6 +196,34 @@ class SQLiteDatabase(Database):
         params.append(limit)
 
         async with self._connection.execute(query, params) as cursor:
+            rows = await cursor.fetchall()
+            return [self._row_to_dict(row) for row in rows]
+
+    async def search_repositories_fulltext(
+        self,
+        query: str,
+        limit: int = 20
+    ) -> List[Dict[str, Any]]:
+        """Full-text search using FTS5
+
+        Args:
+            query: Search query string
+            limit: Maximum number of results
+
+        Returns:
+            List of matching repositories
+        """
+        if not query:
+            return []
+
+        async with self._connection.execute(
+            """SELECT r.* FROM repositories r
+               INNER JOIN repositories_fts fts ON r.rowid = fts.rowid
+               WHERE repositories_fts MATCH ?
+               ORDER BY rank
+               LIMIT ?""",
+            (query, limit)
+        ) as cursor:
             rows = await cursor.fetchall()
             return [self._row_to_dict(row) for row in rows]
 

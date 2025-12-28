@@ -4,11 +4,13 @@ import type { ChatMessage } from '../types'
 
 export const useChatStore = defineStore('chat', () => {
   const messages = ref<ChatMessage[]>([])
-  const sessionId = ref<string>(`session_${Date.now()}`)
+  const sessionId = ref<string>(`${Date.now()}_${Math.random().toString(36).substr(2, 9)}`)
   const isLoading = ref(false)
+  const error = ref<string | null>(null)
 
   async function sendMessage(content: string) {
     isLoading.value = true
+    error.value = null
     try {
       const response = await fetch('/api/chat/', {
         method: 'POST',
@@ -19,6 +21,12 @@ export const useChatStore = defineStore('chat', () => {
           use_rag: false
         })
       })
+
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({ detail: 'Unknown error' }))
+        throw new Error(errorData.detail || `Server error: ${response.status}`)
+      }
+
       const data = await response.json()
 
       messages.value.push({
@@ -31,6 +39,10 @@ export const useChatStore = defineStore('chat', () => {
         content: data.response,
         timestamp: new Date().toISOString()
       })
+    } catch (err) {
+      const message = err instanceof Error ? err.message : 'Failed to send message'
+      error.value = message
+      throw err
     } finally {
       isLoading.value = false
     }
@@ -38,8 +50,9 @@ export const useChatStore = defineStore('chat', () => {
 
   function clearMessages() {
     messages.value = []
-    sessionId.value = `session_${Date.now()}`
+    sessionId.value = `${Date.now()}_${Math.random().toString(36).substr(2, 9)}`
+    error.value = null
   }
 
-  return { messages, sessionId, isLoading, sendMessage, clearMessages }
+  return { messages, sessionId, isLoading, error, sendMessage, clearMessages }
 })

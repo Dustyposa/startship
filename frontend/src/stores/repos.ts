@@ -6,9 +6,11 @@ export const useReposStore = defineStore('repos', () => {
   const repos = ref<Repository[]>([])
   const categories = ref<Record<string, number>>({})
   const isLoading = ref(false)
+  const error = ref<string | null>(null)
 
   async function searchRepos(filters: SearchFilters) {
     isLoading.value = true
+    error.value = null
     try {
       const params = new URLSearchParams()
       if (filters.categories?.length) {
@@ -25,17 +27,40 @@ export const useReposStore = defineStore('repos', () => {
       }
 
       const response = await fetch(`/api/search?${params}`)
+
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({ detail: 'Unknown error' }))
+        throw new Error(errorData.detail || `Server error: ${response.status}`)
+      }
+
       const data = await response.json()
       repos.value = data.results || []
+    } catch (err) {
+      const message = err instanceof Error ? err.message : 'Failed to search repositories'
+      error.value = message
+      throw err
     } finally {
       isLoading.value = false
     }
   }
 
   async function loadCategories() {
-    const response = await fetch('/api/categories')
-    const data = await response.json()
-    categories.value = data.categories || {}
+    error.value = null
+    try {
+      const response = await fetch('/api/categories')
+
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({ detail: 'Unknown error' }))
+        throw new Error(errorData.detail || `Server error: ${response.status}`)
+      }
+
+      const data = await response.json()
+      categories.value = data.categories || {}
+    } catch (err) {
+      const message = err instanceof Error ? err.message : 'Failed to load categories'
+      error.value = message
+      throw err
+    }
   }
 
   async function loadRepo(nameWithOwner: string) {
@@ -44,5 +69,5 @@ export const useReposStore = defineStore('repos', () => {
     return await response.json()
   }
 
-  return { repos, categories, isLoading, searchRepos, loadCategories, loadRepo }
+  return { repos, categories, isLoading, error, searchRepos, loadCategories, loadRepo }
 })

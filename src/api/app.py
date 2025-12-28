@@ -4,17 +4,38 @@ FastAPI application for GitHub Star RAG Service.
 from contextlib import asynccontextmanager
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import JSONResponse
 from src.config import settings
+from src.db import create_database
+
+
+# Global database instance
+db = None
 
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     """Application lifespan manager"""
+    global db
+
     # Startup
     print(f"Starting {settings.api_title} v{settings.api_version}")
+
+    # Initialize database
+    db = create_database(
+        db_type=settings.db_type,
+        sqlite_path=settings.sqlite_path
+    )
+    await db.initialize()
+    print(f"Database initialized: {settings.db_type}")
+
     yield
+
     # Shutdown
     print("Shutting down application")
+    if db:
+        await db.close()
+        print("Database connection closed")
 
 
 # Create FastAPI application
@@ -57,12 +78,14 @@ async def health():
 async def get_stats():
     """
     Get service statistics.
-
-    TODO: Implement actual statistics
     """
+    if db is None:
+        raise HTTPException(status_code=503, detail="Database not initialized")
+
+    stats = await db.get_statistics()
     return {
-        "status": "ok",
-        "message": "Statistics not yet implemented"
+        "success": True,
+        "data": stats
     }
 
 
@@ -70,17 +93,22 @@ async def get_stats():
 @app.exception_handler(HTTPException)
 async def http_exception_handler(request, exc):
     """Handle HTTP exceptions"""
-    return {
-        "error": exc.detail,
-        "status_code": exc.status_code
-    }
+    return JSONResponse(
+        status_code=exc.status_code,
+        content={
+            "error": exc.detail,
+            "status_code": exc.status_code
+        }
+    )
 
 
 @app.exception_handler(Exception)
 async def general_exception_handler(request, exc):
     """Handle general exceptions"""
-    return {
-        "error": "Internal server error",
-        "detail": str(exc),
-        "status_code": 500
-    }
+    return JSONResponse(
+        status_code=500,
+        content={
+            "error": "Internal server error",
+            "detail": str(exc)
+        }
+    )

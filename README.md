@@ -13,14 +13,24 @@
 
 See [docs/plans/README.phase1.md](docs/plans/README.phase1.md) for Phase 1 details.
 
-### Phase 2: Core Services 🚧 PLANNED
-- [ ] GitHub API client
-- [ ] LLM abstraction layer
-- [ ] Initialization service
-- [ ] Search service
-- [ ] Chat service
+### Phase 2: Core Services ✅ COMPLETED
+- [x] GitHub API client (httpx, async)
+- [x] LLM abstraction layer (OpenAI)
+- [x] Initialization service (fetch & analyze stars)
+- [x] Search service (filter by category/language/stars)
+- [x] Chat service (RAG support)
+- [x] API routes for chat
 
-See [docs/plans/2025-12-28-phase1-foundation.md](docs/plans/2025-12-28-phase1-foundation.md) for full implementation plan.
+**Tests**: 49 passing ✅
+
+See [docs/plans/2025-12-28-phase2-summary.md](docs/plans/2025-12-28-phase2-summary.md) for Phase 2 details.
+
+### Phase 3: Web UI & Advanced Features 🚧 PLANNED
+- [ ] Frontend framework (React/Vue)
+- [ ] Full-text search (FTS5)
+- [ ] Vector embeddings
+- [ ] Semantic search
+- [ ] Authentication & rate limiting
 
 ---
 

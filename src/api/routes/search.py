@@ -40,6 +40,17 @@ async def search_repositories(
     return {"results": results, "count": len(results)}
 
 
+@router.get("/search/fulltext")
+async def search_fulltext(
+    query: str = Query(..., min_length=1, description="Search query"),
+    limit: int = Query(default=20, ge=1, le=100),
+    search_service = Depends(get_search_service)
+):
+    """Full-text search using FTS5"""
+    results = await search_service.search_fulltext(query=query, limit=limit)
+    return {"results": results, "count": len(results)}
+
+
 @router.get("/categories")
 async def get_categories(search_service = Depends(get_search_service)):
     """Get all categories with counts"""

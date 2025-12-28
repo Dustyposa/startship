@@ -7,16 +7,18 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from src.config import settings
 from src.db import create_database
+from src.api.routes import chat
 
 
 # Global database instance
 db = None
+search_service = None
 
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     """Application lifespan manager"""
-    global db
+    global db, search_service
 
     # Startup
     print(f"Starting {settings.api_title} v{settings.api_version}")
@@ -28,6 +30,11 @@ async def lifespan(app: FastAPI):
     )
     await db.initialize()
     print(f"Database initialized: {settings.db_type}")
+
+    # Initialize search service
+    from src.services.search import SearchService
+    search_service = SearchService(db)
+    print("Search service initialized")
 
     yield
 
@@ -53,6 +60,9 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+# Include routers
+app.include_router(chat.router)
 
 
 @app.get("/")

@@ -1,10 +1,29 @@
 """Pytest configuration and fixtures for Starship tests."""
 
 import pytest
+import pytest_asyncio
 import tempfile
 import shutil
 from pathlib import Path
 from unittest.mock import Mock, patch
+import asyncio
+
+
+@pytest_asyncio.fixture
+async def db():
+    """Create a test database instance."""
+    from src.db import create_database
+
+    # Create in-memory database for tests
+    db = create_database("sqlite", db_path=":memory:")
+
+    # Initialize database schema
+    await db.initialize()
+
+    yield db
+
+    # Cleanup
+    await db.close()
 
 
 @pytest.fixture

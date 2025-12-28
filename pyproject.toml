@@ -28,13 +28,10 @@ dependencies = [
     "uvicorn[standard]>=0.24.0",
     "pydantic-settings>=2.0.0",
     "python-dotenv>=1.0.0",
-
     # Database
     "aiosqlite>=0.19.0",
-
     # HTTP client
     "httpx>=0.25.0",
-
     # Existing dependencies
     "autogen-agentchat>=0.6.1",
     "autogen-ext[ollama,chromadb]>=0.4.6",
@@ -44,6 +41,8 @@ dependencies = [
     "sentence-transformers>=5.0.0",
     "orjson>=3.11.1",
     "polars>=1.32.0",
+    "openai>=2.14.0",
+    "progress>=1.6.1",
 ]
 
 [project.optional-dependencies]
@@ -77,4 +76,5 @@ packages = ["src"]
 dev = [
     "pytest>=8.4.1",
     "pytest-asyncio>=1.1.0",
+    "pytest-mock>=3.15.1",
 ]

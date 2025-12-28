@@ -1,0 +1,33 @@
+# Core dependencies
+fastapi>=0.116.1
+uvicorn[standard]>=0.24.0
+pydantic-settings>=2.0.0
+python-dotenv>=1.0.0
+
+# Database
+aiosqlite>=0.19.0
+
+# HTTP client
+httpx>=0.25.0
+
+# LLM (optional, for production use)
+# openai>=1.109.1
+
+# Testing
+pytest>=7.0.0
+pytest-asyncio>=0.21.0
+pytest-cov>=4.0.0
+
+# Logging
+loguru>=0.7.3
+
+# Utilities
+orjson>=3.11.1
+
+# Existing dependencies (may be optional in future)
+autogen-agentchat>=0.6.1
+autogen-ext[ollama,chromadb]>=0.4.6
+mcp[cli]>=1.0.0
+chromadb>=0.4.0
+sentence-transformers>=5.0.0
+polars>=1.32.0

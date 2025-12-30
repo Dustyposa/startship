@@ -262,4 +262,4 @@ docker-compose.override.yml
 
 # Monitoring and metrics
 prometheus_data/
-grafana_data/
+grafana_data/.worktrees/

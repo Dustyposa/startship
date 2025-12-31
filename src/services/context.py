@@ -1,4 +1,3 @@
-from typing import Any
 from src.db import Database
 
 
@@ -18,42 +17,59 @@ class ContextService:
 
         Returns:
             Formatted context string
+
+        Raises:
+            ValueError: If limit < 1
         """
-        # Get first round (earliest message)
-        cursor = await self.db._connection.execute(
-            """
-            SELECT role, content
-            FROM conversations
-            WHERE session_id = ?
-            ORDER BY timestamp ASC
-            LIMIT 1
-            """,
-            (session_id,)
-        )
-        first_row = await cursor.fetchone()
+        if limit < 1:
+            raise ValueError(f"limit must be >= 1, got {limit}")
 
-        if not first_row:
-            return ""
+        try:
+            # Get first round (earliest message)
+            cursor = await self.db._connection.execute(
+                """
+                SELECT role, content
+                FROM conversations
+                WHERE session_id = ?
+                ORDER BY timestamp ASC
+                LIMIT 1
+                """,
+                (session_id,)
+            )
+            first_row = await cursor.fetchone()
 
-        lines = []
-        role, content = first_row
-        lines.append(f"{role.capitalize()}: {content}")
+            if not first_row:
+                return ""
 
-        # Get recent (limit - 1) rounds
-        cursor = await self.db._connection.execute(
-            """
-            SELECT role, content
-            FROM conversations
-            WHERE session_id = ?
-            ORDER BY timestamp DESC
-            LIMIT ?
-            """,
-            (session_id, limit - 1)
-        )
-        recent_rows = await cursor.fetchall()
-
-        # Reverse to get chronological order
-        for role, content in reversed(recent_rows):
+            lines = []
+            role, content = first_row
             lines.append(f"{role.capitalize()}: {content}")
 
-        return "\n".join(lines)
+            # Get recent (limit - 1) rounds, excluding the first round
+            if limit > 1:
+                cursor = await self.db._connection.execute(
+                    """
+                    SELECT role, content
+                    FROM conversations
+                    WHERE session_id = ? AND rowid NOT IN (
+                        SELECT rowid FROM conversations
+                        WHERE session_id = ?
+                        ORDER BY timestamp ASC
+                        LIMIT 1
+                    )
+                    ORDER BY timestamp DESC
+                    LIMIT ?
+                    """,
+                    (session_id, session_id, limit - 1)
+                )
+                recent_rows = await cursor.fetchall()
+
+                # Reverse to get chronological order
+                for role, content in reversed(recent_rows):
+                    lines.append(f"{role.capitalize()}: {content}")
+
+            return "\n".join(lines)
+
+        except Exception as e:
+            # Re-raise with additional context
+            raise RuntimeError(f"Failed to get context for session {session_id}: {e}") from e

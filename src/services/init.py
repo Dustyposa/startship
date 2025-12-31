@@ -1,7 +1,7 @@
 """
 Service for initializing and updating repository data.
 """
-from typing import List, Optional, Dict, Any
+from typing import Any
 from progress.bar import Bar
 
 from src.config import settings
@@ -18,23 +18,30 @@ class InitializationService:
     Fetches repositories, analyzes with LLM, and stores in database.
     """
 
-    def __init__(self, db: Database, llm: Optional[LLM] = None):
+    def __init__(
+        self,
+        db: Database,
+        llm: LLM | None = None,
+        semantic: object | None = None
+    ):
         """
         Initialize service.
 
         Args:
             db: Database instance
             llm: LLM instance (optional)
+            semantic: SemanticSearch instance (optional)
         """
         self.db = db
         self.llm = llm
+        self.semantic = semantic
 
     async def initialize_from_stars(
         self,
-        username: Optional[str] = None,
-        max_repos: Optional[int] = None,
+        username: str | None = None,
+        max_repos: int | None = None,
         skip_llm: bool = False
-    ) -> Dict[str, Any]:
+    ) -> dict[str, any]:
         """
         Initialize database from user's starred repositories.
 
@@ -132,13 +139,29 @@ class InitializationService:
 
                     bar.next()
 
+        # Generate vector embeddings if semantic search enabled
+        if self.semantic and repos:
+            print("Generating vector embeddings...")
+            await self.semantic.add_repositories([
+                {
+                    "name_with_owner": repo.name_with_owner,
+                    "name": repo.name,
+                    "description": repo.description or "",
+                    "primary_language": repo.primary_language or "",
+                    "url": repo.url,
+                    "topics": repo.topics or []
+                }
+                for repo in repos
+            ])
+            print("Vector embeddings generated")
+
         return stats
 
     async def analyze_existing_repos(
         self,
-        limit: Optional[int] = None,
+        limit: int | None = None,
         force: bool = False
-    ) -> Dict[str, Any]:
+    ) -> dict[str, any]:
         """
         Analyze existing repositories in database without LLM data.
 

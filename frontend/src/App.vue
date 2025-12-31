@@ -5,6 +5,7 @@
         <h1 class="text-xl font-bold text-gray-900">GitHub Star Helper</h1>
         <nav class="flex gap-4">
           <router-link to="/" class="text-gray-600 hover:text-gray-900">首页</router-link>
+          <router-link to="/init" class="text-gray-600 hover:text-gray-900">初始化</router-link>
           <router-link to="/search" class="text-gray-600 hover:text-gray-900">搜索</router-link>
           <router-link to="/chat" class="text-gray-600 hover:text-gray-900">对话</router-link>
         </nav>

@@ -3,7 +3,8 @@ LLM abstraction layer.
 Supports multiple LLM providers through a common interface.
 """
 from abc import ABC, abstractmethod
-from typing import List, Dict, Any, Optional, AsyncGenerator
+from collections.abc import AsyncGenerator
+from typing import List, Dict, Any, Optional
 from pydantic import BaseModel
 
 

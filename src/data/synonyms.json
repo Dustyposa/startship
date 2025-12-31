@@ -1,0 +1,10 @@
+{
+  "ml": ["机器学习", "machine learning", "人工智能"],
+  "ai": ["人工智能", "artificial intelligence"],
+  "前端": ["frontend", "ui", "web", "client"],
+  "后端": ["backend", "server", "api"],
+  "数据库": ["database", "db", "storage"],
+  "devops": ["运维", "operations"],
+  "测试": ["test", "testing", "qa"],
+  "框架": ["framework", "库", "library"]
+}

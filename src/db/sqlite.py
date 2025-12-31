@@ -96,8 +96,19 @@ class SQLiteDatabase(Database):
         await self._connection.execute(sql)
         await self._connection.commit()
 
-    async def _run_migrations(self):
-        """Run pending database migrations."""
+    async def _run_migrations(self) -> None:
+        """Run pending database migrations.
+
+        This method manages database schema migrations by:
+        1. Creating a _migrations tracking table if it doesn't exist
+        2. Scanning the migrations directory for .sql files
+        3. Executing unapplied migrations in sorted order
+        4. Recording applied migrations to prevent re-execution
+
+        Raises:
+            Exception: If a migration fails, rolls back the transaction
+                and re-raises the exception to prevent partial migrations.
+        """
         migration_dir = Path(__file__).parent / "migrations"
         if not migration_dir.exists():
             return
@@ -120,14 +131,18 @@ class SQLiteDatabase(Database):
                 (migration_name,)
             )
             if not await result.fetchone():
-                # Run migration
-                sql = migration_file.read_text()
-                await self._connection.execute(sql)
-                await self._connection.execute(
-                    "INSERT INTO _migrations (name) VALUES (?)",
-                    (migration_name,)
-                )
-                await self._connection.commit()
+                # Run migration with error handling and rollback
+                try:
+                    sql = migration_file.read_text()
+                    await self._connection.execute(sql)
+                    await self._connection.execute(
+                        "INSERT INTO _migrations (name) VALUES (?)",
+                        (migration_name,)
+                    )
+                    await self._connection.commit()
+                except Exception as e:
+                    await self._connection.rollback()
+                    raise
 
     # ==================== Repository Operations ====================
 

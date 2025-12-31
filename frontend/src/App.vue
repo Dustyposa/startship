@@ -8,6 +8,7 @@
           <router-link to="/init" class="text-gray-600 hover:text-gray-900">初始化</router-link>
           <router-link to="/search" class="text-gray-600 hover:text-gray-900">搜索</router-link>
           <router-link to="/chat" class="text-gray-600 hover:text-gray-900">对话</router-link>
+          <router-link to="/trends" class="text-gray-600 hover:text-gray-900">趋势分析</router-link>
         </nav>
       </div>
     </header>

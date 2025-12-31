@@ -21,6 +21,11 @@ class ChatService:
         self.db = db
         self.llm = llm
         self.search_service = search_service
+        self.system_prompt = (
+            "You are GitHub Star Helper, an AI assistant that helps users "
+            "analyze and discover their starred GitHub repositories. "
+            "Be helpful, concise, and respond in Chinese."
+        )
 
     async def create_conversation(self, session_id: str) -> int:
         """Create a new conversation"""
@@ -136,3 +141,58 @@ Be helpful, concise, and respond in Chinese. Use the repository information abov
     async def delete_conversation(self, session_id: str) -> bool:
         """Delete a conversation"""
         return await self.db.delete_conversation(session_id)
+
+    async def chat_with_rag_stream(
+        self,
+        session_id: str,
+        user_message: str,
+        search_results: Optional[List[Dict[str, Any]]] = None
+    ):
+        """
+        Chat with RAG (Retrieval Augmented Generation) using streaming.
+
+        Args:
+            session_id: Session identifier
+            user_message: User's message
+            search_results: Pre-fetched search results
+
+        Yields:
+            Response chunks as they arrive
+        """
+        # Get conversation context
+        from src.services.context import ContextService
+        context_service = ContextService(self.db)
+        context = await context_service.get_context(session_id)
+
+        # Build messages with context
+        messages = [
+            Message(role="system", content=self.system_prompt)
+        ]
+
+        if context:
+            messages.append(
+                Message(role="system", content=f"Previous conversation:\n{context}")
+            )
+
+        # Add search results context
+        if search_results:
+            context_text = self._format_search_results(search_results)
+            messages.append(
+                Message(role="system", content=f"Relevant repositories:\n{context_text}")
+            )
+
+        # Add current user message
+        messages.append(Message(role="user", content=user_message))
+
+        # Stream response
+        async for chunk in self.llm.chat_stream(messages):
+            yield chunk
+
+    def _format_search_results(self, search_results: List[Dict[str, Any]]) -> str:
+        """Format search results for inclusion in prompt"""
+        lines = []
+        for repo in search_results[:5]:
+            name = repo.get("name_with_owner", repo.get("name", "Unknown"))
+            summary = repo.get("summary", repo.get("description", "No description"))
+            lines.append(f"- {name}: {summary}")
+        return "\n".join(lines)

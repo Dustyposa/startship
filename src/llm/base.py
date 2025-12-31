@@ -3,7 +3,7 @@ LLM abstraction layer.
 Supports multiple LLM providers through a common interface.
 """
 from abc import ABC, abstractmethod
-from typing import List, Dict, Any, Optional
+from typing import List, Dict, Any, Optional, AsyncGenerator
 from pydantic import BaseModel
 
 
@@ -54,6 +54,26 @@ class LLM(ABC):
 
         Returns:
             LLM response
+        """
+        pass
+
+    @abstractmethod
+    async def chat_stream(
+        self,
+        messages: List[Message],
+        temperature: float = 0.7,
+        max_tokens: Optional[int] = None
+    ) -> AsyncGenerator[str, None]:
+        """
+        Send chat completion request with streaming response.
+
+        Args:
+            messages: List of chat messages
+            temperature: Sampling temperature
+            max_tokens: Maximum tokens to generate
+
+        Yields:
+            Response chunks as they arrive
         """
         pass
 

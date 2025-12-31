@@ -78,6 +78,9 @@ class InitializationService:
             with Bar("Processing", max=len(repos)) as bar:
                 for repo in repos:
                     try:
+                        # Get starred_at time from GitHub API response
+                        starred_at = getattr(repo, 'starred_at', None)
+
                         # Check if already exists
                         existing = await self.db.get_repository(repo.name_with_owner)
 
@@ -121,6 +124,7 @@ class InitializationService:
                             "homepage_url": repo.homepage_url,
                             "readme_path": f"{settings.readme_storage_path}/{repo.name_with_owner.replace('/', '_')}.md",
                             "readme_content": readme[:10000] if readme else None,  # Cache first 10k chars
+                            "starred_at": starred_at,
                             **analysis
                         }
 

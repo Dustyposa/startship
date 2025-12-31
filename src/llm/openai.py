@@ -76,6 +76,30 @@ class OpenAILLM(LLM):
             } if response.usage else None
         )
 
+    async def chat_stream(
+        self,
+        messages: List[Message],
+        temperature: float = 0.7,
+        max_tokens: Optional[int] = None
+    ):
+        """Send chat completion request with streaming response"""
+        if not self._client:
+            raise RuntimeError("Client not initialized")
+
+        api_messages = [{"role": m.role, "content": m.content} for m in messages]
+
+        stream = await self._client.chat.completions.create(
+            model=self.model,
+            messages=api_messages,
+            temperature=temperature,
+            max_tokens=max_tokens,
+            stream=True
+        )
+
+        async for chunk in stream:
+            if chunk.choices and chunk.choices[0].delta.content:
+                yield chunk.choices[0].delta.content
+
     async def analyze_repository(
         self,
         repo_name: str,

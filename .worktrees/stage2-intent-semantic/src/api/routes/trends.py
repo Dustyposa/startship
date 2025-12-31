@@ -20,7 +20,7 @@ async def get_star_timeline(username: str | None = None):
         service = TrendAnalysisService(db)
         return await service.get_star_timeline(username)
     except Exception as e:
-        raise HTTPException(status_code=500, detail="Failed to fetch trend data")
+        raise HTTPException(status_code=500, detail=f"Failed to fetch timeline: {e}")
 
 
 @router.get("/languages")
@@ -30,7 +30,7 @@ async def get_language_trend():
         service = TrendAnalysisService(db)
         return await service.get_language_trend()
     except Exception as e:
-        raise HTTPException(status_code=500, detail="Failed to fetch trend data")
+        raise HTTPException(status_code=500, detail=f"Failed to fetch language trend: {e}")
 
 
 @router.get("/categories")
@@ -40,4 +40,4 @@ async def get_category_evolution():
         service = TrendAnalysisService(db)
         return await service.get_category_evolution()
     except Exception as e:
-        raise HTTPException(status_code=500, detail="Failed to fetch trend data")
+        raise HTTPException(status_code=500, detail=f"Failed to fetch category evolution: {e}")

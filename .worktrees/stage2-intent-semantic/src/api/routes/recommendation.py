@@ -34,7 +34,7 @@ async def get_similar_repos(name_with_owner: str, limit: int = 5):
         results = await service.get_similar_repos(name_with_owner, limit)
         return results
     except Exception as e:
-        raise HTTPException(status_code=500, detail="Failed to fetch recommendations")
+        raise HTTPException(status_code=500, detail=f"Failed to fetch recommendations: {e}")
 
 
 @router.get("/category/{category}", response_model=list[CategoryResponse])
@@ -48,4 +48,4 @@ async def get_recommended_by_category(category: str, limit: int = 10):
         results = await service.get_recommended_by_category(category, limit)
         return results
     except Exception as e:
-        raise HTTPException(status_code=500, detail="Failed to fetch recommendations")
+        raise HTTPException(status_code=500, detail=f"Failed to fetch recommendations: {e}")

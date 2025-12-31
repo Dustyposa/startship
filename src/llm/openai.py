@@ -2,6 +2,7 @@
 OpenAI LLM implementation.
 """
 import json
+from collections.abc import AsyncGenerator
 from openai import AsyncOpenAI
 from typing import List, Dict, Any, Optional
 from src.config import settings
@@ -81,7 +82,7 @@ class OpenAILLM(LLM):
         messages: List[Message],
         temperature: float = 0.7,
         max_tokens: Optional[int] = None
-    ):
+    ) -> AsyncGenerator[str, None]:
         """Send chat completion request with streaming response"""
         if not self._client:
             raise RuntimeError("Client not initialized")

@@ -77,13 +77,13 @@ class TrendAnalysisService:
         cursor = await self.db._connection.execute(
             """
             SELECT
-                category,
+                category.value,
                 strftime('%Y-%m', starred_at) as month,
                 COUNT(*) as count
             FROM repositories,
                 json_each(categories) as category
             WHERE starred_at IS NOT NULL
-            GROUP BY category, month
+            GROUP BY category.value, month
             ORDER BY month ASC, count DESC
             """
         )

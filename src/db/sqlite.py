@@ -82,6 +82,9 @@ class SQLiteDatabase(Database):
             END
         """)
 
+        # Run database migrations
+        await self._run_migrations()
+
     async def close(self) -> None:
         """Close database connection"""
         if self._connection:
@@ -92,6 +95,39 @@ class SQLiteDatabase(Database):
         """Execute a SQL statement"""
         await self._connection.execute(sql)
         await self._connection.commit()
+
+    async def _run_migrations(self):
+        """Run pending database migrations."""
+        migration_dir = Path(__file__).parent / "migrations"
+        if not migration_dir.exists():
+            return
+
+        # Track executed migrations
+        await self._connection.execute("""
+            CREATE TABLE IF NOT EXISTS _migrations (
+                id INTEGER PRIMARY KEY,
+                name TEXT UNIQUE,
+                applied_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            )
+        """)
+
+        # Find and run unapplied migrations
+        for migration_file in sorted(migration_dir.glob("*.sql")):
+            migration_name = migration_file.name
+            # Check if already applied
+            result = await self._connection.execute(
+                "SELECT 1 FROM _migrations WHERE name = ?",
+                (migration_name,)
+            )
+            if not await result.fetchone():
+                # Run migration
+                sql = migration_file.read_text()
+                await self._connection.execute(sql)
+                await self._connection.execute(
+                    "INSERT INTO _migrations (name) VALUES (?)",
+                    (migration_name,)
+                )
+                await self._connection.commit()
 
     # ==================== Repository Operations ====================
 

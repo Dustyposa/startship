@@ -2,7 +2,19 @@
   <div class="space-y-8">
     <h1 class="text-3xl font-bold text-gray-900">趋势分析</h1>
 
-    <section>
+    <!-- Loading state -->
+    <div v-if="loading" class="text-center py-8 text-gray-500">
+      加载中...
+    </div>
+
+    <!-- Error state -->
+    <div v-else-if="error" class="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded">
+      {{ error }}
+    </div>
+
+    <!-- Normal content -->
+    <template v-else>
+      <section>
       <h2 class="text-xl font-semibold mb-4">Star 时间线</h2>
       <div class="bg-white p-6 rounded-lg shadow-sm">
         <div v-if="timeline.length === 0" class="text-gray-500">
@@ -46,6 +58,7 @@
         </div>
       </div>
     </section>
+    </template>
   </div>
 </template>
 
@@ -67,8 +80,13 @@ interface TrendItem {
 const timeline = ref<TimelinePoint[]>([])
 const languageTrends = ref<TrendItem[]>([])
 const categoryEvolution = ref<TrendItem[]>([])
+const loading = ref(true)
+const error = ref<string | null>(null)
 
 onMounted(async () => {
+  loading.value = true
+  error.value = null
+
   try {
     const [timelineRes, langRes, catRes] = await Promise.all([
       fetch('/api/trends/timeline'),
@@ -76,11 +94,27 @@ onMounted(async () => {
       fetch('/api/trends/categories')
     ])
 
-    timeline.value = await timelineRes.json()
-    languageTrends.value = await langRes.json()
-    categoryEvolution.value = await catRes.json()
-  } catch (error) {
-    console.error('Failed to load trends:', error)
+    if (!timelineRes.ok || !langRes.ok || !catRes.ok) {
+      throw new Error('Failed to fetch trend data')
+    }
+
+    const timelineData = await timelineRes.json()
+    const langData = await langRes.json()
+    const catData = await catRes.json()
+
+    // Basic validation
+    if (!Array.isArray(timelineData) || !Array.isArray(langData) || !Array.isArray(catData)) {
+      throw new Error('Invalid data format')
+    }
+
+    timeline.value = timelineData
+    languageTrends.value = langData
+    categoryEvolution.value = catData
+  } catch (err) {
+    error.value = err instanceof Error ? err.message : 'Unknown error'
+    console.error('Failed to load trends:', err)
+  } finally {
+    loading.value = false
   }
 })
 </script>

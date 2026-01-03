@@ -1,7 +1,7 @@
 from fastapi import APIRouter
 from pydantic import BaseModel
 
-router = APIRouter(prefix="/trends", tags=["trends"])
+router = APIRouter(prefix="/api/trends", tags=["trends"])
 
 
 class TimelinePoint(BaseModel):

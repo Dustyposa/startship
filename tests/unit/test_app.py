@@ -30,7 +30,7 @@ def test_health_endpoint(client):
 def test_stats_endpoint():
     """Test stats endpoint - requires lifespan for database"""
     with TestClient(app) as client:
-        response = client.get("/stats")
+        response = client.get("/api/stats")
         assert response.status_code == 200
         data = response.json()
         assert "success" in data

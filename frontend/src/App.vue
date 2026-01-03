@@ -9,6 +9,7 @@
           <router-link to="/search" class="text-gray-600 hover:text-gray-900">搜索</router-link>
           <router-link to="/chat" class="text-gray-600 hover:text-gray-900">对话</router-link>
           <router-link to="/trends" class="text-gray-600 hover:text-gray-900">趋势分析</router-link>
+          <router-link to="/network" class="text-gray-600 hover:text-gray-900">关系网络</router-link>
         </nav>
       </div>
     </header>

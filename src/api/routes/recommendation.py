@@ -1,7 +1,7 @@
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
 
-router = APIRouter(prefix="/recommend", tags=["recommendation"])
+router = APIRouter(prefix="/api/recommend", tags=["recommendation"])
 
 
 class SimilarResponse(BaseModel):

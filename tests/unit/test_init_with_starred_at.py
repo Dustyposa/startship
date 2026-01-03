@@ -12,42 +12,52 @@ async def test_initialization_saves_starred_at():
     db = MagicMock()
     db.add_repository = AsyncMock()
     db.get_repository = AsyncMock(return_value=None)
+    # Mock database connection for network building
+    mock_cursor = MagicMock()
+    mock_cursor.fetchall.return_value = []  # No repos for network
+    db._connection.execute = AsyncMock(return_value=mock_cursor)
 
-    service = InitializationService(db, None, None)
+    # Mock NetworkService to avoid network building issues
+    with patch('src.services.network.NetworkService') as mock_network_class:
+        mock_network = AsyncMock()
+        mock_network.build_network.return_value = {"nodes": [], "edges": []}
+        mock_network_class.return_value = mock_network
 
-    # Mock GitHub response with starred_at
-    mock_repo = MagicMock()
-    mock_repo.name_with_owner = "owner/repo"
-    mock_repo.starred_at = "2024-01-01T00:00:00Z"
+        service = InitializationService(db, None, None)
 
-    # Mock other required attributes
-    mock_repo.name = "repo"
-    mock_repo.owner_login = "owner"
-    mock_repo.description = "Test"
-    mock_repo.primary_language = "Python"
-    mock_repo.topics = []
-    mock_repo.stargazer_count = 100
-    mock_repo.fork_count = 10
-    mock_repo.url = "https://github.com/owner/repo"
-    mock_repo.homepage_url = None
+        # Mock GitHub response with starred_at
+        mock_repo = MagicMock()
+        mock_repo.name_with_owner = "owner/repo"
+        mock_repo.starred_at = "2024-01-01T00:00:00Z"
 
-    # Mock GitHubClient context manager
-    mock_github = AsyncMock()
-    mock_github.get_all_starred = AsyncMock(return_value=[mock_repo])
-    mock_github.get_readme_content = AsyncMock(return_value="# Test README")
+        # Mock other required attributes
+        mock_repo.name = "repo"
+        mock_repo.owner_login = "owner"
+        mock_repo.description = "Test"
+        mock_repo.primary_language = "Python"
+        mock_repo.topics = []
+        mock_repo.stargazer_count = 100
+        mock_repo.fork_count = 10
+        mock_repo.url = "https://github.com/owner/repo"
+        mock_repo.homepage_url = None
 
-    with patch('src.services.init.GitHubClient') as mock_github_class:
-        mock_github_class.return_value.__aenter__.return_value = mock_github
-        mock_github_class.return_value.__aexit__.return_value = None
+        # Mock GitHubClient context manager
+        mock_github = AsyncMock()
+        mock_github.get_all_starred = AsyncMock(return_value=[mock_repo])
+        mock_github.get_readme_content = AsyncMock(return_value="# Test README")
 
-        # Process repo (call the internal processing logic)
-        await service.initialize_from_stars(username="test", skip_llm=True)
+        with patch('src.services.init.GitHubClient') as mock_github_class:
+            mock_github_class.return_value.__aenter__.return_value = mock_github
+            mock_github_class.return_value.__aexit__.return_value = None
 
-    # Verify starred_at was saved
-    call_args = db.add_repository.call_args
-    assert call_args is not None
-    repo_data = call_args[0][0]
-    assert repo_data["starred_at"] == "2024-01-01T00:00:00Z"
+            # Process repo (call the internal processing logic)
+            await service.initialize_from_stars(username="test", skip_llm=True)
+
+        # Verify starred_at was saved
+        call_args = db.add_repository.call_args
+        assert call_args is not None
+        repo_data = call_args[0][0]
+        assert repo_data["starred_at"] == "2024-01-01T00:00:00Z"
 
 
 @pytest.mark.asyncio
@@ -56,43 +66,53 @@ async def test_initialization_handles_missing_starred_at():
     db = MagicMock()
     db.add_repository = AsyncMock()
     db.get_repository = AsyncMock(return_value=None)
+    # Mock database connection for network building
+    mock_cursor = MagicMock()
+    mock_cursor.fetchall.return_value = []  # No repos for network
+    db._connection.execute = AsyncMock(return_value=mock_cursor)
 
-    service = InitializationService(db, None, None)
+    # Mock NetworkService to avoid network building issues
+    with patch('src.services.network.NetworkService') as mock_network_class:
+        mock_network = AsyncMock()
+        mock_network.build_network.return_value = {"nodes": [], "edges": []}
+        mock_network_class.return_value = mock_network
 
-    # Mock GitHub response without starred_at
-    mock_repo = MagicMock()
-    mock_repo.name_with_owner = "owner/repo"
-    # Don't set starred_at - simulate missing attribute
-    del mock_repo.starred_at
+        service = InitializationService(db, None, None)
 
-    # Mock other required attributes
-    mock_repo.name = "repo"
-    mock_repo.owner_login = "owner"
-    mock_repo.description = "Test"
-    mock_repo.primary_language = "Python"
-    mock_repo.topics = []
-    mock_repo.stargazer_count = 100
-    mock_repo.fork_count = 10
-    mock_repo.url = "https://github.com/owner/repo"
-    mock_repo.homepage_url = None
+        # Mock GitHub response without starred_at
+        mock_repo = MagicMock()
+        mock_repo.name_with_owner = "owner/repo"
+        # Don't set starred_at - simulate missing attribute
+        del mock_repo.starred_at
 
-    # Mock GitHubClient context manager
-    mock_github = AsyncMock()
-    mock_github.get_all_starred = AsyncMock(return_value=[mock_repo])
-    mock_github.get_readme_content = AsyncMock(return_value="# Test README")
+        # Mock other required attributes
+        mock_repo.name = "repo"
+        mock_repo.owner_login = "owner"
+        mock_repo.description = "Test"
+        mock_repo.primary_language = "Python"
+        mock_repo.topics = []
+        mock_repo.stargazer_count = 100
+        mock_repo.fork_count = 10
+        mock_repo.url = "https://github.com/owner/repo"
+        mock_repo.homepage_url = None
 
-    with patch('src.services.init.GitHubClient') as mock_github_class:
-        mock_github_class.return_value.__aenter__.return_value = mock_github
-        mock_github_class.return_value.__aexit__.return_value = None
+        # Mock GitHubClient context manager
+        mock_github = AsyncMock()
+        mock_github.get_all_starred = AsyncMock(return_value=[mock_repo])
+        mock_github.get_readme_content = AsyncMock(return_value="# Test README")
 
-        # Process repo
-        await service.initialize_from_stars(username="test", skip_llm=True)
+        with patch('src.services.init.GitHubClient') as mock_github_class:
+            mock_github_class.return_value.__aenter__.return_value = mock_github
+            mock_github_class.return_value.__aexit__.return_value = None
 
-    # Verify starred_at defaults to None when missing
-    call_args = db.add_repository.call_args
-    assert call_args is not None
-    repo_data = call_args[0][0]
-    assert repo_data["starred_at"] is None
+            # Process repo
+            await service.initialize_from_stars(username="test", skip_llm=True)
+
+        # Verify starred_at defaults to None when missing
+        call_args = db.add_repository.call_args
+        assert call_args is not None
+        repo_data = call_args[0][0]
+        assert repo_data["starred_at"] is None
 
 
 @pytest.mark.asyncio
@@ -101,39 +121,49 @@ async def test_initialization_with_none_starred_at():
     db = MagicMock()
     db.add_repository = AsyncMock()
     db.get_repository = AsyncMock(return_value=None)
+    # Mock database connection for network building
+    mock_cursor = MagicMock()
+    mock_cursor.fetchall.return_value = []  # No repos for network
+    db._connection.execute = AsyncMock(return_value=mock_cursor)
 
-    service = InitializationService(db, None, None)
+    # Mock NetworkService to avoid network building issues
+    with patch('src.services.network.NetworkService') as mock_network_class:
+        mock_network = AsyncMock()
+        mock_network.build_network.return_value = {"nodes": [], "edges": []}
+        mock_network_class.return_value = mock_network
 
-    # Mock GitHub response with starred_at set to None
-    mock_repo = MagicMock()
-    mock_repo.name_with_owner = "owner/repo"
-    mock_repo.starred_at = None
+        service = InitializationService(db, None, None)
 
-    # Mock other required attributes
-    mock_repo.name = "repo"
-    mock_repo.owner_login = "owner"
-    mock_repo.description = "Test"
-    mock_repo.primary_language = "Python"
-    mock_repo.topics = []
-    mock_repo.stargazer_count = 100
-    mock_repo.fork_count = 10
-    mock_repo.url = "https://github.com/owner/repo"
-    mock_repo.homepage_url = None
+        # Mock GitHub response with starred_at set to None
+        mock_repo = MagicMock()
+        mock_repo.name_with_owner = "owner/repo"
+        mock_repo.starred_at = None
 
-    # Mock GitHubClient context manager
-    mock_github = AsyncMock()
-    mock_github.get_all_starred = AsyncMock(return_value=[mock_repo])
-    mock_github.get_readme_content = AsyncMock(return_value="# Test README")
+        # Mock other required attributes
+        mock_repo.name = "repo"
+        mock_repo.owner_login = "owner"
+        mock_repo.description = "Test"
+        mock_repo.primary_language = "Python"
+        mock_repo.topics = []
+        mock_repo.stargazer_count = 100
+        mock_repo.fork_count = 10
+        mock_repo.url = "https://github.com/owner/repo"
+        mock_repo.homepage_url = None
 
-    with patch('src.services.init.GitHubClient') as mock_github_class:
-        mock_github_class.return_value.__aenter__.return_value = mock_github
-        mock_github_class.return_value.__aexit__.return_value = None
+        # Mock GitHubClient context manager
+        mock_github = AsyncMock()
+        mock_github.get_all_starred = AsyncMock(return_value=[mock_repo])
+        mock_github.get_readme_content = AsyncMock(return_value="# Test README")
 
-        # Process repo
-        await service.initialize_from_stars(username="test", skip_llm=True)
+        with patch('src.services.init.GitHubClient') as mock_github_class:
+            mock_github_class.return_value.__aenter__.return_value = mock_github
+            mock_github_class.return_value.__aexit__.return_value = None
 
-    # Verify starred_at is None
-    call_args = db.add_repository.call_args
-    assert call_args is not None
-    repo_data = call_args[0][0]
-    assert repo_data["starred_at"] is None
+            # Process repo
+            await service.initialize_from_stars(username="test", skip_llm=True)
+
+        # Verify starred_at is None
+        call_args = db.add_repository.call_args
+        assert call_args is not None
+        repo_data = call_args[0][0]
+        assert repo_data["starred_at"] is None

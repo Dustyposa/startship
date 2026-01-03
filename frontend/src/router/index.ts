@@ -31,6 +31,11 @@ const routes: RouteRecordRaw[] = [
     path: '/trends',
     name: 'trends',
     component: () => import('../views/TrendView.vue')
+  },
+  {
+    path: '/network',
+    name: 'network',
+    component: () => import('../views/NetworkView.vue')
   }
 ]
 

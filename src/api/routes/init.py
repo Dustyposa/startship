@@ -3,7 +3,7 @@ from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
 from typing import Optional
 
-router = APIRouter(prefix="/init", tags=["init"])
+router = APIRouter(prefix="/api/init", tags=["init"])
 
 
 class InitRequest(BaseModel):

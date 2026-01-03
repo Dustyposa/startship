@@ -101,10 +101,19 @@ class InitializationService:
                                 topics=repo.topics
                             )
                         else:
+                            # Use GitHub topics as simple categories when LLM is skipped
+                            topics = repo.topics or []
+                            # Filter out technical tags and keep meaningful categories
+                            simple_categories = [t for t in topics if not any(
+                                skip in t.lower() for skip in ['js', 'ts', 'python', 'java', 'go',
+                                'react', 'vue', 'angular', 'nodejs', 'api', 'lib', 'cli',
+                                'tool', 'framework', 'db', 'database', 'test', 'mock']
+                            )]
+
                             analysis = {
                                 "name_with_owner": repo.name_with_owner,
                                 "summary": repo.description or f"{repo.name_with_owner}",
-                                "categories": [],
+                                "categories": simple_categories,  # Use topics as categories
                                 "features": [],
                                 "tech_stack": [repo.primary_language] if repo.primary_language else [],
                                 "use_cases": []
@@ -158,6 +167,15 @@ class InitializationService:
                 for repo in repos
             ])
             print("Vector embeddings generated")
+
+        # After all repos are saved, build network graph
+        print("Building repository network graph...")
+        from src.services.network import NetworkService
+
+        network_service = NetworkService(self.db, semantic=self.semantic)
+        network = await network_service.build_network(top_n=100, k=5)
+        await network_service.save_network(network, top_n=100, k=5)
+        print(f"Network graph built with {len(network['nodes'])} nodes and {len(network['edges'])} edges")
 
         return stats
 

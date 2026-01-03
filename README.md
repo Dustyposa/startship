@@ -35,6 +35,16 @@ See [docs/plans/2024-12-30-stage2-intent-semantic-design.md](docs/plans/2024-12-
 
 **Tests**: 101 passing ✅
 
+### Stage 4: Network Visualization ✅ COMPLETED
+- [x] Relationship network visualization with ECharts
+- [x] NetworkService for similarity calculation and graph building
+- [x] Force-directed graph layout
+- [x] Node sizing by category count, coloring by star count
+- [x] Top-K similar connections (K=5)
+- [x] Network cache for performance
+
+**Tests**: 117 passing ✅
+
 ---
 
 ## 功能特性

@@ -134,7 +134,7 @@ class SQLiteDatabase(Database):
                 # Run migration with error handling and rollback
                 try:
                     sql = migration_file.read_text()
-                    await self._connection.execute(sql)
+                    await self._connection.executescript(sql)
                     await self._connection.execute(
                         "INSERT INTO _migrations (name) VALUES (?)",
                         (migration_name,)
@@ -414,10 +414,25 @@ class SQLiteDatabase(Database):
         ) as cursor:
             total_conversations = (await cursor.fetchone())[0]
 
+        # Get top language
+        async with self._connection.execute(
+            """
+            SELECT primary_language, COUNT(*) as count
+            FROM repositories
+            WHERE primary_language IS NOT NULL AND primary_language != ''
+            GROUP BY primary_language
+            ORDER BY count DESC
+            LIMIT 1
+            """
+        ) as cursor:
+            row = await cursor.fetchone()
+            top_language = row[0] if row else None
+
         return {
             "total_repositories": total_repos,
             "total_conversations": total_conversations,
             "categories": categories,
+            "top_language": top_language,
             "database_path": self.db_path
         }
 

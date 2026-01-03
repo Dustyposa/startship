@@ -7,7 +7,7 @@ from fastapi.responses import StreamingResponse
 from pydantic import BaseModel
 from typing import Optional
 
-router = APIRouter(prefix="/chat", tags=["chat"])
+router = APIRouter(prefix="/api/chat", tags=["chat"])
 
 
 class ChatRequest(BaseModel):
@@ -55,7 +55,21 @@ async def chat_stream(request: ChatRequest):
         llm_kwargs["base_url"] = request.llm_config["base_url"]
 
     llm = create_llm("openai", **llm_kwargs)
-    await llm.initialize()
+
+    # Try to initialize LLM, catch API key errors
+    try:
+        await llm.initialize()
+    except ValueError as e:
+        # API key not configured - return friendly error
+        async def event_generator():
+            error_msg = "⚠️ 对话功能需要配置 OpenAI API Key。\n\n请在 .env 文件中设置 OPENAI_API_KEY，然后重启后端服务。\n\n您仍然可以使用以下功能：\n• 🔍 仓库搜索\n• 🕸️ 关系网络\n• 📈 趋势分析"
+            yield f"data: {json.dumps({'type': 'content', 'content': error_msg})}\n\n"
+            yield f"data: {json.dumps({'type': 'done'})}\n\n"
+
+        return StreamingResponse(
+            event_generator(),
+            media_type="text/event-stream"
+        )
 
     # Classify intent
     classifier = IntentClassifier(llm)
@@ -144,7 +158,17 @@ async def chat(request: ChatRequest):
 
     # Create services
     llm = create_llm("openai")
-    await llm.initialize()
+
+    # Try to initialize LLM
+    try:
+        await llm.initialize()
+    except ValueError:
+        # API key not configured
+        raise HTTPException(
+            status_code=503,
+            detail="对话功能需要配置 OpenAI API Key。请在 .env 文件中设置 OPENAI_API_KEY，然后重启后端服务。"
+        )
+
     search_service = SearchService(db)
     chat_service = ChatService(db, llm, search_service)
 

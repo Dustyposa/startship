@@ -1,9 +1,89 @@
 <template>
   <div class="space-y-8">
+    <!-- Onboarding Banner for First-Time Users -->
+    <div v-if="showOnboarding" class="relative overflow-hidden bg-gradient-to-r from-blue-600 to-purple-600 rounded-xl p-8 text-white shadow-lg">
+      <div class="absolute top-0 right-0 -mt-4 -mr-4 w-24 h-24 bg-white opacity-10 rounded-full"></div>
+      <div class="absolute bottom-0 left-0 -mb-4 -ml-4 w-32 h-32 bg-white opacity-10 rounded-full"></div>
+
+      <div class="relative z-10">
+        <div class="flex items-start justify-between">
+          <div class="flex-1">
+            <div class="flex items-center gap-3 mb-4">
+              <span class="text-4xl">👋</span>
+              <div>
+                <h2 class="text-2xl font-bold">欢迎使用 GitHub Star Helper!</h2>
+                <p class="text-blue-100">智能管理你的星标仓库，发现技术宝藏</p>
+              </div>
+            </div>
+
+            <div class="grid md:grid-cols-3 gap-4 mb-6">
+              <div class="bg-white/10 backdrop-blur-sm rounded-lg p-4">
+                <div class="text-2xl mb-2">🔍</div>
+                <h3 class="font-semibold mb-1">智能搜索</h3>
+                <p class="text-sm text-blue-100">按分类、语言快速筛选</p>
+              </div>
+              <div class="bg-white/10 backdrop-blur-sm rounded-lg p-4">
+                <div class="text-2xl mb-2">💬</div>
+                <h3 class="font-semibold mb-1">AI 对话</h3>
+                <p class="text-sm text-blue-100">自然语言查询仓库</p>
+              </div>
+              <div class="bg-white/10 backdrop-blur-sm rounded-lg p-4">
+                <div class="text-2xl mb-2">🕸️</div>
+                <h3 class="font-semibold mb-1">关系网络</h3>
+                <p class="text-sm text-blue-100">可视化项目关联</p>
+              </div>
+            </div>
+
+            <div class="flex flex-wrap gap-3">
+              <router-link
+                to="/init"
+                @click="dismissOnboarding"
+                class="px-6 py-3 bg-white text-blue-600 font-semibold rounded-lg hover:bg-blue-50 transition shadow-lg"
+              >
+                🚀 立即开始初始化
+              </router-link>
+              <button
+                @click="dismissOnboarding"
+                class="px-6 py-3 bg-white/10 backdrop-blur-sm text-white font-semibold rounded-lg hover:bg-white/20 transition"
+              >
+                稍后再说
+              </button>
+            </div>
+          </div>
+
+          <button
+            @click="dismissOnboarding"
+            class="ml-4 p-2 hover:bg-white/10 rounded-lg transition"
+            aria-label="关闭"
+          >
+            <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+            </svg>
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Empty State for Non-Initialized Users -->
+    <div v-else-if="stats.total_repositories === 0" class="bg-white rounded-xl shadow-sm p-12 text-center">
+      <div class="text-6xl mb-4">📭</div>
+      <h2 class="text-2xl font-bold text-gray-900 mb-2">还没有数据</h2>
+      <p class="text-gray-600 mb-6">请先初始化系统，从你的 GitHub 星标仓库中获取数据</p>
+      <router-link
+        to="/init"
+        class="inline-flex items-center gap-2 px-6 py-3 bg-blue-600 text-white font-semibold rounded-lg hover:bg-blue-700 transition shadow-lg"
+      >
+        <span>前往初始化</span>
+        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 7l5 5m0 0l-5 5m5-5H6" />
+        </svg>
+      </router-link>
+    </div>
+
     <!-- Hero Section -->
-    <section class="text-center py-8 bg-gradient-to-r from-blue-50 to-purple-50 rounded-xl">
+    <section v-else class="text-center py-8 bg-gradient-to-r from-blue-50 to-purple-50 rounded-xl">
       <h1 class="text-4xl font-bold text-gray-900 mb-4">
-        GitHub Star Helper
+        ⭐ GitHub Star Helper
       </h1>
       <p class="text-lg text-gray-600 mb-6">
         智能分析你的 GitHub 星标仓库，发现技术宝藏
@@ -31,7 +111,7 @@
     </section>
 
     <!-- Quick Stats -->
-    <section>
+    <section v-if="stats.total_repositories > 0">
       <h2 class="text-xl font-bold text-gray-900 mb-4">📊 数据概览</h2>
       <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
         <div class="bg-white p-4 rounded-lg shadow-sm border-l-4 border-blue-500">
@@ -151,6 +231,19 @@ const stats = ref<Stats>({
   top_language: null
 })
 
+const showOnboarding = ref(false)
+
+// Check if user has seen onboarding
+const hasSeenOnboarding = () => {
+  return localStorage.getItem('hasSeenOnboarding') === 'true'
+}
+
+// Dismiss onboarding
+const dismissOnboarding = () => {
+  localStorage.setItem('hasSeenOnboarding', 'true')
+  showOnboarding.value = false
+}
+
 const displayStats = computed(() => ({
   totalRepos: stats.value.total_repositories,
   totalCategories: Object.keys(stats.value.categories || {}).length,
@@ -170,6 +263,11 @@ onMounted(async () => {
     const response = await fetch('/api/stats')
     const data = await response.json()
     stats.value = data.data || stats.value
+
+    // Show onboarding if first time visit
+    if (!hasSeenOnboarding()) {
+      showOnboarding.value = true
+    }
   } catch (error) {
     console.error('Failed to load stats:', error)
   }

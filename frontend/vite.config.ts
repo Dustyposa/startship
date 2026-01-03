@@ -11,5 +11,28 @@ export default defineConfig({
         changeOrigin: true
       }
     }
+  },
+  build: {
+    chunkSizeWarningLimit: 1000,
+    rollupOptions: {
+      output: {
+        manualChunks: {
+          // Separate ECharts into its own chunk
+          'echarts': ['echarts/core', 'echarts/charts', 'echarts/components', 'echarts/renderers'],
+          // Separate Vue ecosystem
+          'vue-vendor': ['vue', 'vue-router', 'pinia'],
+          // Separate other vendor libraries
+          'vendor': ['axios']
+        }
+      }
+    },
+    // Enable better compression
+    minify: 'terser',
+    terserOptions: {
+      compress: {
+        drop_console: true,
+        drop_debugger: true
+      }
+    }
   }
 })

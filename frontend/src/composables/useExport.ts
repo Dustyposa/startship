@@ -1,3 +1,16 @@
+import { storage } from '@/utils/storage'
+import { STORAGE_KEYS } from '@/types/collections'
+
+interface ExportedUserData {
+  collections?: unknown
+  tags?: unknown
+  notes?: unknown
+  repo_collections?: unknown
+  repo_tags?: unknown
+  profile?: unknown
+  exported_at: string
+}
+
 export function useExport() {
   function exportToJSON(data: any[], filename: string) {
     const json = JSON.stringify(data, null, 2)
@@ -10,6 +23,58 @@ export function useExport() {
     link.click()
     document.body.removeChild(link)
     URL.revokeObjectURL(url)
+  }
+
+  function exportUserData() {
+    const data: ExportedUserData = {
+      [STORAGE_KEYS.COLLECTIONS]: storage.get(STORAGE_KEYS.COLLECTIONS),
+      [STORAGE_KEYS.TAGS]: storage.get(STORAGE_KEYS.TAGS),
+      [STORAGE_KEYS.NOTES]: storage.get(STORAGE_KEYS.NOTES),
+      [STORAGE_KEYS.REPO_COLLECTIONS]: storage.get(STORAGE_KEYS.REPO_COLLECTIONS),
+      [STORAGE_KEYS.REPO_TAGS]: storage.get(STORAGE_KEYS.REPO_TAGS),
+      [STORAGE_KEYS.PROFILE]: storage.get(STORAGE_KEYS.PROFILE),
+      exported_at: new Date().toISOString()
+    }
+    exportToJSON([data], `user-data-${new Date().toISOString().slice(0, 10)}`)
+  }
+
+  function importUserData(file: File): Promise<void> {
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader()
+      reader.onload = (e) => {
+        const result = e.target?.result
+        if (!result || typeof result !== 'string') {
+          reject(new Error('Invalid file content'))
+          return
+        }
+
+        try {
+          const data = JSON.parse(result)
+          if (Array.isArray(data) && data[0]) {
+            const userData = data[0]
+            // Basic validation - check if it's an object
+            if (typeof userData !== 'object' || userData === null) {
+              reject(new Error('Invalid data format'))
+              return
+            }
+            // Merge with existing data
+            if (userData.collections) storage.set(STORAGE_KEYS.COLLECTIONS, userData.collections)
+            if (userData.tags) storage.set(STORAGE_KEYS.TAGS, userData.tags)
+            if (userData.notes) storage.set(STORAGE_KEYS.NOTES, userData.notes)
+            if (userData.repo_collections) storage.set(STORAGE_KEYS.REPO_COLLECTIONS, userData.repo_collections)
+            if (userData.repo_tags) storage.set(STORAGE_KEYS.REPO_TAGS, userData.repo_tags)
+            if (userData.profile) storage.set(STORAGE_KEYS.PROFILE, userData.profile)
+            resolve()
+          } else {
+            reject(new Error('Invalid data format'))
+          }
+        } catch (err) {
+          reject(err)
+        }
+      }
+      reader.onerror = reject
+      reader.readAsText(file)
+    })
   }
 
   function exportToCSV(data: any[], filename: string) {
@@ -55,6 +120,8 @@ export function useExport() {
 
   return {
     exportToJSON,
-    exportToCSV
+    exportToCSV,
+    exportUserData,
+    importUserData
   }
 }

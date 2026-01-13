@@ -6,6 +6,7 @@ from progress.bar import Bar
 
 from src.config import settings
 from src.github.client import GitHubClient
+from src.github.graphql import GitHubGraphQLClient
 from src.github.models import GitHubRepository
 from src.llm import create_llm, LLM, Message
 from src.db import Database
@@ -40,7 +41,9 @@ class InitializationService:
         self,
         username: str | None = None,
         max_repos: int | None = None,
-        skip_llm: bool = False
+        skip_llm: bool = False,
+        force_graphql: bool = False,
+        force_rest: bool = False
     ) -> dict[str, any]:
         """
         Initialize database from user's starred repositories.
@@ -49,6 +52,8 @@ class InitializationService:
             username: GitHub username (None for authenticated user)
             max_repos: Maximum number of repositories to fetch
             skip_llm: Skip LLM analysis (faster)
+            force_graphql: Force use of GraphQL API (requires token)
+            force_rest: Force use of REST API
 
         Returns:
             Statistics about initialization
@@ -61,96 +66,194 @@ class InitializationService:
             "added": 0,
             "updated": 0,
             "failed": 0,
-            "errors": []
+            "errors": [],
+            "api_used": None
         }
 
-        async with GitHubClient() as github:
-            # Fetch starred repositories
-            print(f"Fetching starred repositories for {username or 'authenticated user'}...")
-            repos = await github.get_all_starred(username=username, max_results=max_repos)
-            stats["fetched"] = len(repos)
-            print(f"Fetched {len(repos)} repositories")
+        # Determine which API to use
+        has_token = bool(settings.github_token and settings.github_token.strip())
 
-            if not repos:
-                return stats
+        repos = []
 
-            # Process each repository
-            with Bar("Processing", max=len(repos)) as bar:
-                for repo in repos:
-                    try:
-                        # Get starred_at time from GitHub API response
-                        starred_at = getattr(repo, 'starred_at', None)
+        if force_rest or not has_token:
+            # Use REST API (no token required)
+            stats["api_used"] = "REST"
+            async with GitHubClient() as github:
+                print(f"Fetching starred repositories for {username or 'authenticated user'} using REST API...")
+                repos = await github.get_all_starred(username=username, max_results=max_repos)
+                stats["fetched"] = len(repos)
+                print(f"Fetched {len(repos)} repositories using REST API")
 
-                        # Check if already exists
-                        existing = await self.db.get_repository(repo.name_with_owner)
+                if not repos:
+                    return stats
 
-                        # Get README content
-                        readme = await github.get_readme_content(
-                            repo.owner_login,
-                            repo.name
-                        )
+                # Process each repository
+                with Bar("Processing", max=len(repos)) as bar:
+                    for repo in repos:
+                        try:
+                            # Get starred_at time from GitHub API response
+                            starred_at = getattr(repo, 'starred_at', None)
 
-                        # Analyze with LLM
-                        if not skip_llm and self.llm:
-                            print(f"\nAnalyzing {repo.name_with_owner}...")
-                            analysis = await self.llm.analyze_repository(
-                                repo_name=repo.name_with_owner,
-                                description=repo.description or "",
-                                readme=readme,
-                                language=repo.primary_language,
-                                topics=repo.topics
+                            # Check if already exists
+                            existing = await self.db.get_repository(repo.name_with_owner)
+
+                            # Get README content (REST API needs separate call)
+                            readme = await github.get_readme_content(
+                                repo.owner_login,
+                                repo.name
                             )
-                        else:
-                            # Use GitHub topics as simple categories when LLM is skipped
-                            topics = repo.topics or []
-                            # Filter out technical tags and keep meaningful categories
-                            simple_categories = [t for t in topics if not any(
-                                skip in t.lower() for skip in ['js', 'ts', 'python', 'java', 'go',
-                                'react', 'vue', 'angular', 'nodejs', 'api', 'lib', 'cli',
-                                'tool', 'framework', 'db', 'database', 'test', 'mock']
-                            )]
 
-                            analysis = {
+                            # Analyze with LLM
+                            if not skip_llm and self.llm:
+                                print(f"\nAnalyzing {repo.name_with_owner}...")
+                                analysis = await self.llm.analyze_repository(
+                                    repo_name=repo.name_with_owner,
+                                    description=repo.description or "",
+                                    readme=readme,
+                                    language=repo.primary_language,
+                                    topics=repo.topics
+                                )
+                            else:
+                                # Use GitHub topics as simple categories when LLM is skipped
+                                topics = repo.topics or []
+                                # Filter out technical tags and keep meaningful categories
+                                simple_categories = [t for t in topics if not any(
+                                    skip in t.lower() for skip in ['js', 'ts', 'python', 'java', 'go',
+                                    'react', 'vue', 'angular', 'nodejs', 'api', 'lib', 'cli',
+                                    'tool', 'framework', 'db', 'database', 'test', 'mock']
+                                )]
+
+                                analysis = {
+                                    "name_with_owner": repo.name_with_owner,
+                                    "summary": repo.description or f"{repo.name_with_owner}",
+                                    "categories": simple_categories,  # Use topics as categories
+                                    "features": [],
+                                    "tech_stack": [repo.primary_language] if repo.primary_language else [],
+                                    "use_cases": []
+                                }
+
+                            # Prepare repo data
+                            repo_data = {
                                 "name_with_owner": repo.name_with_owner,
-                                "summary": repo.description or f"{repo.name_with_owner}",
-                                "categories": simple_categories,  # Use topics as categories
-                                "features": [],
-                                "tech_stack": [repo.primary_language] if repo.primary_language else [],
-                                "use_cases": []
+                                "name": repo.name,
+                                "owner": repo.owner_login,
+                                "description": repo.description,
+                                "primary_language": repo.primary_language,
+                                "topics": repo.topics,
+                                "stargazer_count": repo.stargazer_count,
+                                "fork_count": repo.fork_count,
+                                "url": repo.url,
+                                "homepage_url": repo.homepage_url,
+                                "readme_path": f"{settings.readme_storage_path}/{repo.name_with_owner.replace('/', '_')}.md",
+                                "readme_content": readme[:10000] if readme else None,  # Cache first 10k chars
+                                "starred_at": starred_at,
+                                **analysis
                             }
 
-                        # Prepare repo data
-                        repo_data = {
-                            "name_with_owner": repo.name_with_owner,
-                            "name": repo.name,
-                            "owner": repo.owner_login,
-                            "description": repo.description,
-                            "primary_language": repo.primary_language,
-                            "topics": repo.topics,
-                            "stargazer_count": repo.stargazer_count,
-                            "fork_count": repo.fork_count,
-                            "url": repo.url,
-                            "homepage_url": repo.homepage_url,
-                            "readme_path": f"{settings.readme_storage_path}/{repo.name_with_owner.replace('/', '_')}.md",
-                            "readme_content": readme[:10000] if readme else None,  # Cache first 10k chars
-                            "starred_at": starred_at,
-                            **analysis
-                        }
+                            # Add or update
+                            if existing:
+                                await self.db.update_repository(repo.name_with_owner, repo_data)
+                                stats["updated"] += 1
+                            else:
+                                await self.db.add_repository(repo_data)
+                                stats["added"] += 1
 
-                        # Add or update
-                        if existing:
-                            await self.db.update_repository(repo.name_with_owner, repo_data)
-                            stats["updated"] += 1
-                        else:
-                            await self.db.add_repository(repo_data)
-                            stats["added"] += 1
+                        except Exception as e:
+                            stats["failed"] += 1
+                            stats["errors"].append(f"{repo.name_with_owner}: {str(e)}")
+                            print(f"Error processing {repo.name_with_owner}: {e}")
 
-                    except Exception as e:
-                        stats["failed"] += 1
-                        stats["errors"].append(f"{repo.name_with_owner}: {str(e)}")
-                        print(f"Error processing {repo.name_with_owner}: {e}")
+                        bar.next()
 
-                    bar.next()
+        elif force_graphql or has_token:
+            # Use GraphQL API (token required, more efficient)
+            stats["api_used"] = "GraphQL"
+            async with GitHubGraphQLClient() as github:
+                print(f"Fetching starred repositories for {username or 'authenticated user'} using GraphQL API...")
+                repos = await github.get_starred_repositories(
+                    username=username,
+                    max_results=max_repos
+                )
+                stats["fetched"] = len(repos)
+                print(f"Fetched {len(repos)} repositories using GraphQL API")
+
+                if not repos:
+                    return stats
+
+                # Process each repository
+                with Bar("Processing", max=len(repos)) as bar:
+                    for repo in repos:
+                        try:
+                            # Get starred_at time from GitHub API response
+                            starred_at = getattr(repo, 'starred_at', None)
+
+                            # Check if already exists
+                            existing = await self.db.get_repository(repo.name_with_owner)
+
+                            # Get README content (already fetched by GraphQL)
+                            readme = github.get_repository_readme(repo)
+
+                            # Analyze with LLM
+                            if not skip_llm and self.llm:
+                                print(f"\nAnalyzing {repo.name_with_owner}...")
+                                analysis = await self.llm.analyze_repository(
+                                    repo_name=repo.name_with_owner,
+                                    description=repo.description or "",
+                                    readme=readme,
+                                    language=repo.primary_language,
+                                    topics=repo.topics
+                                )
+                            else:
+                                # Use GitHub topics as simple categories when LLM is skipped
+                                topics = repo.topics or []
+                                # Filter out technical tags and keep meaningful categories
+                                simple_categories = [t for t in topics if not any(
+                                    skip in t.lower() for skip in ['js', 'ts', 'python', 'java', 'go',
+                                    'react', 'vue', 'angular', 'nodejs', 'api', 'lib', 'cli',
+                                    'tool', 'framework', 'db', 'database', 'test', 'mock']
+                                )]
+
+                                analysis = {
+                                    "name_with_owner": repo.name_with_owner,
+                                    "summary": repo.description or f"{repo.name_with_owner}",
+                                    "categories": simple_categories,  # Use topics as categories
+                                    "features": [],
+                                    "tech_stack": [repo.primary_language] if repo.primary_language else [],
+                                    "use_cases": []
+                                }
+
+                            # Prepare repo data
+                            repo_data = {
+                                "name_with_owner": repo.name_with_owner,
+                                "name": repo.name,
+                                "owner": repo.owner_login,
+                                "description": repo.description,
+                                "primary_language": repo.primary_language,
+                                "topics": repo.topics,
+                                "stargazer_count": repo.stargazer_count,
+                                "fork_count": repo.fork_count,
+                                "url": repo.url,
+                                "homepage_url": repo.homepage_url,
+                                "readme_path": f"{settings.readme_storage_path}/{repo.name_with_owner.replace('/', '_')}.md",
+                                "readme_content": readme[:10000] if readme else None,  # Cache first 10k chars
+                                "starred_at": starred_at,
+                                **analysis
+                            }
+
+                            # Add or update
+                            if existing:
+                                await self.db.update_repository(repo.name_with_owner, repo_data)
+                                stats["updated"] += 1
+                            else:
+                                await self.db.add_repository(repo_data)
+                                stats["added"] += 1
+
+                        except Exception as e:
+                            stats["failed"] += 1
+                            stats["errors"].append(f"{repo.name_with_owner}: {str(e)}")
+                            print(f"Error processing {repo.name_with_owner}: {e}")
+
+                        bar.next()
 
         # Generate vector embeddings if semantic search enabled
         if self.semantic and repos:

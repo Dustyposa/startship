@@ -238,7 +238,7 @@ import { ref, onMounted } from 'vue'
 
 const username = ref('')
 const maxRepos = ref<number | null>(null)
-const skipLlm = ref(false)
+const skipLlm = ref(true)
 const enableSemantic = ref(false)
 
 const isLoading = ref(false)

@@ -14,6 +14,8 @@
               <router-link to="/chat" class="text-gray-600 dark:text-gray-300 hover:text-blue-600 dark:hover:text-blue-400 font-medium transition">对话</router-link>
               <router-link to="/trends" class="text-gray-600 dark:text-gray-300 hover:text-blue-600 dark:hover:text-blue-400 font-medium transition">趋势</router-link>
               <router-link to="/network" class="text-gray-600 dark:text-gray-300 hover:text-blue-600 dark:hover:text-blue-400 font-medium transition">网络</router-link>
+              <router-link to="/collections" class="text-gray-600 dark:text-gray-300 hover:text-blue-600 dark:hover:text-blue-400 font-medium transition">收藏</router-link>
+              <router-link to="/profile" class="text-gray-600 dark:text-gray-300 hover:text-blue-600 dark:hover:text-blue-400 font-medium transition">画像</router-link>
             </nav>
 
             <!-- Dark Mode Toggle -->
@@ -111,21 +113,95 @@
           >
             🕸️ 关系网络
           </router-link>
+          <router-link
+            to="/collections"
+            @click="mobileMenuOpen = false"
+            class="block px-4 py-2 rounded-lg hover:bg-blue-50 dark:hover:bg-gray-700 text-gray-700 dark:text-gray-300 hover:text-blue-600 dark:hover:text-blue-400 transition"
+          >
+            收藏
+          </router-link>
+          <router-link
+            to="/profile"
+            @click="mobileMenuOpen = false"
+            class="block px-4 py-2 rounded-lg hover:bg-blue-50 dark:hover:bg-gray-700 text-gray-700 dark:text-gray-300 hover:text-blue-600 dark:hover:text-blue-400 transition"
+          >
+            🧠 画像
+          </router-link>
         </nav>
       </div>
     </header>
     <main class="max-w-7xl mx-auto px-4 py-8">
       <router-view />
     </main>
+
+    <!-- Keyboard Shortcuts Modal -->
+    <div
+      v-if="showKeyboardShortcuts"
+      class="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4"
+      @click.self="showKeyboardShortcuts = false"
+    >
+      <div class="bg-white dark:bg-gray-800 rounded-lg shadow-xl p-6 max-w-md w-full animate-fade-in">
+        <div class="flex justify-between items-center mb-4">
+          <h2 class="text-xl font-bold text-gray-900 dark:text-white">键盘快捷键</h2>
+          <button
+            @click="showKeyboardShortcuts = false"
+            class="text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 transition"
+            aria-label="关闭"
+          >
+            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+            </svg>
+          </button>
+        </div>
+        <div class="space-y-3">
+          <div class="flex justify-between items-center">
+            <span class="text-gray-700 dark:text-gray-300">显示快捷键</span>
+            <kbd class="px-2 py-1 bg-gray-100 dark:bg-gray-700 rounded text-sm font-mono text-gray-900 dark:text-gray-100">⌘K</kbd>
+          </div>
+          <div class="flex justify-between items-center">
+            <span class="text-gray-700 dark:text-gray-300">创建收藏夹</span>
+            <kbd class="px-2 py-1 bg-gray-100 dark:bg-gray-700 rounded text-sm font-mono text-gray-900 dark:text-gray-100">⌘N</kbd>
+          </div>
+          <div class="flex justify-between items-center">
+            <span class="text-gray-700 dark:text-gray-300">关闭弹窗</span>
+            <kbd class="px-2 py-1 bg-gray-100 dark:bg-gray-700 rounded text-sm font-mono text-gray-900 dark:text-gray-100">Esc</kbd>
+          </div>
+        </div>
+        <p class="mt-4 text-sm text-gray-500 dark:text-gray-400">在 Windows/Linux 上使用 Ctrl 代替 ⌘</p>
+      </div>
+    </div>
   </div>
 </template>
 
 <script setup lang="ts">
 import { ref } from 'vue'
 import { useDark } from './composables/useDark'
+import { useKeyboard } from './composables/useKeyboard'
+import { useCollections } from './composables/useCollections'
 
 const mobileMenuOpen = ref(false)
+const showKeyboardShortcuts = ref(false)
 const { isDark, toggle } = useDark()
+const { createCollection } = useCollections()
+
+function handleKeyboardShortcuts() {
+  showKeyboardShortcuts.value = true
+}
+
+function handleNewCollection() {
+  createCollection('新建收藏夹')
+}
+
+function handleEscape() {
+  showKeyboardShortcuts.value = false
+  mobileMenuOpen.value = false
+}
+
+useKeyboard({
+  'cmd+k': handleKeyboardShortcuts,
+  'cmd+n': handleNewCollection,
+  'escape': handleEscape
+})
 </script>
 
 <style>

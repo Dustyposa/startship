@@ -30,7 +30,7 @@ class SearchService:
         Search repositories with filters.
 
         Args:
-            query: Full-text search query (optional, for future)
+            query: Full-text search query
             categories: Filter by categories
             languages: Filter by programming languages
             min_stars: Minimum star count
@@ -40,14 +40,21 @@ class SearchService:
         Returns:
             List of matching repositories
         """
-        # Use database search
-        results = await self.db.search_repositories(
-            categories=categories,
-            languages=languages,
-            min_stars=min_stars,
-            max_stars=max_stars,
-            limit=limit
-        )
+        # Use full-text search if query is provided
+        if query:
+            results = await self.db.search_repositories_fulltext(
+                query=query,
+                limit=limit
+            )
+        else:
+            # Use database search for filters only
+            results = await self.db.search_repositories(
+                categories=categories,
+                languages=languages,
+                min_stars=min_stars,
+                max_stars=max_stars,
+                limit=limit
+            )
 
         return results
 

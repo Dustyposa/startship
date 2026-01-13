@@ -55,8 +55,13 @@ async def start_initialization(request: InitRequest):
     from src.llm import create_llm
     from src.services.init import InitializationService
 
+    # Debug logging
+    print(f"DEBUG: request.skip_llm = {request.skip_llm}")
+    print(f"DEBUG: request model = {request.model_dump()}")
+
     # Create LLM if needed
     llm = None if request.skip_llm else create_llm("openai")
+    print(f"DEBUG: llm = {llm}")
     if llm:
         await llm.initialize()
 

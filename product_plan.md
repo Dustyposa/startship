@@ -62,7 +62,7 @@ graph TD
 
     subgraph "Agent端：指挥官"
         direction LR
-        CommanderAgent[🧠 GitHub Star Helper Agent<br>(基于AutoGen实现)]
+        CommanderAgent[🧠 GitHub Star Helper Agent<br>(LLM 驱动的智能服务)]
         L1_Cache[(L1 缓存<br>本地向量数据库<br>FAISS / ChromaDB)]
     end
 
@@ -102,136 +102,7 @@ graph TD
 * **工作流引擎**: 为确保高级工作流的可靠性和可维护性，其核心应由一个真正的**状态化工作流引擎**（如Temporal, AWS Step Functions）驱动。这为未来实现需要重试、回滚的复杂任务（如代码扫描与自动修复）奠定了基础。
 * **数据源守护者 (L2缓存)**: MCP Server通过Redis等工具管理对GitHub API的调用缓存，处理速率限制，保护后端API，并为Agent提供快速、可靠的数据。
 
-## 第三章: AutoGen实施方案
-
-我们将使用AutoGen框架来实现\`GitHubStarHelperAgent\`。
-
-### 3.1 Agent角色定义
-
-* **\`AssistantAgent\` (作为 CommanderAgent)**: 这是我们的核心智能体\`GitHubStarHelperAgent\`。它负责接收指令、进行思考和决策、并调用工具。它的系统提示（System Message）至关重要，必须教会它如何运用“混合执行模型”。
-* **\`UserProxyAgent\`**: 作为用户的代理和代码/工具的执行者。它接收\`AssistantAgent\`生成的工具调用请求，并实际执行它们，然后将结果返回。
-
-### 3.2 实施代码框架 (优化版)
-
-以下是一个更接近实际项目、经过优化的代码框架。它将概念分离得更清晰，并加入了错误处理和更健壮的实践。
-
-```python
-# 优化版代码框架，演示了更清晰的结构和更健壮的实践
-
-import autogen
-import requests
-import json
-from typing import Dict, Any, Optional, List
-
-# --- Part 1: MCP 客户端实现 ---
-# 将客户端逻辑封装成一个独立的类，更易于维护和测试。
-class MCPClient:
-    """用于和MCP Server通信的客户端。"""
-    def __init__(self, server_url: str):
-        if not server_url:
-            raise ValueError("MCP Server URL is required.")
-        self.server_url = server_url.rstrip('/')
-
-    def _post(self, endpoint: str, payload: Dict[str, Any]) -> Dict[str, Any]:
-        """通用的POST请求方法，包含错误处理。"""
-        try:
-            response = requests.post(f"{self.server_url}{endpoint}", json=payload)
-            response.raise_for_status()  # 如果HTTP状态码是4xx或5xx，则抛出异常
-            return response.json()
-        except requests.exceptions.HTTPError as http_err:
-            # 返回结构化的错误信息，Agent可以更好地理解
-            return {"error": "HTTPError", "status_code": http_err.response.status_code, "message": str(http_err)}
-        except requests.exceptions.RequestException as req_err:
-            return {"error": "RequestException", "message": str(req_err)}
-
-    def call_workflow(self, workflow_name: str, params: Dict[str, Any]) -> Dict[str, Any]:
-        """调用一个高级工作流。"""
-        return self._post(f"/workflow/{workflow_name}", {"params": params})
-
-    def call_tool(self, tool_name: str, params: Dict[str, Any]) -> Dict[str, Any]:
-        """调用一个原子工具。"""
-        return self._post(f"/tool/{tool_name}", {"params": params})
-
-# --- Part 2: 工具定义 ---
-# 工具函数现在更健壮，并返回结构化的JSON字符串，便于Agent解析。
-
-# 1. 初始化MCP客户端实例
-# 在实际应用中，URL会来自配置文件
-mcp_client = MCPClient(server_url="http://localhost:8000") 
-
-def create_full_analysis_bundle(username: str) -> str:
-    """
-    (首选工具) 触发一个端到端的高级工作流，获取、处理并聚合一个用户的所有收藏仓库数据。
-    适用于标准、全面的分析请求。
-    """
-    print(f"[Tool Call] Invoking high-level workflow: create_full_analysis_bundle for user '{username}'")
-    result = mcp_client.call_workflow("create_full_analysis_bundle", params={"username": username})
-    return json.dumps(result) # 返回JSON字符串，而不是Python对象的字符串表示
-
-def get_repo_list(username: str, language_filter: Optional[str] = None) -> str:
-    """
-    (后备工具) 获取用户收藏的仓库列表，可以根据语言进行过滤。
-    适用于需要自定义过滤条件的请求。
-    """
-    print(f"[Tool Call] Invoking atomic tool: get_repo_list for user '{username}' with filter '{language_filter}'")
-    params = {"username": username}
-    if language_filter:
-        params["language_filter"] = language_filter
-    result = mcp_client.call_tool("get_repo_list", params=params)
-    return json.dumps(result)
-
-def get_batch_repo_details(repo_ids: List[int]) -> str:
-    """(后备工具) 批量获取仓库的详细信息。"""
-    print(f"[Tool Call] Invoking atomic tool: get_batch_repo_details for {len(repo_ids)} repos")
-    result = mcp_client.call_tool("get_batch_repo_details", params={"repo_ids": repo_ids})
-    return json.dumps(result)
-
-# --- Part 3: AutoGen Agent 配置 ---
-
-# 核心：为指挥官Agent编写更详细、更健壮的系统消息
-commander_system_message = """
-You are GitHub Star Helper, a strategic AI assistant. Your job is to fulfill user requests to analyze their starred repositories efficiently and accurately.
-
-You have a toolbox with two types of tools:
-1.  **High-Level Workflows** (e.g., 'create_full_analysis_bundle'): These are powerful and efficient for standard, comprehensive tasks. **ALWAYS PREFER USING THESE** if they fully match the user's request.
-2.  **Atomic Tools** (e.g., 'get_repo_list', 'get_batch_repo_details'): Use these as a fallback to build a custom multi-step plan **ONLY** when no single high-level workflow can satisfy the user's specific, detailed, or unusual request.
-
-Your goal is to choose the most efficient path to answer the user's question.
-When a tool returns an error, inform the user about the error and stop the task.
-After successfully receiving data, analyze it and provide a clear, structured summary to the user in Chinese.
-"""
-
-# 在实际应用中，配置会从文件加载
-llm_config = {"config_list": autogen.config_list_from_json("OAI_CONFIG_LIST")}
-
-# 创建Agent
-github_star_helper_agent = autogen.AssistantAgent(
-    name="GitHub_Star_Helper",
-    system_message=commander_system_message,
-    llm_config=llm_config,
-)
-
-user_proxy = autogen.UserProxyAgent(
-    name="User_Proxy",
-    human_input_mode="TERMINATE",
-    max_consecutive_auto_reply=5,
-    is_termination_msg=lambda x: "TERMINATE" in x.get("content", "").rstrip(),
-    code_execution_config=False,
-    function_map={
-        "create_full_analysis_bundle": create_full_analysis_bundle,
-        "get_repo_list": get_repo_list,
-        "get_batch_repo_details": get_batch_repo_details,
-    }
-)
-
-# --- Part 4: 发起对话 (示例) ---
-# user_proxy.initiate_chat(
-#     github_star_helper_agent,
-#     message="请帮我全面分析一下我的GitHub收藏仓库，我的用户名是 'aaronzjc'。"
-# )
-```
-
-## 第四章: 多Agent协作：何时与如何
+## 第三章: 多Agent协作：何时与如何
 
 对于GitHub Star Helper的**核心功能**，我们坚持采用**单一智能体**的设计。Agent的扩展应通过增强工具和工作流来实现，而不是盲目增加Agent数量。
 
@@ -320,7 +191,7 @@ user_proxy = autogen.UserProxyAgent(
     2.  **决策**: `create_full_analysis_bundle`工作流无法直接满足这种复合过滤。因此，Agent必须回退到**原子工具编排**模式。
     3.  **行动 (多步骤)**:
         a. Agent首先调用 `get_repo_list(username="aaronzjc", language_filter="Python")`。
-        b. Agent在内存中对返回的列表进行第二次过滤，通过分析仓库的名称和描述，筛选出包含“agent”, “llm”, “autogen”等关键词的项目。
+        b. Agent在内存中对返回的列表进行第二次过滤，通过分析仓库的名称和描述，筛选出包含"agent", "llm", "openai"等关键词的项目。
         c. Agent将筛选出的项目ID列表，传递给 `get_batch_repo_details(repo_ids=[...])` 来获取更详细的信息。
     4.  **分析与响应**: Agent整合信息，生成一个专注的列表。
 

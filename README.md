@@ -4,86 +4,104 @@
 
 **当前版本：v0.0.1**
 
-## 开发状态
+## 界面预览
 
-### 第一阶段：基础架构 ✅ 已完成
-- [x] 项目结构与配置
-- [x] 数据库层（SQLite + FTS5）
-- [x] GitHub API 客户端（httpx，异步）
-- [x] LLM 抽象层（OpenAI）
-- [x] 初始化服务（获取并分析 stars）
-- [x] 搜索服务（按分类/语言/stars 过滤）
-- [x] 聊天服务（RAG 支持）
-- [x] 基础 API 路由
+### 首页
+![首页](assets/home.png)
 
-### 第二阶段：意图识别与语义搜索 ✅ 已完成
-- [x] 意图分类（基于 LLM 的查询路由）
-- [x] 向量嵌入（Ollama nomic-embed-text）
-- [x] 语义搜索（ChromaDB）
-- [x] 混合搜索（FTS + 语义搜索，加权融合）
-- [x] 统计聚合服务
-- [x] 增强聊天（基于意图的流式响应）
-- [x] 前端初始化页面（支持语义搜索选项）
+### 搜索页
+![搜索页](assets/search.png)
 
-**测试**：72 个通过 ✅（第二阶段完成时）
+### 聊天页
+![聊天页](assets/chat.png)
 
-查看 [docs/plans/2024-12-30-stage2-intent-semantic-design.md](docs/plans/2024-12-30-stage2-intent-semantic-design.md) 了解第二阶段详情。
+### 网络可视化
+![网络可视化](assets/network.png)
 
-### 第三阶段：高级功能 ✅ 已完成
-- [x] 多轮对话上下文
-- [x] 高级 RAG（带查询扩展）
-- [x] 仓库推荐
-- [x] 趋势分析与洞察
-
-**测试**：101 个通过 ✅
-
-### 第四阶段：网络可视化 ✅ 已完成
-- [x] 关系网络可视化（ECharts）
-- [x] NetworkService（相似度计算与图构建）
-- [x] 力导向图布局
-- [x] 节点大小按分类数量，颜色按 star 数量
-- [x] Top-K 相似连接（K=5）
-- [x] 网络缓存（提升性能）
-
-**测试**：117 个通过 ✅
+### 趋势分析
+![趋势分析](assets/trend.png)
 
 ---
 
-## 产品计划
+## 快速开始
 
-### 项目愿景
+### Docker 部署（推荐）
 
-构建一个真正智能的 GitHub 星标仓库管理助手，能深刻理解用户意图，高效执行任务，并能随着需求的增长而平滑演进。
+最快速的方式是使用 Docker。详细部署指南请查看 **[DEPLOYMENT.md](DEPLOYMENT.md)**。
 
-### 核心架构：混合执行模型
+**一键启动：**
+```bash
+# 克隆项目
+git clone <repository-url>
+cd startship
 
-项目采用**"混合执行模型"**，在效率与灵活性之间取得平衡：
+# 构建并启动所有服务
+docker compose up -d
 
-1. **高层工作流委托** - 优先调用服务端预定义的高级工作流，处理标准、重复性的任务
-2. **原子工具编排** - 当高级工作流无法满足需求时，Agent 可回退到调用原子化工具，自行编排逻辑
+# 查看服务状态
+docker compose ps
 
-### 实施路线图
+# 停止服务
+docker compose down
+```
 
-#### 第一阶段：服务分离与工作流抽象 ✅
-- 搭建基础 API 服务，提供原子工具和高级工作流
-- 实现基础的混合执行决策能力
-- 使用 Redis 进行 L2 缓存
+**访问地址：**
+- 前端：http://localhost:3001
+- 后端 API：http://localhost:8889
 
-#### 第二阶段：引入可靠性与效率（规划中）
-- 引入工作流引擎（如 Temporal）重构高级工作流
-- 建立完善的缓存失效机制
-- 引入向量数据库作为 Agent 的 L1 缓存
+### 本地开发
 
-#### 第三阶段：实现企业级能力（规划中）
-- 部署完整的可观测性套件
-- 提供声明式的工作流定义语言
-- 引入 RBAC 或 OAuth 权限管理
-- 谨慎引入多 Agent 协作模式
+**环境要求：**
+- Python 3.13+
+- Node.js 18+（前端）
+- Ollama（可选，用于语义搜索）
 
-### 详细文档
+**安装步骤：**
 
-完整的架构设计、AutoGen 实施方案、核心使用场景等内容，请查看：
-**[product_plan.md](product_plan.md)**
+1. **安装 Python 依赖**
+```bash
+# 使用 uv（推荐）
+uv pip install -e .
+
+# 或使用 pip
+pip install -r requirements.txt
+```
+
+2. **安装前端依赖**
+```bash
+cd frontend
+npm install
+```
+
+3. **配置环境变量**
+```bash
+cp .env.example .env
+# 编辑 .env 文件，设置必要的配置
+```
+
+4. **（可选）安装 Ollama 用于语义搜索**
+```bash
+# 安装 Ollama
+curl -fsSL https://ollama.com/install.sh | sh
+
+# 拉取嵌入模型
+ollama pull nomic-embed-text
+ollama serve
+```
+
+5. **启动服务**
+```bash
+# 启动后端（在项目根目录）
+uvicorn src.api.app:app --reload --host 0.0.0.0 --port 8889
+
+# 启动前端（在 frontend 目录）
+npm run dev -- --port 3001
+```
+
+6. **访问应用**
+- 前端: http://localhost:3001
+- 后端 API: http://localhost:8889
+- API 文档: http://localhost:8889/docs
 
 ---
 
@@ -115,129 +133,18 @@
 - **前端**: Vue 3 + TypeScript + Tailwind CSS
 - **AI**: OpenAI GPT for intent and chat
 
-## 界面预览
-
-### 首页
-![首页](assets/home.png)
-
-### 搜索页
-![搜索页](assets/search.png)
-
-### 聊天页
-![聊天页](assets/chat.png)
-
-### 网络可视化
-![网络可视化](assets/network.png)
-
-### 趋势分析
-![趋势分析](assets/trend.png)
-
 ---
-
-## 快速开始
-
-### 环境要求
-- Python 3.13+
-- Node.js 18+（前端）
-- Ollama（可选，用于语义搜索）
-
-### 安装步骤
-
-1. **克隆项目**
-```bash
-git clone <repository-url>
-cd startship
-```
-
-2. **安装Python依赖**
-```bash
-# 使用 uv (推荐)
-uv pip install -e .
-
-# 或使用 pip
-pip install -r requirements.txt
-```
-
-3. **配置环境变量**
-```bash
-cp .env.example .env
-# 编辑 .env 文件，设置必要的配置
-```
-
-4. **（可选）安装 Ollama 用于语义搜索**
-```bash
-# 安装 Ollama
-curl -fsSL https://ollama.com/install.sh | sh
-
-# 拉取嵌入模型
-ollama pull nomic-embed-text
-ollama serve
-```
-
-5. **启动后端服务**
-```bash
-uvicorn src.api.app:app --reload --host 0.0.0.0 --port 8000
-```
-
-6. **启动前端（开发模式）**
-```bash
-cd frontend
-npm install
-npm run dev
-```
-
-7. **访问应用**
-- 前端: http://localhost:5173
-- 后端 API: http://localhost:8000
-- API 文档: http://localhost:8000/docs
-
-### 使用方法
-
-1. **初始化系统**
-   - 访问 http://localhost:5173/init
-   - 输入 GitHub 用户名
-   - 选择是否启用语义搜索（需要 Ollama）
-   - 点击"开始初始化"
-
-2. **开始对话**
-   - 访问 http://localhost:5173/chat
-   - 输入自然语言问题
-
-3. **示例查询**
-   ```
-   按语言统计我的仓库
-   有多少 Python 项目
-   搜索一些机器学习相关的仓库
-   有哪些 React 相关的项目
-   ```
 
 ## 项目结构
 
-### Docker 部署（推荐）
+### Docker 部署文件
+- `docker-compose.yml` - Docker 编排配置
+- `Dockerfile.backend` - 后端 Docker 镜像
+- `Dockerfile.frontend` - 前端 Docker 镜像（多阶段构建 + nginx）
+- `docker-nginx.conf` - nginx 配置（含 API 代理）
+- `DEPLOYMENT.md` - 详细部署指南
 
-最快速的部署方式是使用 Docker。详细部署指南请查看 **[DEPLOYMENT.md](DEPLOYMENT.md)**。
-
-**快速启动：**
-```bash
-# 构建并启动所有服务
-docker compose up -d
-
-# 查看服务状态
-docker compose ps
-
-# 查看日志
-docker compose logs -f
-
-# 停止服务
-docker compose down
-```
-
-**访问地址：**
-- 前端：http://localhost:3001
-- 后端 API：http://localhost:8889
-
-### 项目结构
-
+### 目录结构
 ```
 startship/
 ├── src/                          # 后端源代码
@@ -297,14 +204,14 @@ startship/
 │   └── unit/                     # 单元测试
 ├── data/                         # 数据目录
 │   └── github_stars.db           # SQLite 数据库
-├── docker-compose.yml            # Docker 编排配置
-├── Dockerfile.backend            # 后端 Docker 镜像
-├── Dockerfile.frontend           # 前端 Docker 镜像
-├── DEPLOYMENT.md                 # 部署指南
+├── assets/                       # 资源文件
+│   └── *.png                     # 界面截图
 ├── product_plan.md               # 产品计划（详细架构设计）
 ├── pyproject.toml                # Python 项目配置
 └── README.md                     # 项目说明
 ```
+
+---
 
 ## 核心使用场景
 
@@ -362,33 +269,7 @@ AI: 基于你的技能基础，推荐Docker→Kubernetes→微服务的渐进式
 AI: 从性能、生态、学习曲线等维度对比，并根据项目需求给出建议
 ```
 
-## API 接口
-
-### REST API
-
-#### 初始化
-- `GET /api/init/status` - 获取初始化状态
-- `POST /api/init/start` - 开始初始化（从 GitHub stars）
-
-#### 聊天
-- `POST /api/chat` - 发送聊天消息（非流式）
-- `POST /api/chat/stream` - 流式聊天（带意图识别）
-  - SSE 事件类型: `intent`, `content`, `search_results`, `done`
-- `GET /api/chat/{session_id}` - 获取对话历史
-- `DELETE /api/chat/{session_id}` - 删除对话
-
-#### 搜索
-- `GET /api/search` - 搜索仓库（支持过滤）
-- `GET /api/categories` - 获取分类列表
-- `GET /api/repo/{name_with_owner}` - 获取单个仓库详情
-
-#### 系统
-- `GET /` - 根路径
-- `GET /health` - 健康检查
-- `GET /stats` - 获取服务统计
-
-### 交互式文档
-访问 http://localhost:8000/docs 查看 Swagger UI 文档
+---
 
 ## 开发指南
 
@@ -396,13 +277,13 @@ AI: 从性能、生态、学习曲线等维度对比，并根据项目需求给�
 
 1. **启动后端开发服务器**
 ```bash
-uvicorn src.api.app:app --reload --host 0.0.0.0 --port 8000
+uvicorn src.api.app:app --reload --host 0.0.0.0 --port 8889
 ```
 
 2. **启动前端开发服务器**
 ```bash
 cd frontend
-npm run dev
+npm run dev -- --port 3001
 ```
 
 3. **运行测试**
@@ -440,6 +321,8 @@ npm run format
 
 3. **自定义嵌入模型**
    - 修改 `src/vector/embeddings.py` 使用不同的 Ollama 模型或其他嵌入服务
+
+---
 
 ## 配置说明
 
@@ -483,6 +366,38 @@ docker compose logs -f frontend
 docker compose down
 ```
 
+---
+
+## API 接口
+
+### REST API
+
+#### 初始化
+- `GET /api/init/status` - 获取初始化状态
+- `POST /api/init/start` - 开始初始化（从 GitHub stars）
+
+#### 聊天
+- `POST /api/chat` - 发送聊天消息（非流式）
+- `POST /api/chat/stream` - 流式聊天（带意图识别）
+  - SSE 事件类型: `intent`, `content`, `search_results`, `done`
+- `GET /api/chat/{session_id}` - 获取对话历史
+- `DELETE /api/chat/{session_id}` - 删除对话
+
+#### 搜索
+- `GET /api/search` - 搜索仓库（支持过滤）
+- `GET /api/categories` - 获取分类列表
+- `GET /api/repo/{name_with_owner}` - 获取单个仓库详情
+
+#### 系统
+- `GET /` - 根路径
+- `GET /health` - 健康检查
+- `GET /stats` - 获取服务统计
+
+### 交互式文档
+访问 http://localhost:8889/docs 查看 Swagger UI 文档
+
+---
+
 ## 故障排除
 
 ### 常见问题
@@ -506,17 +421,100 @@ docker compose down
    - 查看后端日志获取详细错误信息
 
 5. **前端无法连接后端**
-   - 检查后端是否运行在 http://localhost:8000
+   - 检查后端是否运行在 http://localhost:8889
    - 验证 CORS 配置
    - 查看浏览器控制台错误信息
 
+---
+
+## 开发状态
+
+### 第一阶段：基础架构 ✅ 已完成
+- [x] 项目结构与配置
+- [x] 数据库层（SQLite + FTS5）
+- [x] GitHub API 客户端（httpx，异步）
+- [x] LLM 抽象层（OpenAI）
+- [x] 初始化服务（获取并分析 stars）
+- [x] 搜索服务（按分类/语言/stars 过滤）
+- [x] 聊天服务（RAG 支持）
+- [x] 基础 API 路由
+
+### 第二阶段：意图识别与语义搜索 ✅ 已完成
+- [x] 意图分类（基于 LLM 的查询路由）
+- [x] 向量嵌入（Ollama nomic-embed-text）
+- [x] 语义搜索（ChromaDB）
+- [x] 混合搜索（FTS + 语义搜索，加权融合）
+- [x] 统计聚合服务
+- [x] 增强聊天（基于意图的流式响应）
+- [x] 前端初始化页面（支持语义搜索选项）
+
+**测试**：72 个通过 ✅（第二阶段完成时）
+
+### 第三阶段：高级功能 ✅ 已完成
+- [x] 多轮对话上下文
+- [x] 高级 RAG（带查询扩展）
+- [x] 仓库推荐
+- [x] 趋势分析与洞察
+
+**测试**：101 个通过 ✅
+
+### 第四阶段：网络可视化 ✅ 已完成
+- [x] 关系网络可视化（ECharts）
+- [x] NetworkService（相似度计算与图构建）
+- [x] 力导向图布局
+- [x] 节点大小按分类数量，颜色按 star 数量
+- [x] Top-K 相似连接（K=5）
+- [x] 网络缓存（提升性能）
+
+**测试**：117 个通过 ✅
+
+---
+
+## 产品计划
+
+### 项目愿景
+
+构建一个真正智能的 GitHub 星标仓库管理助手，能深刻理解用户意图，高效执行任务，并能随着需求的增长而平滑演进。
+
+### 核心架构：混合执行模型
+
+项目采用**"混合执行模型"**，在效率与灵活性之间取得平衡：
+
+1. **高层工作流委托** - 优先调用服务端预定义的高级工作流，处理标准、重复性的任务
+2. **原子工具编排** - 当高级工作流无法满足需求时，Agent 可回退到调用原子化工具，自行编排逻辑
+
+### 实施路线图
+
+#### 第一阶段：服务分离与工作流抽象 ✅
+- 搭建基础 API 服务，提供原子工具和高级工作流
+- 实现基础的混合执行决策能力
+- 使用 Redis 进行 L2 缓存
+
+#### 第二阶段：引入可靠性与效率（规划中）
+- 引入工作流引擎（如 Temporal）重构高级工作流
+- 建立完善的缓存失效机制
+- 引入向量数据库作为 Agent 的 L1 缓存
+
+#### 第三阶段：实现企业级能力（规划中）
+- 部署完整的可观测性套件
+- 提供声明式的工作流定义语言
+- 引入 RBAC 或 OAuth 权限管理
+- 谨慎引入多 Agent 协作模式
+
+### 详细文档
+
+完整的架构设计、AutoGen 实施方案、核心使用场景等内容，请查看：
+**[product_plan.md](product_plan.md)**
+
+---
+
 ## 贡献指南
 
-1. Fork项目
+1. Fork 项目
 2. 创建功能分支
 3. 提交更改
 4. 推送到分支
-5. 创建Pull Request
+5. 创建 Pull Request
 
 ## 许可证
 
@@ -524,4 +522,4 @@ MIT License
 
 ## 联系方式
 
-如有问题或建议，请创建Issue或联系项目维护者。
+如有问题或建议，请创建 Issue 或联系项目维护者。

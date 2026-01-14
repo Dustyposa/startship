@@ -1,6 +1,11 @@
 """Semantic search using ChromaDB."""
-import chromadb
-from chromadb.config import Settings
+try:
+    import chromadb
+    from chromadb.config import Settings
+    CHROMADB_AVAILABLE = True
+except ImportError:
+    CHROMADB_AVAILABLE = False
+
 from src.vector.embeddings import OllamaEmbedder
 
 
@@ -20,7 +25,16 @@ class SemanticSearch:
             ollama_base_url: Ollama API URL
             model: Embedding model name
             persist_path: ChromaDB persistence path
+
+        Raises:
+            ImportError: If chromadb is not installed
         """
+        if not CHROMADB_AVAILABLE:
+            raise ImportError(
+                "chromadb is not installed. Semantic search is not available. "
+                "Install it with: pip install chromadb"
+            )
+
         self.embedder = OllamaEmbedder(ollama_base_url, model)
         self.client = chromadb.PersistentClient(
             path=persist_path,

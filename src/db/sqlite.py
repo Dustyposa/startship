@@ -156,8 +156,8 @@ class SQLiteDatabase(Database):
                     primary_language, topics, stargazer_count, fork_count,
                     url, homepage_url, summary, categories, features,
                     tech_stack, use_cases, readme_summary, readme_path,
-                    readme_content, search_text
-                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                    readme_content, search_text, starred_at
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                 """,
                 (
                     repo_data.get("name_with_owner"),
@@ -178,7 +178,8 @@ class SQLiteDatabase(Database):
                     repo_data.get("readme_summary"),
                     repo_data.get("readme_path"),
                     repo_data.get("readme_content"),
-                    self._build_search_text(repo_data)
+                    self._build_search_text(repo_data),
+                    repo_data.get("starred_at")
                 )
             )
             await self._connection.commit()

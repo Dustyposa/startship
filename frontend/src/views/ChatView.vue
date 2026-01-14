@@ -5,6 +5,7 @@
         <h2 class="text-lg font-bold flex items-center gap-2">
           <span class="text-2xl">🤖</span>
           AI 助手
+          <span class="px-2 py-0.5 bg-yellow-100 text-yellow-800 text-xs font-medium rounded">Beta</span>
         </h2>
         <button
           @click="clearMessages"

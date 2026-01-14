@@ -8,6 +8,11 @@ export interface Repository {
   tech_stack: string[]
   stargazer_count: number
   summary: string | null
+  starred_at?: string | null
+  url?: string
+  homepage_url?: string | null
+  fork_count?: number
+  topics?: string[]
 }
 
 export interface ChatMessage {

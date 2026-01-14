@@ -32,13 +32,7 @@ export default defineConfig({
         }
       }
     },
-    // Enable better compression
-    minify: 'terser',
-    terserOptions: {
-      compress: {
-        drop_console: true,
-        drop_debugger: true
-      }
-    }
+    // Use esbuild for minification (built into Vite)
+    minify: 'esbuild'
   }
 })

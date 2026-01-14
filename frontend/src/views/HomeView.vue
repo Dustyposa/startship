@@ -97,15 +97,17 @@
         </router-link>
         <router-link
           to="/chat"
-          class="px-5 py-2.5 border border-blue-600 text-blue-600 rounded-lg hover:bg-blue-50 transition"
+          class="px-5 py-2.5 border border-blue-600 text-blue-600 rounded-lg hover:bg-blue-50 transition flex items-center gap-2"
         >
           💬 智能对话
+          <span class="px-2 py-0.5 bg-yellow-100 text-yellow-800 text-xs font-medium rounded">Beta</span>
         </router-link>
         <router-link
           to="/network"
-          class="px-5 py-2.5 border border-purple-600 text-purple-600 rounded-lg hover:bg-purple-50 transition"
+          class="px-5 py-2.5 border border-purple-600 text-purple-600 rounded-lg hover:bg-purple-50 transition flex items-center gap-2"
         >
           🕸️ 关系网络
+          <span class="px-2 py-0.5 bg-yellow-100 text-yellow-800 text-xs font-medium rounded">Beta</span>
         </router-link>
       </div>
     </section>
@@ -150,7 +152,10 @@
         <!-- Chat Card -->
         <router-link to="/chat" class="block group">
           <div class="bg-white p-6 rounded-lg shadow-sm hover:shadow-md transition">
-            <div class="text-4xl mb-3">💬</div>
+            <div class="flex items-start justify-between">
+              <div class="text-4xl mb-3">💬</div>
+              <span class="px-2 py-1 bg-yellow-100 text-yellow-800 text-xs font-medium rounded">Beta</span>
+            </div>
             <h3 class="text-lg font-semibold text-gray-900 mb-2">智能对话</h3>
             <p class="text-gray-600 text-sm">自然语言查询，智能意图识别</p>
             <div class="mt-4 text-blue-600 text-sm group-hover:underline">开始对话 →</div>
@@ -160,7 +165,10 @@
         <!-- Network Card -->
         <router-link to="/network" class="block group">
           <div class="bg-white p-6 rounded-lg shadow-sm hover:shadow-md transition">
-            <div class="text-4xl mb-3">🕸️</div>
+            <div class="flex items-start justify-between">
+              <div class="text-4xl mb-3">🕸️</div>
+              <span class="px-2 py-1 bg-yellow-100 text-yellow-800 text-xs font-medium rounded">Beta</span>
+            </div>
             <h3 class="text-lg font-semibold text-gray-900 mb-2">关系网络</h3>
             <p class="text-gray-600 text-sm">可视化仓库之间的关联关系</p>
             <div class="mt-4 text-blue-600 text-sm group-hover:underline">查看网络 →</div>
@@ -170,7 +178,10 @@
         <!-- Trends Card -->
         <router-link to="/trends" class="block group">
           <div class="bg-white p-6 rounded-lg shadow-sm hover:shadow-md transition">
-            <div class="text-4xl mb-3">📈</div>
+            <div class="flex items-start justify-between">
+              <div class="text-4xl mb-3">📈</div>
+              <span class="px-2 py-1 bg-yellow-100 text-yellow-800 text-xs font-medium rounded">Beta</span>
+            </div>
             <h3 class="text-lg font-semibold text-gray-900 mb-2">趋势分析</h3>
             <p class="text-gray-600 text-sm">Star 时间线、语言趋势、主题演变</p>
             <div class="mt-4 text-blue-600 text-sm group-hover:underline">查看趋势 →</div>

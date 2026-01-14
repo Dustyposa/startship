@@ -72,12 +72,15 @@
         <div @click="goToRepo(repo.name_with_owner)">
           <h3 class="font-bold text-gray-900 dark:text-white">{{ repo.name_with_owner }}</h3>
           <p class="text-sm text-gray-600 dark:text-gray-400 line-clamp-2">{{ repo.description || repo.summary }}</p>
-          <div class="flex gap-2 mt-2">
+          <div class="flex gap-2 mt-2 flex-wrap">
             <span v-if="repo.primary_language" class="text-xs px-2 py-1 bg-blue-100 dark:bg-blue-900 text-blue-800 dark:text-blue-200 rounded">
               {{ repo.primary_language }}
             </span>
             <span class="text-xs px-2 py-1 bg-gray-100 dark:bg-gray-700 text-gray-800 dark:text-gray-200 rounded">
-              ⭐ {{ repo.stargazer_count }}
+              ⭐ {{ formatStarCount(repo.stargazer_count) }}
+            </span>
+            <span v-if="repo.starred_at" class="text-xs px-2 py-1 bg-green-100 dark:bg-green-900 text-green-800 dark:text-green-200 rounded">
+              ⭐ {{ formatRelativeTime(repo.starred_at) }}
             </span>
           </div>
         </div>
@@ -220,6 +223,7 @@ import { useExport } from '../composables/useExport'
 import { useCollections } from '@/composables/useCollections'
 import NoteEditor from '@/components/NoteEditor.vue'
 import TagManager from '@/components/TagManager.vue'
+import { formatStarCount, formatRelativeTime } from '@/utils/format'
 
 const router = useRouter()
 const route = useRoute()

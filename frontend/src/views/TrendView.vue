@@ -1,7 +1,10 @@
 <template>
   <div class="space-y-8">
     <div class="flex justify-between items-center">
-      <h1 class="text-3xl font-bold text-gray-900 dark:text-white">📈 趋势分析</h1>
+      <div class="flex items-center gap-3">
+        <h1 class="text-3xl font-bold text-gray-900 dark:text-white">📈 趋势分析</h1>
+        <span class="px-2 py-1 bg-yellow-100 text-yellow-800 text-sm font-medium rounded">Beta</span>
+      </div>
       <button
         @click="exportData"
         class="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition flex items-center gap-2"

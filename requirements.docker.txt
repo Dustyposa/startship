@@ -1,0 +1,21 @@
+# Core dependencies
+fastapi>=0.116.1
+uvicorn>=0.24.0
+pydantic-settings>=2.0.0
+python-dotenv>=1.0.0
+
+# Database
+aiosqlite>=0.19.0
+
+# HTTP client
+httpx>=0.25.0
+
+# LLM support
+openai>=1.109.1
+
+# Logging
+loguru>=0.7.3
+
+# Utilities
+orjson>=3.11.1
+progress>=1.6

@@ -15,12 +15,18 @@
         </a>
       </div>
 
-      <div class="flex gap-4 mb-6">
+      <div class="flex gap-4 mb-6 flex-wrap">
         <span v-if="repo.primary_language" class="px-3 py-1 bg-blue-100 text-blue-800 rounded-full text-sm">
           {{ repo.primary_language }}
         </span>
         <span class="px-3 py-1 bg-yellow-100 text-yellow-800 rounded-full text-sm">
-          ⭐ {{ repo.stargazer_count }}
+          ⭐ {{ formatStarCount(repo.stargazer_count) }} stars
+        </span>
+        <span v-if="repo.starred_at" class="px-3 py-1 bg-green-100 text-green-800 rounded-full text-sm">
+          Starred {{ formatRelativeTime(repo.starred_at) }}
+        </span>
+        <span v-if="repo.fork_count !== undefined" class="px-3 py-1 bg-gray-100 text-gray-800 rounded-full text-sm">
+          🍴 {{ formatStarCount(repo.fork_count) }} forks
         </span>
       </div>
 
@@ -83,6 +89,7 @@ import { useReposStore } from '../stores/repos'
 import type { Repository } from '../types'
 import NoteEditor from '../components/NoteEditor.vue'
 import TagManager from '../components/TagManager.vue'
+import { formatStarCount, formatRelativeTime } from '@/utils/format'
 
 const route = useRoute()
 const reposStore = useReposStore()

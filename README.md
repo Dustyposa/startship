@@ -2,48 +2,88 @@
 
 智能的 GitHub 星标仓库管理和分析助手。
 
-## Development Status
+**当前版本：v0.0.1**
 
-### Stage 1: Foundation ✅ COMPLETED
-- [x] Project structure & configuration
-- [x] Database layer (SQLite with FTS5)
-- [x] GitHub API client (httpx, async)
-- [x] LLM abstraction layer (OpenAI)
-- [x] Initialization service (fetch & analyze stars)
-- [x] Search service (filter by category/language/stars)
-- [x] Chat service (RAG support)
-- [x] Basic API routes
+## 开发状态
 
-### Stage 2: Intent & Semantic Search ✅ COMPLETED
-- [x] Intent classification (LLM-based query routing)
-- [x] Vector embeddings (Ollama nomic-embed-text)
-- [x] Semantic search (ChromaDB)
-- [x] Hybrid search (FTS + Semantic with weighted merging)
-- [x] Statistics aggregation service
-- [x] Enhanced chat with intent-based streaming
-- [x] Frontend InitView with semantic option
+### 第一阶段：基础架构 ✅ 已完成
+- [x] 项目结构与配置
+- [x] 数据库层（SQLite + FTS5）
+- [x] GitHub API 客户端（httpx，异步）
+- [x] LLM 抽象层（OpenAI）
+- [x] 初始化服务（获取并分析 stars）
+- [x] 搜索服务（按分类/语言/stars 过滤）
+- [x] 聊天服务（RAG 支持）
+- [x] 基础 API 路由
 
-**Tests**: 72 passing ✅ (at Stage 2 completion)
+### 第二阶段：意图识别与语义搜索 ✅ 已完成
+- [x] 意图分类（基于 LLM 的查询路由）
+- [x] 向量嵌入（Ollama nomic-embed-text）
+- [x] 语义搜索（ChromaDB）
+- [x] 混合搜索（FTS + 语义搜索，加权融合）
+- [x] 统计聚合服务
+- [x] 增强聊天（基于意图的流式响应）
+- [x] 前端初始化页面（支持语义搜索选项）
 
-See [docs/plans/2024-12-30-stage2-intent-semantic-design.md](docs/plans/2024-12-30-stage2-intent-semantic-design.md) for Stage 2 details.
+**测试**：72 个通过 ✅（第二阶段完成时）
 
-### Stage 3: Advanced Features ✅ COMPLETED
-- [x] Multi-turn conversation context
-- [x] Advanced RAG with query expansion
-- [x] Repository recommendations
-- [x] Trend analysis and insights
+查看 [docs/plans/2024-12-30-stage2-intent-semantic-design.md](docs/plans/2024-12-30-stage2-intent-semantic-design.md) 了解第二阶段详情。
 
-**Tests**: 101 passing ✅
+### 第三阶段：高级功能 ✅ 已完成
+- [x] 多轮对话上下文
+- [x] 高级 RAG（带查询扩展）
+- [x] 仓库推荐
+- [x] 趋势分析与洞察
 
-### Stage 4: Network Visualization ✅ COMPLETED
-- [x] Relationship network visualization with ECharts
-- [x] NetworkService for similarity calculation and graph building
-- [x] Force-directed graph layout
-- [x] Node sizing by category count, coloring by star count
-- [x] Top-K similar connections (K=5)
-- [x] Network cache for performance
+**测试**：101 个通过 ✅
 
-**Tests**: 117 passing ✅
+### 第四阶段：网络可视化 ✅ 已完成
+- [x] 关系网络可视化（ECharts）
+- [x] NetworkService（相似度计算与图构建）
+- [x] 力导向图布局
+- [x] 节点大小按分类数量，颜色按 star 数量
+- [x] Top-K 相似连接（K=5）
+- [x] 网络缓存（提升性能）
+
+**测试**：117 个通过 ✅
+
+---
+
+## 产品计划
+
+### 项目愿景
+
+构建一个真正智能的 GitHub 星标仓库管理助手，能深刻理解用户意图，高效执行任务，并能随着需求的增长而平滑演进。
+
+### 核心架构：混合执行模型
+
+项目采用**"混合执行模型"**，在效率与灵活性之间取得平衡：
+
+1. **高层工作流委托** - 优先调用服务端预定义的高级工作流，处理标准、重复性的任务
+2. **原子工具编排** - 当高级工作流无法满足需求时，Agent 可回退到调用原子化工具，自行编排逻辑
+
+### 实施路线图
+
+#### 第一阶段：服务分离与工作流抽象 ✅
+- 搭建基础 API 服务，提供原子工具和高级工作流
+- 实现基础的混合执行决策能力
+- 使用 Redis 进行 L2 缓存
+
+#### 第二阶段：引入可靠性与效率（规划中）
+- 引入工作流引擎（如 Temporal）重构高级工作流
+- 建立完善的缓存失效机制
+- 引入向量数据库作为 Agent 的 L1 缓存
+
+#### 第三阶段：实现企业级能力（规划中）
+- 部署完整的可观测性套件
+- 提供声明式的工作流定义语言
+- 引入 RBAC 或 OAuth 权限管理
+- 谨慎引入多 Agent 协作模式
+
+### 详细文档
+
+完整的架构设计、AutoGen 实施方案、核心使用场景等内容，请查看：
+**[product_plan.md](product_plan.md)**
 
 ---
 
@@ -75,12 +115,31 @@ See [docs/plans/2024-12-30-stage2-intent-semantic-design.md](docs/plans/2024-12-
 - **前端**: Vue 3 + TypeScript + Tailwind CSS
 - **AI**: OpenAI GPT for intent and chat
 
+## 界面预览
+
+### 首页
+![首页](assets/home.png)
+
+### 搜索页
+![搜索页](assets/search.png)
+
+### 聊天页
+![聊天页](assets/chat.png)
+
+### 网络可视化
+![网络可视化](assets/network.png)
+
+### 趋势分析
+![趋势分析](assets/trend.png)
+
+---
+
 ## 快速开始
 
 ### 环境要求
 - Python 3.13+
-- Node.js 18+ (for frontend)
-- Ollama (可选，用于语义搜索)
+- Node.js 18+（前端）
+- Ollama（可选，用于语义搜索）
 
 ### 安装步骤
 
@@ -154,6 +213,31 @@ npm run dev
 
 ## 项目结构
 
+### Docker 部署（推荐）
+
+最快速的部署方式是使用 Docker。详细部署指南请查看 **[DEPLOYMENT.md](DEPLOYMENT.md)**。
+
+**快速启动：**
+```bash
+# 构建并启动所有服务
+docker compose up -d
+
+# 查看服务状态
+docker compose ps
+
+# 查看日志
+docker compose logs -f
+
+# 停止服务
+docker compose down
+```
+
+**访问地址：**
+- 前端：http://localhost:3001
+- 后端 API：http://localhost:8889
+
+### 项目结构
+
 ```
 startship/
 ├── src/                          # 后端源代码
@@ -162,14 +246,18 @@ startship/
 │   │   └── routes/               # API 路由
 │   │       ├── chat.py           # 聊天接口（含意图识别）
 │   │       ├── search.py         # 搜索接口
-│   │       └── init.py           # 初始化接口
+│   │       ├── init.py           # 初始化接口
+│   │       ├── trends.py         # 趋势分析接口
+│   │       └── network.py        # 网络可视化接口
 │   ├── config.py                 # 配置管理
+│   ├── data/                     # 数据模型
 │   ├── db/                       # 数据库层
-│   │   ├── base.py               # Database 抽象
+│   │   ├── base.py               # 数据库抽象
 │   │   └── sqlite.py             # SQLite 实现
 │   ├── github/                   # GitHub API
 │   │   ├── client.py             # GitHub API 客户端
-│   │   └── models.py             # GitHub 数据模型
+│   │   ├── models.py             # GitHub 数据模型
+│   │   └── graphql.py            # GraphQL 查询
 │   ├── llm/                      # LLM 抽象层
 │   │   ├── base.py               # LLM 抽象接口
 │   │   └── openai.py             # OpenAI 实现
@@ -179,22 +267,41 @@ startship/
 │   │   ├── chat.py               # 聊天服务
 │   │   ├── stats.py              # 统计服务
 │   │   ├── hybrid_search.py      # 混合搜索
-│   │   └── init.py               # 初始化服务
+│   │   ├── init.py               # 初始化服务
+│   │   ├── network.py            # 网络分析服务
+│   │   ├── trend_analysis.py     # 趋势分析服务
+│   │   ├── recommendation.py     # 推荐服务
+│   │   ├── context.py            # 对话上下文
+│   │   └── query_expander.py     # 查询扩展
 │   └── vector/                   # 向量搜索
 │       ├── embeddings.py         # Ollama 嵌入
 │       └── semantic.py           # 语义搜索 (ChromaDB)
 ├── frontend/                     # 前端 (Vue 3)
 │   └── src/
 │       ├── views/                # 页面组件
+│       │   ├── HomeView.vue      # 首页
+│       │   ├── InitView.vue      # 初始化页
+│       │   ├── SearchView.vue    # 搜索页
+│       │   ├── ChatView.vue      # 聊天页
+│       │   ├── NetworkView.vue   # 网络可视化页
+│       │   ├── TrendView.vue     # 趋势分析页
+│       │   ├── RepoDetailView.vue # 仓库详情页
+│       │   ├── CollectionsView.vue # 收藏页
+│       │   └── TechProfileView.vue # 技术画像页
+│       ├── components/           # 可复用组件
+│       ├── composables/          # 组合式函数
 │       ├── router/               # 路由配置
 │       ├── stores/               # Pinia 状态管理
 │       └── types/                # TypeScript 类型
 ├── tests/                        # 测试套件
 │   └── unit/                     # 单元测试
 ├── data/                         # 数据目录
-│   ├── github_stars.db           # SQLite 数据库
-│   └── chromadb/                 # ChromaDB 向量存储
-├── docs/plans/                   # 设计文档
+│   └── github_stars.db           # SQLite 数据库
+├── docker-compose.yml            # Docker 编排配置
+├── Dockerfile.backend            # 后端 Docker 镜像
+├── Dockerfile.frontend           # 前端 Docker 镜像
+├── DEPLOYMENT.md                 # 部署指南
+├── product_plan.md               # 产品计划（详细架构设计）
 ├── pyproject.toml                # Python 项目配置
 └── README.md                     # 项目说明
 ```
@@ -342,13 +449,13 @@ npm run format
 
 ```bash
 # GitHub
-GITHUB_TOKEN=ghp_xxx  # GitHub Personal Access Token (提高 API 限制)
+GITHUB_TOKEN=ghp_xxx  # GitHub 个人访问令牌（提高 API 限制）
 
 # OpenAI
-OPENAI_API_KEY=sk-xxx  # OpenAI API Key (用于 LLM)
-OPENAI_BASE_URL=https://api.openai.com/v1  # 可选: 自定义 API 端点
+OPENAI_API_KEY=sk-xxx  # OpenAI API 密钥（用于 LLM）
+OPENAI_BASE_URL=https://api.openai.com/v1  # 可选：自定义 API 端点
 
-# Ollama (用于语义搜索)
+# Ollama（用于语义搜索）
 OLLAMA_BASE_URL=http://localhost:11434  # Ollama 服务地址
 
 # 数据库
@@ -361,22 +468,19 @@ CHROMADB_PATH=data/chromadb  # ChromaDB 持久化路径
 
 ### 生产部署
 
-1. **使用 Gunicorn + Uvicorn**
-```bash
-gunicorn src.api.app:app \
-  --workers 4 \
-  --worker-class uvicorn.workers.UvicornWorker \
-  --bind 0.0.0.0:8000
-```
+详细的 Docker 部署指南、环境变量配置、故障排查等内容，请查看 **[DEPLOYMENT.md](DEPLOYMENT.md)**。
 
-2. **使用 Docker**
-```dockerfile
-FROM python:3.13-slim
-WORKDIR /app
-COPY requirements.txt .
-RUN pip install -r requirements.txt
-COPY . .
-CMD ["uvicorn", "src.api.app:app", "--host", "0.0.0.0", "--port", "8000"]
+**快速命令：**
+```bash
+# Docker 部署（推荐）
+docker compose up -d --build
+
+# 查看 Docker 日志
+docker compose logs -f backend
+docker compose logs -f frontend
+
+# 停止服务
+docker compose down
 ```
 
 ## 故障排除

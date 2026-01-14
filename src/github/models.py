@@ -33,6 +33,7 @@ class GitHubRepository(BaseModel):
     created_at: datetime
     updated_at: datetime
     pushed_at: Optional[datetime] = None
+    starred_at: Optional[datetime] = None  # When this repo was starred by the user
 
     # License
     license_key: Optional[str] = None

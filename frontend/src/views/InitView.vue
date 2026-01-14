@@ -148,7 +148,18 @@
           <svg class="w-5 h-5 text-red-600 flex-shrink-0 mt-0.5" fill="currentColor" viewBox="0 0 20 20">
             <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clip-rule="evenodd" />
           </svg>
-          <span class="text-red-800">{{ error }}</span>
+          <div class="flex-1">
+            <div class="font-semibold text-red-800">{{ error.error || '初始化失败' }}</div>
+            <div class="text-red-700 mt-1">{{ error.message }}</div>
+            <ul v-if="error.suggestions && error.suggestions.length" class="mt-2 space-y-1">
+              <li v-for="(suggestion, idx) in error.suggestions" :key="idx" class="flex items-start gap-2 text-red-700">
+                <svg class="w-4 h-4 flex-shrink-0 mt-0.5" fill="currentColor" viewBox="0 0 20 20">
+                  <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm1-11a1 1 0 10-2 0v4a1 1 0 102 0V7zm1 8a1 1 0 100-2 1 1 0 000 2z" clip-rule="evenodd" />
+                </svg>
+                <span>{{ suggestion }}</span>
+              </li>
+            </ul>
+          </div>
         </div>
 
         <div
@@ -236,6 +247,17 @@
 <script setup lang="ts">
 import { ref, onMounted } from 'vue'
 
+interface InitStatus {
+  has_data: boolean
+  repo_count: number
+}
+
+interface ApiError {
+  error?: string
+  message: string
+  suggestions?: string[]
+}
+
 const username = ref('')
 const maxRepos = ref<number | null>(null)
 const skipLlm = ref(true)
@@ -243,22 +265,16 @@ const enableSemantic = ref(false)
 
 const isLoading = ref(false)
 const loadingMessage = ref('')
-const error = ref<string | null>(null)
+const error = ref<ApiError | null>(null)
 const successMessage = ref<string | null>(null)
-
-const initStatus = ref({
-  has_data: false,
-  repo_count: 0
-})
+const initStatus = ref<InitStatus>({ has_data: false, repo_count: 0 })
 
 onMounted(async () => {
-  // Load saved username from localStorage
   const savedUsername = localStorage.getItem('github_username')
   if (savedUsername) {
     username.value = savedUsername
   }
 
-  // Check init status
   try {
     const response = await fetch('/api/init/status')
     if (response.ok) {
@@ -281,9 +297,7 @@ async function startInitialization() {
   try {
     const response = await fetch('/api/init/start', {
       method: 'POST',
-      headers: {
-        'Content-Type': 'application/json'
-      },
+      headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         username: username.value,
         max_repos: maxRepos.value || undefined,
@@ -292,24 +306,42 @@ async function startInitialization() {
       })
     })
 
-    const data = await response.json()
+    const data = await _parseJsonResponse(response)
 
     if (!response.ok) {
-      throw new Error(data.detail || 'Initialization failed')
+      error.value = _extractErrorDetail(data)
+      return
     }
 
     successMessage.value = data.message || '初始化成功！'
     initStatus.value.has_data = true
     initStatus.value.repo_count = data.stats?.added || 0
-
-    // Save username
     localStorage.setItem('github_username', username.value)
 
   } catch (err) {
-    error.value = err instanceof Error ? err.message : '初始化失败'
+    error.value = {
+      error: '网络错误',
+      message: err instanceof Error ? err.message : '无法连接到服务器',
+      suggestions: ['请检查网络连接', '确认后端服务正在运行']
+    }
   } finally {
     isLoading.value = false
     loadingMessage.value = ''
   }
+}
+
+function _parseJsonResponse(response: Response): any {
+  try {
+    return response.json()
+  } catch {
+    return { detail: '服务器响应错误' }
+  }
+}
+
+function _extractErrorDetail(data: any): ApiError {
+  const errorDetail = data.error || data.detail
+  return typeof errorDetail === 'object'
+    ? errorDetail
+    : { error: '初始化失败', message: errorDetail || data.detail || '未知错误' }
 }
 </script>

@@ -4,6 +4,7 @@ GitHub API client with async support.
 import httpx
 import base64
 from typing import List, Optional, Dict, Any
+from datetime import datetime
 from src.config import settings
 from src.github.models import GitHubRepository, GitHubUser, GitHubReadme
 
@@ -41,6 +42,7 @@ class GitHubClient:
             headers=headers,
             timeout=30.0
         )
+        self._default_headers = headers.copy()
         return self
 
     async def __aexit__(self, exc_type, exc_val, exc_tb):
@@ -113,7 +115,7 @@ class GitHubClient:
             page: Page number
 
         Returns:
-            List of repositories
+            List of repositories with starred_at timestamps
         """
         if username:
             endpoint = f"/users/{username}/starred"
@@ -127,13 +129,30 @@ class GitHubClient:
             "page": page
         }
 
-        data = await self._get(endpoint, params=params)
+        # Use special Accept header to get starred_at timestamps
+        headers = self._default_headers.copy()
+        headers["Accept"] = "application/vnd.github.v3.star+json"
+
+        response = await self._client.get(endpoint, params=params, headers=headers)
+        response.raise_for_status()
+        data = response.json()
 
         repos = []
         for item in data:
-            # Extract repo from starred response
+            # Extract starred_at and repo from starred response
+            starred_at = item.get("starred_at")
             repo_data = item.get("repo", item)
-            repos.append(GitHubRepository(**repo_data))
+            repo = GitHubRepository(**repo_data)
+            # Convert string to datetime if needed
+            if starred_at and isinstance(starred_at, str):
+                from datetime import datetime
+                try:
+                    repo.starred_at = datetime.fromisoformat(starred_at.replace('Z', '+00:00'))
+                except:
+                    repo.starred_at = starred_at
+            else:
+                repo.starred_at = starred_at
+            repos.append(repo)
 
         return repos
 
@@ -150,7 +169,7 @@ class GitHubClient:
             max_results: Maximum number of results to fetch
 
         Returns:
-            List of all starred repositories
+            List of all starred repositories, sorted by starred_at (newest first)
         """
         all_repos = []
         page = 1
@@ -176,6 +195,12 @@ class GitHubClient:
                 break
 
             page += 1
+
+        # Sort by starred_at (newest first), repos without starred_at go last
+        all_repos.sort(
+            key=lambda r: r.starred_at if r.starred_at else datetime.min,
+            reverse=True
+        )
 
         return all_repos
 

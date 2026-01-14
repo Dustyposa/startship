@@ -133,7 +133,10 @@ onMounted(() => {
 <template>
   <div class="network-view">
     <div class="p-6">
-      <h1 class="text-2xl font-bold mb-4">Repository Network</h1>
+      <div class="flex items-center gap-3 mb-4">
+        <h1 class="text-2xl font-bold">Repository Network</h1>
+        <span class="px-2 py-1 bg-yellow-100 text-yellow-800 text-sm font-medium rounded">Beta</span>
+      </div>
 
       <div v-if="loading" class="text-center py-12">
         <div class="text-gray-600">Loading network visualization...</div>

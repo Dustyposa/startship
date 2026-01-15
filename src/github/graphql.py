@@ -3,70 +3,37 @@ GitHub GraphQL API client with async support.
 
 Provides efficient access to GitHub data using GraphQL queries.
 """
-import httpx
 from typing import List, Optional, Dict, Any
-from src.config import settings
+from src.github.base import GitHubBaseClient
 from src.github.models import GitHubRepository
 
 
-class GitHubGraphQLClient:
+class GitHubGraphQLClient(GitHubBaseClient):
     """
     Async GitHub GraphQL API client.
 
     Uses GraphQL for efficient data fetching with fewer requests.
     """
 
-    API_BASE = "https://api.github.com"
-
-    def __init__(self, token: Optional[str] = None):
-        """
-        Initialize GraphQL client.
-
-        Args:
-            token: GitHub personal access token
-        """
-        self.token = token or settings.github_token
-        self._client: Optional[httpx.AsyncClient] = None
-
     async def __aenter__(self):
         """Initialize async client"""
-        headers = {
-            "Content-Type": "application/json",
-            "Accept": "application/vnd.github.v3+json",
-            "User-Agent": "GitHubStarHelper/1.0"
-        }
-        if self.token:
-            headers["Authorization"] = f"Bearer {self.token}"
-
-        self._client = httpx.AsyncClient(
-            base_url=self.API_BASE,
-            headers=headers,
-            timeout=60.0  # GraphQL queries can take longer
+        self._client = await self._init_client(
+            timeout=60.0,
+            extra_headers={"Content-Type": "application/json"}
         )
         return self
 
     async def __aexit__(self, exc_type, exc_val, exc_tb):
         """Close async client"""
-        if self._client:
-            await self._client.aclose()
+        await self.close()
 
     async def _query(
         self,
         query: str,
         variables: Optional[Dict[str, Any]] = None
     ) -> Dict[str, Any]:
-        """
-        Execute GraphQL query.
-
-        Args:
-            query: GraphQL query string
-            variables: Query variables
-
-        Returns:
-            Response data
-        """
-        if not self._client:
-            raise RuntimeError("Client not initialized. Use 'async with' context.")
+        """Execute GraphQL query."""
+        self._check_client()
 
         payload = {
             "query": query,
@@ -97,7 +64,6 @@ class GitHubGraphQLClient:
         Returns:
             List of repositories
         """
-        # GraphQL query for starred repositories with README
         query = """
         query ($login: String!, $cursor: String, $first: Int!) {
           user(login: $login) {
@@ -144,7 +110,7 @@ class GitHubGraphQLClient:
 
         repos = []
         cursor = None
-        page_size = 100  # GitHub GraphQL max per page
+        page_size = 100
 
         while True:
             variables = {
@@ -156,7 +122,6 @@ class GitHubGraphQLClient:
             data = await self._query(query, variables)
             page_data = data.get("user", {}).get("starredRepositories", {})
 
-            # Extract repositories
             nodes = page_data.get("nodes", [])
             if not nodes:
                 break
@@ -165,20 +130,16 @@ class GitHubGraphQLClient:
                 repo_data = node["repository"]
                 starred_at = node.get("starredAt")
 
-                # Extract topics
                 topics_nodes = repo_data.get("repositoryTopics", {}).get("nodes", [])
                 topics = [t["topic"]["name"] for t in topics_nodes] if topics_nodes else []
 
-                # Get README text (if available)
                 readme_text = None
                 readme_obj = repo_data.get("readme")
                 if readme_obj and readme_obj.get("text"):
                     readme_text = readme_obj["text"]
-                    # Limit README size (first 10k chars)
                     if len(readme_text) > 10000:
                         readme_text = readme_text[:10000]
 
-                # Build repository object
                 repo = GitHubRepository(
                     id=repo_data["id"],
                     name=repo_data["name"],
@@ -193,20 +154,17 @@ class GitHubGraphQLClient:
                     starred_at=starred_at
                 )
 
-                # Store README content separately
                 if readme_text:
                     repo._readme_content = readme_text
 
                 repos.append(repo)
 
-            # Check pagination
             page_info = page_data.get("pageInfo", {})
             if not page_info.get("hasNextPage"):
                 break
 
             cursor = page_info.get("endCursor")
 
-            # Check max results limit
             if max_results and len(repos) >= max_results:
                 repos = repos[:max_results]
                 break

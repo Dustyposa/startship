@@ -129,10 +129,10 @@ async def chat_stream(request: ChatRequest):
 async def _simple_chat_stream(llm, message: str):
     """Simple chat without RAG."""
     from src.llm import Message
+    from src.services.chat import DEFAULT_SYSTEM_PROMPT
 
-    system_prompt = "You are a helpful assistant for GitHub Star Helper."
     messages = [
-        Message(role="system", content=system_prompt),
+        Message(role="system", content=DEFAULT_SYSTEM_PROMPT),
         Message(role="user", content=message)
     ]
 

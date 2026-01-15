@@ -4,29 +4,9 @@ SQLite database implementation.
 import json
 import aiosqlite
 from pathlib import Path
-from typing import List, Dict, Any, Optional, Callable, Tuple
-from functools import wraps
+from typing import List, Dict, Any, Optional, Tuple
 from datetime import datetime, timedelta
 from .base import Database
-
-
-# ==================== Error Handling Decorator ====================
-
-def _db_operation(operation_name: str):
-    """Decorator for database operations with consistent error handling."""
-    def decorator(func: Callable) -> Callable:
-        @wraps(func)
-        async def wrapper(*args, **kwargs):
-            try:
-                return await func(*args, **kwargs)
-            except Exception as e:
-                print(f"Error {operation_name}: {e}")
-                # Return appropriate default based on expected return type
-                if func.__annotations__.get('return') == bool:
-                    return False
-                return None
-        return wrapper
-    return decorator
 
 
 class SQLiteDatabase(Database):

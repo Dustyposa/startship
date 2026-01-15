@@ -8,8 +8,101 @@ from src.config import settings
 from src.github.client import GitHubClient
 from src.github.graphql import GitHubGraphQLClient
 from src.github.models import GitHubRepository
-from src.llm import create_llm, LLM, Message
+from src.llm import create_llm, LLM
 from src.db import Database
+
+
+# Default analysis when LLM is skipped
+def _default_analysis(repo: GitHubRepository) -> dict[str, Any]:
+    """Create default analysis without LLM."""
+    return {
+        "name_with_owner": repo.name_with_owner,
+        "summary": repo.description or repo.name_with_owner,
+        "categories": [],
+        "features": [],
+        "tech_stack": [repo.primary_language] if repo.primary_language else [],
+        "use_cases": []
+    }
+
+
+def _build_repo_data(repo: GitHubRepository, starred_at, analysis: dict[str, Any]) -> dict[str, Any]:
+    """Build repository data dict from GitHub repo and LLM analysis."""
+    return {
+        "name_with_owner": repo.name_with_owner,
+        "name": repo.name,
+        "owner": repo.owner_login,
+        "description": repo.description,
+        "primary_language": repo.primary_language,
+        "topics": repo.topics,
+        "stargazer_count": repo.stargazer_count,
+        "fork_count": repo.fork_count,
+        "url": repo.url,
+        "homepage_url": repo.homepage_url,
+        "readme_path": f"{settings.readme_storage_path}/{repo.name_with_owner.replace('/', '_')}.md",
+        "readme_content": None,  # Set separately if needed
+        "starred_at": starred_at,
+        "pushed_at": repo.pushed_at.isoformat() if repo.pushed_at else None,
+        "created_at": repo.created_at.isoformat() if repo.created_at else None,
+        "archived": repo.archived,
+        "visibility": repo.visibility,
+        "owner_type": repo.owner_type,
+        "organization": repo.organization,
+        **analysis
+    }
+
+
+async def _analyze_repo(llm: LLM, repo: GitHubRepository, readme: str | None) -> dict[str, Any]:
+    """Analyze repository with LLM."""
+    print(f"\nAnalyzing {repo.name_with_owner}...")
+    return await llm.analyze_repository(
+        repo_name=repo.name_with_owner,
+        description=repo.description or "",
+        readme=readme,
+        language=repo.primary_language,
+        topics=repo.topics
+    )
+
+
+async def _process_repos(
+    repos: list[GitHubRepository],
+    db: Database,
+    llm: LLM | None,
+    skip_llm: bool,
+    readme_getter
+) -> dict[str, int]:
+    """Process repository list and save to database."""
+    stats = {"added": 0, "updated": 0, "failed": 0, "errors": []}
+
+    with Bar("Processing", max=len(repos)) as bar:
+        for repo in repos:
+            try:
+                starred_at = getattr(repo, 'starred_at', None)
+                existing = await db.get_repository(repo.name_with_owner)
+                readme = await readme_getter(repo)
+
+                analysis = (
+                    _default_analysis(repo)
+                    if skip_llm or not llm
+                    else await _analyze_repo(llm, repo, readme)
+                )
+
+                repo_data = _build_repo_data(repo, starred_at, analysis)
+                if readme:
+                    repo_data["readme_content"] = readme[:10000]
+
+                if existing:
+                    await db.update_repository(repo.name_with_owner, repo_data)
+                    stats["updated"] += 1
+                else:
+                    await db.add_repository(repo_data)
+                    stats["added"] += 1
+            except Exception as e:
+                stats["failed"] += 1
+                stats["errors"].append(f"{repo.name_with_owner}: {str(e)}")
+                print(f"Error processing {repo.name_with_owner}: {e}")
+            bar.next()
+
+    return stats
 
 
 class InitializationService:
@@ -61,217 +154,89 @@ class InitializationService:
         if not self.llm and not skip_llm:
             raise ValueError("LLM is required for analysis. Set skip_llm=True or provide an LLM.")
 
-        stats = {
-            "fetched": 0,
-            "added": 0,
-            "updated": 0,
-            "failed": 0,
-            "errors": [],
-            "api_used": None
-        }
-
-        # Determine which API to use
         has_token = bool(settings.github_token and settings.github_token.strip())
+        use_graphql = force_graphql or (has_token and not force_rest)
 
-        repos = []
+        if use_graphql:
+            repos, stats = await self._fetch_with_graphql(username, max_repos)
+        else:
+            repos, stats = await self._fetch_with_rest(username, max_repos)
 
-        if force_rest or not has_token:
-            # Use REST API (no token required)
-            stats["api_used"] = "REST"
-            async with GitHubClient() as github:
-                print(f"Fetching starred repositories for {username or 'authenticated user'} using REST API...")
-                repos = await github.get_all_starred(username=username, max_results=max_repos)
-                stats["fetched"] = len(repos)
-                print(f"Fetched {len(repos)} repositories using REST API")
+        if not repos:
+            return stats
 
-                if not repos:
-                    return stats
+        # Process repositories
+        processing_stats = await _process_repos(
+            repos,
+            self.db,
+            self.llm,
+            skip_llm,
+            self._get_readme_for_graphql if use_graphql else self._get_readme_for_rest
+        )
+        stats.update(processing_stats)
 
-                # Process each repository
-                with Bar("Processing", max=len(repos)) as bar:
-                    for repo in repos:
-                        try:
-                            # Get starred_at time from GitHub API response
-                            starred_at = getattr(repo, 'starred_at', None)
+        # Generate vector embeddings if enabled
+        await self._generate_embeddings(repos)
 
-                            # Check if already exists
-                            existing = await self.db.get_repository(repo.name_with_owner)
+        # Build network graph
+        await self._build_network_graph()
 
-                            # Get README content (REST API needs separate call)
-                            readme = await github.get_readme_content(
-                                repo.owner_login,
-                                repo.name
-                            )
+        return stats
 
-                            # Analyze with LLM
-                            if not skip_llm and self.llm:
-                                print(f"\nAnalyzing {repo.name_with_owner}...")
-                                analysis = await self.llm.analyze_repository(
-                                    repo_name=repo.name_with_owner,
-                                    description=repo.description or "",
-                                    readme=readme,
-                                    language=repo.primary_language,
-                                    topics=repo.topics
-                                )
-                            else:
-                                # No LLM analysis - use empty categories
-                                # Language-based filtering will be used instead
-                                analysis = {
-                                    "name_with_owner": repo.name_with_owner,
-                                    "summary": repo.description or f"{repo.name_with_owner}",
-                                    "categories": [],  # Empty - use language for filtering
-                                    "features": [],
-                                    "tech_stack": [repo.primary_language] if repo.primary_language else [],
-                                    "use_cases": []
-                                }
+    async def _fetch_with_rest(
+        self,
+        username: str | None,
+        max_repos: int | None
+    ) -> tuple[list[GitHubRepository], dict[str, any]]:
+        """Fetch repositories using REST API."""
+        async with GitHubClient() as github:
+            print(f"Fetching starred repositories for {username or 'authenticated user'} using REST API...")
+            repos = await github.get_all_starred(username=username, max_results=max_repos)
+            print(f"Fetched {len(repos)} repositories using REST API")
+            return repos, {"fetched": len(repos), "api_used": "REST"}
 
-                            # Prepare repo data
-                            repo_data = {
-                                "name_with_owner": repo.name_with_owner,
-                                "name": repo.name,
-                                "owner": repo.owner_login,
-                                "description": repo.description,
-                                "primary_language": repo.primary_language,
-                                "topics": repo.topics,
-                                "stargazer_count": repo.stargazer_count,
-                                "fork_count": repo.fork_count,
-                                "url": repo.url,
-                                "homepage_url": repo.homepage_url,
-                                "readme_path": f"{settings.readme_storage_path}/{repo.name_with_owner.replace('/', '_')}.md",
-                                "readme_content": readme[:10000] if readme else None,  # Cache first 10k chars
-                                "starred_at": starred_at,
-                                # New fields for better filtering
-                                "pushed_at": repo.pushed_at.isoformat() if repo.pushed_at else None,
-                                "created_at": repo.created_at.isoformat() if repo.created_at else None,
-                                "archived": repo.archived,
-                                "visibility": repo.visibility,
-                                "owner_type": repo.owner_type,
-                                "organization": repo.organization,
-                                **analysis
-                            }
+    async def _fetch_with_graphql(
+        self,
+        username: str | None,
+        max_repos: int | None
+    ) -> tuple[list[GitHubRepository], dict[str, any]]:
+        """Fetch repositories using GraphQL API."""
+        async with GitHubGraphQLClient() as github:
+            print(f"Fetching starred repositories for {username or 'authenticated user'} using GraphQL API...")
+            repos = await github.get_starred_repositories(username=username, max_results=max_repos)
+            print(f"Fetched {len(repos)} repositories using GraphQL API")
+            return repos, {"fetched": len(repos), "api_used": "GraphQL"}
 
-                            # Add or update
-                            if existing:
-                                await self.db.update_repository(repo.name_with_owner, repo_data)
-                                stats["updated"] += 1
-                            else:
-                                await self.db.add_repository(repo_data)
-                                stats["added"] += 1
+    async def _get_readme_for_rest(self, repo: GitHubRepository) -> str | None:
+        """Get README content using REST API (separate call needed)."""
+        async with GitHubClient() as github:
+            return await github.get_readme_content(repo.owner_login, repo.name)
 
-                        except Exception as e:
-                            stats["failed"] += 1
-                            stats["errors"].append(f"{repo.name_with_owner}: {str(e)}")
-                            print(f"Error processing {repo.name_with_owner}: {e}")
+    async def _get_readme_for_graphql(self, repo: GitHubRepository) -> str | None:
+        """Get README content from GraphQL client (cached during fetch)."""
+        return getattr(repo, "_readme_content", None)
 
-                        bar.next()
+    async def _generate_embeddings(self, repos: list[GitHubRepository]) -> None:
+        """Generate vector embeddings for semantic search."""
+        if not self.semantic or not repos:
+            return
 
-        elif force_graphql or has_token:
-            # Use GraphQL API (token required, more efficient)
-            stats["api_used"] = "GraphQL"
-            async with GitHubGraphQLClient() as github:
-                print(f"Fetching starred repositories for {username or 'authenticated user'} using GraphQL API...")
-                repos = await github.get_starred_repositories(
-                    username=username,
-                    max_results=max_repos
-                )
-                stats["fetched"] = len(repos)
-                print(f"Fetched {len(repos)} repositories using GraphQL API")
+        print("Generating vector embeddings...")
+        await self.semantic.add_repositories([
+            {
+                "name_with_owner": repo.name_with_owner,
+                "name": repo.name,
+                "description": repo.description or "",
+                "primary_language": repo.primary_language or "",
+                "url": repo.url,
+                "topics": repo.topics or []
+            }
+            for repo in repos
+        ])
+        print("Vector embeddings generated")
 
-                if not repos:
-                    return stats
-
-                # Process each repository
-                with Bar("Processing", max=len(repos)) as bar:
-                    for repo in repos:
-                        try:
-                            # Get starred_at time from GitHub API response
-                            starred_at = getattr(repo, 'starred_at', None)
-
-                            # Check if already exists
-                            existing = await self.db.get_repository(repo.name_with_owner)
-
-                            # Get README content (already fetched by GraphQL)
-                            readme = github.get_repository_readme(repo)
-
-                            # Analyze with LLM
-                            if not skip_llm and self.llm:
-                                print(f"\nAnalyzing {repo.name_with_owner}...")
-                                analysis = await self.llm.analyze_repository(
-                                    repo_name=repo.name_with_owner,
-                                    description=repo.description or "",
-                                    readme=readme,
-                                    language=repo.primary_language,
-                                    topics=repo.topics
-                                )
-                            else:
-                                # No LLM analysis - use empty categories
-                                # Language-based filtering will be used instead
-                                analysis = {
-                                    "name_with_owner": repo.name_with_owner,
-                                    "summary": repo.description or f"{repo.name_with_owner}",
-                                    "categories": [],  # Empty - use language for filtering
-                                    "features": [],
-                                    "tech_stack": [repo.primary_language] if repo.primary_language else [],
-                                    "use_cases": []
-                                }
-
-                            # Prepare repo data
-                            repo_data = {
-                                "name_with_owner": repo.name_with_owner,
-                                "name": repo.name,
-                                "owner": repo.owner_login,
-                                "description": repo.description,
-                                "primary_language": repo.primary_language,
-                                "topics": repo.topics,
-                                "stargazer_count": repo.stargazer_count,
-                                "fork_count": repo.fork_count,
-                                "url": repo.url,
-                                "homepage_url": repo.homepage_url,
-                                "readme_path": f"{settings.readme_storage_path}/{repo.name_with_owner.replace('/', '_')}.md",
-                                "readme_content": readme[:10000] if readme else None,  # Cache first 10k chars
-                                "starred_at": starred_at,
-                                # New fields for better filtering
-                                "pushed_at": repo.pushed_at.isoformat() if repo.pushed_at else None,
-                                "created_at": repo.created_at.isoformat() if repo.created_at else None,
-                                "archived": repo.archived,
-                                "visibility": repo.visibility,
-                                "owner_type": repo.owner_type,
-                                "organization": repo.organization,
-                                **analysis
-                            }
-
-                            # Add or update
-                            if existing:
-                                await self.db.update_repository(repo.name_with_owner, repo_data)
-                                stats["updated"] += 1
-                            else:
-                                await self.db.add_repository(repo_data)
-                                stats["added"] += 1
-
-                        except Exception as e:
-                            stats["failed"] += 1
-                            stats["errors"].append(f"{repo.name_with_owner}: {str(e)}")
-                            print(f"Error processing {repo.name_with_owner}: {e}")
-
-                        bar.next()
-
-        # Generate vector embeddings if semantic search enabled
-        if self.semantic and repos:
-            print("Generating vector embeddings...")
-            await self.semantic.add_repositories([
-                {
-                    "name_with_owner": repo.name_with_owner,
-                    "name": repo.name,
-                    "description": repo.description or "",
-                    "primary_language": repo.primary_language or "",
-                    "url": repo.url,
-                    "topics": repo.topics or []
-                }
-                for repo in repos
-            ])
-            print("Vector embeddings generated")
-
-        # After all repos are saved, build network graph
+    async def _build_network_graph(self) -> None:
+        """Build repository network graph."""
         print("Building repository network graph...")
         from src.services.network import NetworkService
 
@@ -279,8 +244,6 @@ class InitializationService:
         network = await network_service.build_network(top_n=100, k=5)
         await network_service.save_network(network, top_n=100, k=5)
         print(f"Network graph built with {len(network['nodes'])} nodes and {len(network['edges'])} edges")
-
-        return stats
 
     async def analyze_existing_repos(
         self,
@@ -300,8 +263,6 @@ class InitializationService:
         if not self.llm:
             raise ValueError("LLM is required for analysis")
 
-        # For now, this is a placeholder - we'd need to add a method
-        # to search for repos without analysis in the database
         return {
             "analyzed": 0,
             "failed": 0,

@@ -6,6 +6,14 @@ from src.db import Database
 from src.llm import LLM, Message
 
 
+# Default system prompt for GitHub Star Helper
+DEFAULT_SYSTEM_PROMPT = (
+    "You are GitHub Star Helper, an AI assistant that helps users "
+    "analyze and discover their starred GitHub repositories. "
+    "Be helpful, concise, and respond in Chinese."
+)
+
+
 class ChatService:
     """Service for managing conversations and chat with LLM"""
 
@@ -21,11 +29,7 @@ class ChatService:
         self.db = db
         self.llm = llm
         self.search_service = search_service
-        self.system_prompt = (
-            "You are GitHub Star Helper, an AI assistant that helps users "
-            "analyze and discover their starred GitHub repositories. "
-            "Be helpful, concise, and respond in Chinese."
-        )
+        self.system_prompt = DEFAULT_SYSTEM_PROMPT
 
     async def create_conversation(self, session_id: str) -> int:
         """Create a new conversation"""
@@ -55,31 +59,16 @@ class ChatService:
         Returns:
             Assistant's response
         """
-        # Save user message
         await self.db.save_message(session_id, "user", user_message)
 
-        # Get conversation history
         history = await self.db.get_conversation(session_id)
 
-        # Build messages for LLM
-        messages = [
-            Message(
-                role="system",
-                content="You are GitHub Star Helper, an AI assistant that helps users analyze and discover their starred GitHub repositories. Be helpful, concise, and respond in Chinese."
-            )
-        ]
-
-        # Add recent conversation (excluding the one we just saved)
+        messages = [Message(role="system", content=self.system_prompt)]
         for msg in history[-context_limit:-1]:
             messages.append(Message(role=msg["role"], content=msg["content"]))
-
-        # Add current user message
         messages.append(Message(role="user", content=user_message))
 
-        # Get LLM response
         response = await self.llm.chat(messages, temperature=0.7)
-
-        # Save assistant response
         await self.db.save_message(session_id, "assistant", response.content)
 
         return response.content
@@ -101,40 +90,28 @@ class ChatService:
         Returns:
             Assistant's response
         """
-        # Save user message
         await self.db.save_message(session_id, "user", user_message)
 
-        # Build context from search results
         context = ""
         if search_results:
             context = "\n\nRelevant repositories:\n"
             for repo in search_results[:5]:
                 context += f"- {repo['name_with_owner']}: {repo.get('summary', repo.get('description', ''))}\n"
 
-        # Build messages
-        messages = [
-            Message(
-                role="system",
-                content=f"""You are GitHub Star Helper, an AI assistant that helps users analyze and discover their starred GitHub repositories.
+        system_prompt = f"""{self.system_prompt}
 
 {context}
 
 Be helpful, concise, and respond in Chinese. Use the repository information above when relevant to the user's question."""
-            )
-        ]
 
-        # Get recent history
+        messages = [Message(role="system", content=system_prompt)]
+
         history = await self.db.get_conversation(session_id)
         for msg in history[-10:-1]:
             messages.append(Message(role=msg["role"], content=msg["content"]))
-
-        # Add current message
         messages.append(Message(role="user", content=user_message))
 
-        # Get response
         response = await self.llm.chat(messages, temperature=0.7)
-
-        # Save and return
         await self.db.save_message(session_id, "assistant", response.content)
         return response.content
 
@@ -159,32 +136,26 @@ Be helpful, concise, and respond in Chinese. Use the repository information abov
         Yields:
             Response chunks as they arrive
         """
-        # Get conversation context
         from src.services.context import ContextService
+
         context_service = ContextService(self.db)
         context = await context_service.get_context(session_id)
 
-        # Build messages with context
-        messages = [
-            Message(role="system", content=self.system_prompt)
-        ]
+        messages = [Message(role="system", content=self.system_prompt)]
 
         if context:
             messages.append(
                 Message(role="system", content=f"Previous conversation:\n{context}")
             )
 
-        # Add search results context
         if search_results:
             context_text = self._format_search_results(search_results)
             messages.append(
                 Message(role="system", content=f"Relevant repositories:\n{context_text}")
             )
 
-        # Add current user message
         messages.append(Message(role="user", content=user_message))
 
-        # Stream response
         async for chunk in self.llm.chat_stream(messages):
             yield chunk
 

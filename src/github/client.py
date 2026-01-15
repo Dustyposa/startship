@@ -1,60 +1,33 @@
 """
-GitHub API client with async support.
+GitHub REST API client with async support.
 """
 import httpx
 import base64
 from typing import List, Optional, Dict, Any
 from datetime import datetime
-from src.config import settings
+from src.github.base import GitHubBaseClient
 from src.github.models import GitHubRepository, GitHubUser, GitHubReadme
 
 
-class GitHubClient:
+class GitHubClient(GitHubBaseClient):
     """
-    Async GitHub API client.
+    Async GitHub REST API client.
 
     Handles authentication, rate limiting, and pagination.
     """
 
-    API_BASE = "https://api.github.com"
-
-    def __init__(self, token: Optional[str] = None):
-        """
-        Initialize GitHub client.
-
-        Args:
-            token: GitHub personal access token
-        """
-        self.token = token or settings.github_token
-        self._client: Optional[httpx.AsyncClient] = None
-
     async def __aenter__(self):
         """Initialize async client"""
-        headers = {
-            "Accept": "application/vnd.github.v3+json",
-            "User-Agent": f"GitHubStarHelper/1.0"
-        }
-        if self.token:
-            headers["Authorization"] = f"Bearer {self.token}"
-
-        self._client = httpx.AsyncClient(
-            base_url=self.API_BASE,
-            headers=headers,
-            timeout=30.0
-        )
-        self._default_headers = headers.copy()
+        self._client = await self._init_client()
         return self
 
     async def __aexit__(self, exc_type, exc_val, exc_tb):
         """Close async client"""
-        if self._client:
-            await self._client.aclose()
+        await self.close()
 
     async def _get(self, endpoint: str, params: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
         """Make GET request to GitHub API"""
-        if not self._client:
-            raise RuntimeError("Client not initialized. Use 'async with' context.")
-
+        self._check_client()
         response = await self._client.get(endpoint, params=params)
         response.raise_for_status()
         return response.json()
@@ -62,15 +35,7 @@ class GitHubClient:
     # ==================== User Operations ====================
 
     async def get_user(self, username: str) -> GitHubUser:
-        """
-        Get user profile.
-
-        Args:
-            username: GitHub username
-
-        Returns:
-            User data
-        """
+        """Get user profile."""
         data = await self._get(f"/users/{username}")
         return GitHubUser(**data)
 
@@ -82,18 +47,8 @@ class GitHubClient:
     # ==================== Repository Operations ====================
 
     async def get_repository(self, owner: str, repo: str) -> GitHubRepository:
-        """
-        Get a single repository.
-
-        Args:
-            owner: Repository owner
-            repo: Repository name
-
-        Returns:
-            Repository data
-        """
+        """Get a single repository."""
         data = await self._get(f"/repos/{owner}/{repo}")
-        # Handle owner as dict or string - the model handles this
         return GitHubRepository(**data)
 
     async def get_starred_repositories(
@@ -106,20 +61,10 @@ class GitHubClient:
         """
         Get repositories starred by the authenticated user.
 
-        Args:
-            sort: created or updated
-            direction: asc or desc
-            per_page: Results per page (max 100)
-            page: Page number
-
-        Returns:
-            List of repositories with starred_at timestamps
-
         Note:
             Requires GitHub Token to be configured.
         """
         endpoint = "/user/starred"
-
         params = {
             "sort": sort,
             "direction": direction,
@@ -127,7 +72,6 @@ class GitHubClient:
             "page": page
         }
 
-        # Use special Accept header to get starred_at timestamps
         headers = self._default_headers.copy()
         headers["Accept"] = "application/vnd.github.v3.star+json"
 
@@ -137,13 +81,11 @@ class GitHubClient:
 
         repos = []
         for item in data:
-            # Extract starred_at and repo from starred response
             starred_at = item.get("starred_at")
             repo_data = item.get("repo", item)
             repo = GitHubRepository(**repo_data)
-            # Convert string to datetime if needed
+
             if starred_at and isinstance(starred_at, str):
-                from datetime import datetime
                 try:
                     repo.starred_at = datetime.fromisoformat(starred_at.replace('Z', '+00:00'))
                 except:
@@ -160,12 +102,6 @@ class GitHubClient:
     ) -> List[GitHubRepository]:
         """
         Get all starred repositories with auto-pagination.
-
-        Args:
-            max_results: Maximum number of results to fetch
-
-        Returns:
-            List of all starred repositories, sorted by starred_at (newest first)
 
         Note:
             Requires GitHub Token to be configured.
@@ -194,7 +130,6 @@ class GitHubClient:
 
             page += 1
 
-        # Sort by starred_at (newest first), repos without starred_at go last
         all_repos.sort(
             key=lambda r: r.starred_at if r.starred_at else datetime.min,
             reverse=True
@@ -205,38 +140,18 @@ class GitHubClient:
     # ==================== Content Operations ====================
 
     async def get_readme(self, owner: str, repo: str, branch: str = "main") -> GitHubReadme:
-        """
-        Get repository README.
-
-        Args:
-            owner: Repository owner
-            repo: Repository name
-            branch: Branch name (main or master)
-
-        Returns:
-            README content
-        """
+        """Get repository README."""
         try:
             data = await self._get(f"/repos/{owner}/{repo}/readme", params={"ref": branch})
             return GitHubReadme(**data)
         except httpx.HTTPStatusError as e:
             if e.response.status_code == 404:
-                # Try master branch
                 data = await self._get(f"/repos/{owner}/{repo}/readme", params={"ref": "master"})
                 return GitHubReadme(**data)
             raise
 
     async def get_readme_content(self, owner: str, repo: str) -> Optional[str]:
-        """
-        Get decoded README content.
-
-        Args:
-            owner: Repository owner
-            repo: Repository name
-
-        Returns:
-            README text or None
-        """
+        """Get decoded README content."""
         try:
             readme = await self.get_readme(owner, repo)
             content = base64.b64decode(readme.content).decode("utf-8")

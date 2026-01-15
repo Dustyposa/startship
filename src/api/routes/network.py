@@ -3,39 +3,29 @@ Network graph API routes.
 """
 from fastapi import APIRouter, HTTPException, Depends
 
+from .utils import get_db
+
 router = APIRouter(prefix="/api/network", tags=["network"])
-
-
-async def get_db():
-    """Dependency to get database connection"""
-    from src.api.app import db
-    if db is None:
-        raise HTTPException(status_code=503, detail="Database not initialized")
-    return db
 
 
 @router.get("/graph")
 async def get_network_graph(db = Depends(get_db)):
-    """获取关系网络图数据"""
+    """Get repository network graph data"""
     from src.services.network import NetworkService
 
     service = NetworkService(db)
 
-    try:
-        network = await service.get_cached_network()
+    network = await service.get_cached_network()
 
-        if not network:
-            raise HTTPException(
-                status_code=404,
-                detail="Network data not found. Please complete initialization first."
-            )
+    ensure_entity_exists(
+        network,
+        "Network data not found. Please complete initialization first."
+    )
 
-        return network
+    return network
 
-    except HTTPException:
-        raise
-    except Exception as e:
-        raise HTTPException(
-            status_code=500,
-            detail=f"Failed to fetch network data: {e}"
-        )
+
+def ensure_entity_exists(entity: object | None, error_message: str = "Entity not found") -> None:
+    """Raise HTTPException if entity doesn't exist."""
+    if entity is None:
+        raise HTTPException(status_code=404, detail=error_message)

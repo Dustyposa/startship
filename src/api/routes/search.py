@@ -4,6 +4,8 @@ Search API endpoints.
 from fastapi import APIRouter, Query, Depends, HTTPException
 from typing import Optional, List
 
+from .utils import get_db, build_response
+
 router = APIRouter(prefix="/api", tags=["search"])
 
 
@@ -20,24 +22,18 @@ def parse_list_param(value: Optional[str]) -> Optional[List[str]]:
     return value.split(",") if value else None
 
 
-def build_response(results: List) -> dict:
-    """Build standard API response"""
-    return {"results": results, "count": len(results)}
-
-
 @router.get("/search")
 async def search_repositories(
     q: Optional[str] = None,
-    categories: Optional[str] = None,  # Deprecated - kept for backward compatibility
+    categories: Optional[str] = None,
     languages: Optional[str] = None,
     min_stars: Optional[int] = None,
     max_stars: Optional[int] = None,
     limit: int = 20,
-    # New filter dimensions
-    is_active: Optional[bool] = None,  # Active: pushed within 7 days
-    is_new: Optional[bool] = None,  # New: created within 6 months
-    owner_type: Optional[str] = None,  # Owner type: "Organization" or "User"
-    exclude_archived: bool = True,  # Exclude archived repos
+    is_active: Optional[bool] = None,
+    is_new: Optional[bool] = None,
+    owner_type: Optional[str] = None,
+    exclude_archived: bool = True,
     search_service = Depends(get_search_service)
 ):
     """Search repositories with filters"""
@@ -78,6 +74,11 @@ async def get_categories(search_service = Depends(get_search_service)):
 async def get_repository(name_with_owner: str, search_service = Depends(get_search_service)):
     """Get a single repository"""
     result = await search_service.get_repository(name_with_owner)
-    if not result:
-        raise HTTPException(status_code=404, detail="Repository not found")
+    ensure_entity_exists(result, "Repository not found")
     return result
+
+
+def ensure_entity_exists(entity: object | None, error_message: str = "Entity not found") -> None:
+    """Raise HTTPException if entity doesn't exist."""
+    if entity is None:
+        raise HTTPException(status_code=404, detail=error_message)

@@ -195,15 +195,7 @@ export const userApi = {
 }
 
 // ==================== Helper: Get collection for repo ====================
-
+// Note: This helper is also available as collectionsApi.getCollectionForRepo
 export async function getCollectionForRepo(repoId: string): Promise<Collection | null> {
-  try {
-    const response = await axios.get<Collection>(`${API_BASE}/repos/${repoId}/collection`)
-    return response.data
-  } catch (error) {
-    if (axios.isAxiosError(error) && error.response?.status === 404) {
-      return null
-    }
-    throw error
-  }
+  return await collectionsApi.getCollectionForRepo(repoId)
 }

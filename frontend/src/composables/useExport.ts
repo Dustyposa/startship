@@ -1,3 +1,4 @@
+import { downloadFile } from '@/utils/download'
 import { storage } from '@/utils/storage'
 import { STORAGE_KEYS } from '@/types/collections'
 
@@ -12,17 +13,10 @@ interface ExportedUserData {
 }
 
 export function useExport() {
-  function exportToJSON(data: any[], filename: string) {
+  function exportToJSON(data: any[], filename: string): void {
     const json = JSON.stringify(data, null, 2)
     const blob = new Blob([json], { type: 'application/json' })
-    const url = URL.createObjectURL(blob)
-    const link = document.createElement('a')
-    link.href = url
-    link.download = `${filename}.json`
-    document.body.appendChild(link)
-    link.click()
-    document.body.removeChild(link)
-    URL.revokeObjectURL(url)
+    downloadFile(blob, `${filename}.json`)
   }
 
   function exportUserData() {
@@ -77,7 +71,7 @@ export function useExport() {
     })
   }
 
-  function exportToCSV(data: any[], filename: string) {
+  function exportToCSV(data: any[], filename: string): void {
     if (data.length === 0) {
       throw new Error('No data to export')
     }
@@ -86,7 +80,7 @@ export function useExport() {
     const headers = Object.keys(data[0])
 
     // Convert data to CSV
-    const csvRows = []
+    const csvRows: string[] = []
     csvRows.push(headers.join(','))
 
     for (const row of data) {
@@ -108,14 +102,7 @@ export function useExport() {
 
     const csvString = csvRows.join('\n')
     const blob = new Blob([csvString], { type: 'text/csv;charset=utf-8;' })
-    const url = URL.createObjectURL(blob)
-    const link = document.createElement('a')
-    link.href = url
-    link.download = `${filename}.csv`
-    document.body.appendChild(link)
-    link.click()
-    document.body.removeChild(link)
-    URL.revokeObjectURL(url)
+    downloadFile(blob, `${filename}.csv`)
   }
 
   return {

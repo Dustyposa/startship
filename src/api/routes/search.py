@@ -28,11 +28,16 @@ def build_response(results: List) -> dict:
 @router.get("/search")
 async def search_repositories(
     q: Optional[str] = None,
-    categories: Optional[str] = None,
+    categories: Optional[str] = None,  # Deprecated - kept for backward compatibility
     languages: Optional[str] = None,
     min_stars: Optional[int] = None,
     max_stars: Optional[int] = None,
     limit: int = 20,
+    # New filter dimensions
+    is_active: Optional[bool] = None,  # Active: pushed within 7 days
+    is_new: Optional[bool] = None,  # New: created within 6 months
+    owner_type: Optional[str] = None,  # Owner type: "Organization" or "User"
+    exclude_archived: bool = True,  # Exclude archived repos
     search_service = Depends(get_search_service)
 ):
     """Search repositories with filters"""
@@ -42,7 +47,11 @@ async def search_repositories(
         languages=parse_list_param(languages),
         min_stars=min_stars,
         max_stars=max_stars,
-        limit=limit
+        limit=limit,
+        is_active=is_active,
+        is_new=is_new,
+        owner_type=owner_type,
+        exclude_archived=exclude_archived
     )
     return build_response(results)
 

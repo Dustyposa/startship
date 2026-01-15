@@ -121,8 +121,8 @@
           <div class="text-sm text-gray-600">总仓库数</div>
         </div>
         <div class="bg-white p-4 rounded-lg shadow-sm border-l-4 border-green-500">
-          <div class="text-2xl font-bold text-green-600">{{ displayStats.totalCategories }}</div>
-          <div class="text-sm text-gray-600">分类数量</div>
+          <div class="text-2xl font-bold text-green-600">{{ displayStats.totalLanguages }}</div>
+          <div class="text-sm text-gray-600">语言数量</div>
         </div>
         <div class="bg-white p-4 rounded-lg shadow-sm border-l-4 border-purple-500">
           <div class="text-2xl font-bold text-purple-600">{{ displayStats.topLanguage }}</div>
@@ -208,14 +208,14 @@
       </div>
     </section>
 
-    <!-- Top Categories -->
-    <section v-if="topCategories.length > 0">
-      <h2 class="text-xl font-bold text-gray-900 mb-4">🏷️ 热门分类</h2>
+    <!-- Top Languages -->
+    <section v-if="topLanguages.length > 0">
+      <h2 class="text-xl font-bold text-gray-900 mb-4">🔥 热门语言</h2>
       <div class="flex flex-wrap gap-2">
         <router-link
-          v-for="count in topCategories"
+          v-for="count in topLanguages"
           :key="count[0]"
-          :to="`/search?category=${encodeURIComponent(count[0])}`"
+          :to="`/search?languages=${encodeURIComponent(count[0])}`"
           class="px-4 py-2 bg-white border border-gray-200 rounded-lg hover:border-blue-500 hover:text-blue-600 transition"
         >
           {{ count[0] }} <span class="text-gray-500">({{ count[1] }})</span>
@@ -231,14 +231,14 @@ import { ref, onMounted, computed } from 'vue'
 interface Stats {
   total_repositories: number
   total_conversations: number
-  categories: Record<string, number>
+  languages: Record<string, number>
   top_language: string | null
 }
 
 const stats = ref<Stats>({
   total_repositories: 0,
   total_conversations: 0,
-  categories: {},
+  languages: {},
   top_language: null
 })
 
@@ -257,13 +257,13 @@ const dismissOnboarding = () => {
 
 const displayStats = computed(() => ({
   totalRepos: stats.value.total_repositories,
-  totalCategories: Object.keys(stats.value.categories || {}).length,
+  totalLanguages: Object.keys(stats.value.languages || {}).length,
   totalConversations: stats.value.total_conversations,
   topLanguage: stats.value.top_language || '-'
 }))
 
-const topCategories = computed(() => {
-  const entries = Object.entries(stats.value.categories || {})
+const topLanguages = computed(() => {
+  const entries = Object.entries(stats.value.languages || {})
   return entries
     .sort((a, b) => b[1] - a[1])
     .slice(0, 15)
@@ -275,8 +275,13 @@ onMounted(async () => {
     const data = await response.json()
     stats.value = data.data || stats.value
 
-    // Show onboarding if first time visit
-    if (!hasSeenOnboarding()) {
+    // Only show onboarding if first time visit AND no data yet
+    // If user already has repositories, they've already initialized - mark as seen
+    if (stats.value.total_repositories > 0) {
+      // Has data - mark onboarding as seen automatically
+      localStorage.setItem('hasSeenOnboarding', 'true')
+    } else if (!hasSeenOnboarding()) {
+      // No data and first visit - show onboarding
       showOnboarding.value = true
     }
   } catch (error) {

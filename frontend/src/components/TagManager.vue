@@ -38,7 +38,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, watch, nextTick } from 'vue'
+import { ref, watch, nextTick, onMounted } from 'vue'
 import { useTags } from '@/composables/useTags'
 import type { Tag } from '@/types/collections'
 
@@ -52,30 +52,34 @@ const emit = defineEmits<{
 
 const { tags, getTagsForRepo, addTagToRepo, removeTagFromRepo, getOrCreateTag } = useTags()
 
-const selectedTags = ref<Tag[]>(getTagsForRepo(props.repoId))
+const selectedTags = ref<Tag[]>([])
 const showInput = ref(false)
 const newTagName = ref('')
 const inputRef = ref<HTMLInputElement>()
 
-watch(() => props.repoId, () => {
-  selectedTags.value = getTagsForRepo(props.repoId)
+onMounted(async () => {
+  selectedTags.value = await getTagsForRepo(props.repoId)
 })
 
-function removeTag(tagId: string) {
-  removeTagFromRepo(props.repoId, tagId)
-  selectedTags.value = getTagsForRepo(props.repoId)
+watch(() => props.repoId, async () => {
+  selectedTags.value = await getTagsForRepo(props.repoId)
+})
+
+async function removeTag(tagId: string) {
+  await removeTagFromRepo(props.repoId, tagId)
+  selectedTags.value = await getTagsForRepo(props.repoId)
   emit('update')
 }
 
-function addTag() {
+async function addTag() {
   const name = newTagName.value.trim()
   if (!name) {
     showInput.value = false
     return
   }
-  const tag = getOrCreateTag(name)
-  addTagToRepo(props.repoId, tag.id)
-  selectedTags.value = getTagsForRepo(props.repoId)
+  const tag = await getOrCreateTag(name)
+  await addTagToRepo(props.repoId, tag.id)
+  selectedTags.value = await getTagsForRepo(props.repoId)
   newTagName.value = ''
   showInput.value = false
   emit('update')

@@ -12,6 +12,7 @@ class InitRequest(BaseModel):
     max_repos: Optional[int] = None
     skip_llm: bool = False
     enable_semantic: bool = False
+    force_rest: bool = False
 
 
 class InitStatusResponse(BaseModel):
@@ -102,18 +103,26 @@ async def start_initialization(request: InitRequest):
     - **enable_semantic**: Enable semantic search with vector embeddings
     """
     from src.api.app import db
-    from src.llm import create_llm
     from src.services.init import InitializationService
 
     # Debug logging
     print(f"DEBUG: request.skip_llm = {request.skip_llm}")
     print(f"DEBUG: request model = {request.model_dump()}")
 
-    # Create LLM if needed
-    llm = None if request.skip_llm else create_llm("openai")
-    print(f"DEBUG: llm = {llm}")
-    if llm:
-        await llm.initialize()
+    # Create LLM if needed (import only when needed to avoid errors)
+    llm = None
+    if not request.skip_llm:
+        try:
+            from src.llm import create_llm
+            llm = create_llm("openai")
+            print(f"DEBUG: llm = {llm}")
+            if llm:
+                await llm.initialize()
+        except ImportError as e:
+            raise HTTPException(
+                status_code=400,
+                detail=f"LLM features require openai to be installed: {str(e)}"
+            )
 
     # Create semantic search if enabled
     semantic = None
@@ -134,7 +143,8 @@ async def start_initialization(request: InitRequest):
         stats = await init_service.initialize_from_stars(
             username=request.username,
             max_repos=request.max_repos,
-            skip_llm=request.skip_llm
+            skip_llm=request.skip_llm,
+            force_rest=request.force_rest
         )
 
         return {

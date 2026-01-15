@@ -114,19 +114,12 @@ class InitializationService:
                                     topics=repo.topics
                                 )
                             else:
-                                # Use GitHub topics as simple categories when LLM is skipped
-                                topics = repo.topics or []
-                                # Filter out technical tags and keep meaningful categories
-                                simple_categories = [t for t in topics if not any(
-                                    skip in t.lower() for skip in ['js', 'ts', 'python', 'java', 'go',
-                                    'react', 'vue', 'angular', 'nodejs', 'api', 'lib', 'cli',
-                                    'tool', 'framework', 'db', 'database', 'test', 'mock']
-                                )]
-
+                                # No LLM analysis - use empty categories
+                                # Language-based filtering will be used instead
                                 analysis = {
                                     "name_with_owner": repo.name_with_owner,
                                     "summary": repo.description or f"{repo.name_with_owner}",
-                                    "categories": simple_categories,  # Use topics as categories
+                                    "categories": [],  # Empty - use language for filtering
                                     "features": [],
                                     "tech_stack": [repo.primary_language] if repo.primary_language else [],
                                     "use_cases": []
@@ -147,6 +140,13 @@ class InitializationService:
                                 "readme_path": f"{settings.readme_storage_path}/{repo.name_with_owner.replace('/', '_')}.md",
                                 "readme_content": readme[:10000] if readme else None,  # Cache first 10k chars
                                 "starred_at": starred_at,
+                                # New fields for better filtering
+                                "pushed_at": repo.pushed_at.isoformat() if repo.pushed_at else None,
+                                "created_at": repo.created_at.isoformat() if repo.created_at else None,
+                                "archived": repo.archived,
+                                "visibility": repo.visibility,
+                                "owner_type": repo.owner_type,
+                                "organization": repo.organization,
                                 **analysis
                             }
 
@@ -204,19 +204,12 @@ class InitializationService:
                                     topics=repo.topics
                                 )
                             else:
-                                # Use GitHub topics as simple categories when LLM is skipped
-                                topics = repo.topics or []
-                                # Filter out technical tags and keep meaningful categories
-                                simple_categories = [t for t in topics if not any(
-                                    skip in t.lower() for skip in ['js', 'ts', 'python', 'java', 'go',
-                                    'react', 'vue', 'angular', 'nodejs', 'api', 'lib', 'cli',
-                                    'tool', 'framework', 'db', 'database', 'test', 'mock']
-                                )]
-
+                                # No LLM analysis - use empty categories
+                                # Language-based filtering will be used instead
                                 analysis = {
                                     "name_with_owner": repo.name_with_owner,
                                     "summary": repo.description or f"{repo.name_with_owner}",
-                                    "categories": simple_categories,  # Use topics as categories
+                                    "categories": [],  # Empty - use language for filtering
                                     "features": [],
                                     "tech_stack": [repo.primary_language] if repo.primary_language else [],
                                     "use_cases": []
@@ -237,6 +230,13 @@ class InitializationService:
                                 "readme_path": f"{settings.readme_storage_path}/{repo.name_with_owner.replace('/', '_')}.md",
                                 "readme_content": readme[:10000] if readme else None,  # Cache first 10k chars
                                 "starred_at": starred_at,
+                                # New fields for better filtering
+                                "pushed_at": repo.pushed_at.isoformat() if repo.pushed_at else None,
+                                "created_at": repo.created_at.isoformat() if repo.created_at else None,
+                                "archived": repo.archived,
+                                "visibility": repo.visibility,
+                                "owner_type": repo.owner_type,
+                                "organization": repo.organization,
                                 **analysis
                             }
 

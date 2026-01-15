@@ -1,105 +1,77 @@
 import { ref } from 'vue'
-import { storage } from '@/utils/storage'
-import { STORAGE_KEYS, type Collection, type RepoCollection } from '@/types/collections'
+import { collectionsApi } from '@/api/user'
+import type { Collection } from '@/api/user'
+import { useAsyncOperation } from './useAsyncOperation'
 
 export function useCollections() {
   const collections = ref<Collection[]>([])
-  const repoCollections = ref<RepoCollection[]>([])
+  const { isLoading, error, execute, executeSilent } = useAsyncOperation()
 
-  // Load from storage
-  function load() {
-    collections.value = storage.get<Collection[]>(STORAGE_KEYS.COLLECTIONS) || []
-    repoCollections.value = storage.get<RepoCollection[]>(STORAGE_KEYS.REPO_COLLECTIONS) || []
-    // Sort by position
-    collections.value.sort((a, b) => a.position - b.position)
+  async function load() {
+    const result = await execute(() => collectionsApi.getAll(), 'Failed to load collections')
+    if (result) collections.value = result
   }
 
-  // Create collection
-  function createCollection(name: string, icon?: string, color?: string) {
-    const newCollection: Collection = {
-      id: `coll-${Date.now()}`,
-      name,
-      icon,
-      color,
-      position: collections.value.length,
-      created_at: new Date().toISOString()
-    }
-    collections.value.push(newCollection)
-    save()
-    return newCollection
+  async function createCollection(name: string, icon?: string, color?: string): Promise<Collection | null> {
+    return await execute(async () => {
+      const newCollection = await collectionsApi.create({ name, icon, color })
+      collections.value.push(newCollection)
+      return newCollection
+    }, 'Failed to create collection')
   }
 
-  // Update collection
-  function updateCollection(id: string, updates: Partial<Collection>) {
-    const index = collections.value.findIndex(c => c.id === id)
-    if (index !== -1) {
-      collections.value[index] = { ...collections.value[index], ...updates }
-      save()
-    }
+  async function updateCollection(id: string, updates: Partial<Collection>) {
+    await execute(async () => {
+      const updated = await collectionsApi.update(id, updates)
+      const index = collections.value.findIndex(c => c.id === id)
+      if (index !== -1) collections.value[index] = updated
+    }, 'Failed to update collection')
   }
 
-  // Delete collection
-  function deleteCollection(id: string) {
-    collections.value = collections.value.filter(c => c.id !== id)
-    // Also remove all repo associations
-    repoCollections.value = repoCollections.value.filter(rc => rc.collection_id !== id)
-    save()
+  async function deleteCollection(id: string) {
+    await execute(async () => {
+      await collectionsApi.delete(id)
+      collections.value = collections.value.filter(c => c.id !== id)
+    }, 'Failed to delete collection')
   }
 
-  // Add repo to collection
-  function addRepoToCollection(repoId: string, collectionId: string, position?: number) {
-    // Remove from existing position first
-    removeRepoFromCollection(repoId)
-
-    const newAssoc: RepoCollection = {
-      repo_id: repoId,
-      collection_id: collectionId,
-      position: position ?? repoCollections.value.length
-    }
-    repoCollections.value.push(newAssoc)
-    save()
+  async function addRepoToCollection(repoId: string, collectionId: string, position?: number) {
+    await execute(
+      () => collectionsApi.addRepo(collectionId, repoId, position),
+      'Failed to add repo to collection'
+    )
   }
 
-  // Remove repo from collection
-  function removeRepoFromCollection(repoId: string, collectionId?: string) {
-    if (collectionId) {
-      repoCollections.value = repoCollections.value.filter(
-        rc => !(rc.repo_id === repoId && rc.collection_id === collectionId)
+  async function removeRepoFromCollection(repoId: string, collectionId: string) {
+    await execute(
+      () => collectionsApi.removeRepo(collectionId, repoId),
+      'Failed to remove repo from collection'
+    )
+  }
+
+  async function getReposInCollection(collectionId: string): Promise<string[]> {
+    return await executeSilent(
+      () => collectionsApi.getRepos(collectionId),
+      []
+    )
+  }
+
+  async function getCollectionForRepo(repoId: string): Promise<Collection | null> {
+    return await executeSilent(
+      () => collectionsApi.getCollectionForRepo(repoId),
+      null
+    )
+  }
+
+  async function reorderCollections(newOrder: Collection[]) {
+    await execute(async () => {
+      await Promise.all(
+        newOrder.map((coll, index) =>
+          collectionsApi.update(coll.id, { position: index })
+        )
       )
-    } else {
-      repoCollections.value = repoCollections.value.filter(rc => rc.repo_id !== repoId)
-    }
-    save()
-  }
-
-  // Get repos in collection
-  function getReposInCollection(collectionId: string): string[] {
-    return repoCollections.value
-      .filter(rc => rc.collection_id === collectionId)
-      .sort((a, b) => a.position - b.position)
-      .map(rc => rc.repo_id)
-  }
-
-  // Get collection for repo
-  function getCollectionForRepo(repoId: string): Collection | null {
-    const assoc = repoCollections.value.find(rc => rc.repo_id === repoId)
-    if (!assoc) return null
-    return collections.value.find(c => c.id === assoc.collection_id) || null
-  }
-
-  // Reorder collections
-  function reorderCollections(newOrder: Collection[]) {
-    newOrder.forEach((coll, index) => {
-      coll.position = index
-    })
-    collections.value = newOrder
-    save()
-  }
-
-  // Save to storage
-  function save() {
-    storage.set(STORAGE_KEYS.COLLECTIONS, collections.value)
-    storage.set(STORAGE_KEYS.REPO_COLLECTIONS, repoCollections.value)
+      collections.value = newOrder
+    }, 'Failed to reorder collections')
   }
 
   // Initialize
@@ -107,7 +79,8 @@ export function useCollections() {
 
   return {
     collections,
-    repoCollections,
+    isLoading,
+    error,
     load,
     createCollection,
     updateCollection,

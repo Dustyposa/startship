@@ -27,6 +27,11 @@ export const useReposStore = defineStore('repos', () => {
       if (filters.languages?.length) params.append('languages', filters.languages.join(','))
       if (filters.minStars) params.append('min_stars', filters.minStars.toString())
       if (filters.maxStars) params.append('max_stars', filters.maxStars.toString())
+      // New filter dimensions
+      if (filters.isActive !== undefined) params.append('is_active', filters.isActive.toString())
+      if (filters.isNew !== undefined) params.append('is_new', filters.isNew.toString())
+      if (filters.ownerType) params.append('owner_type', filters.ownerType)
+      if (filters.excludeArchived !== undefined) params.append('exclude_archived', filters.excludeArchived.toString())
 
       const data = await handleResponse(await fetch(`/api/search?${params}`))
       repos.value = data.results || []

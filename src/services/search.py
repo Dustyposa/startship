@@ -24,7 +24,12 @@ class SearchService:
         languages: Optional[List[str]] = None,
         min_stars: Optional[int] = None,
         max_stars: Optional[int] = None,
-        limit: int = 20
+        limit: int = 20,
+        # New filter dimensions
+        is_active: Optional[bool] = None,  # Filter by active maintenance (pushed within 7 days)
+        is_new: Optional[bool] = None,  # Filter by new projects (created within 6 months)
+        owner_type: Optional[str] = None,  # Filter by owner type ("Organization" or "User")
+        exclude_archived: bool = True  # Exclude archived repos by default
     ) -> List[Dict[str, Any]]:
         """
         Search repositories with filters.
@@ -36,6 +41,10 @@ class SearchService:
             min_stars: Minimum star count
             max_stars: Maximum star count
             limit: Maximum number of results
+            is_active: Filter by active maintenance (pushed within 7 days)
+            is_new: Filter by new projects (created within 6 months)
+            owner_type: Filter by owner type ("Organization" or "User")
+            exclude_archived: Exclude archived repos
 
         Returns:
             List of matching repositories
@@ -53,7 +62,11 @@ class SearchService:
                 languages=languages,
                 min_stars=min_stars,
                 max_stars=max_stars,
-                limit=limit
+                limit=limit,
+                is_active=is_active,
+                is_new=is_new,
+                owner_type=owner_type,
+                exclude_archived=exclude_archived
             )
 
         return results

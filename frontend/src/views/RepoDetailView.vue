@@ -62,6 +62,11 @@
       </div>
 
       <div class="mb-6">
+        <h2 class="text-lg font-bold text-gray-900 dark:text-white mb-2">收藏</h2>
+        <CollectionManager :repo-id="nameWithOwner" />
+      </div>
+
+      <div class="mb-6">
         <h2 class="text-lg font-bold text-gray-900 dark:text-white mb-2">我的笔记</h2>
         <NoteEditor :repo-id="nameWithOwner" @update="handleNoteUpdate" />
       </div>
@@ -87,6 +92,7 @@ import { ref, onMounted, computed } from 'vue'
 import { useRoute } from 'vue-router'
 import { useReposStore } from '../stores/repos'
 import type { Repository } from '../types'
+import CollectionManager from '../components/CollectionManager.vue'
 import NoteEditor from '../components/NoteEditor.vue'
 import TagManager from '../components/TagManager.vue'
 import { formatStarCount, formatRelativeTime } from '@/utils/format'

@@ -40,13 +40,7 @@
 
     <!-- Filters -->
     <div class="flex gap-4 flex-wrap">
-      <select v-model="selectedCategory" class="px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg dark:bg-gray-800 dark:text-white">
-        <option value="">所有分类</option>
-        <option v-for="(count, cat) in categories" :key="cat" :value="cat">
-          {{ cat }} ({{ count }})
-        </option>
-      </select>
-
+      <!-- Language Filter -->
       <select v-model="selectedLanguage" class="px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg dark:bg-gray-800 dark:text-white">
         <option value="">所有语言</option>
         <option value="Python">Python</option>
@@ -54,7 +48,32 @@
         <option value="TypeScript">TypeScript</option>
         <option value="Go">Go</option>
         <option value="Rust">Rust</option>
+        <option value="Java">Java</option>
+        <option value="C++">C++</option>
       </select>
+
+      <!-- Owner Type Filter -->
+      <select v-model="selectedOwnerType" class="px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg dark:bg-gray-800 dark:text-white">
+        <option value="">所有类型</option>
+        <option value="Organization">🏢 组织</option>
+        <option value="User">👤 个人</option>
+      </select>
+
+      <!-- Derived Tag Filters -->
+      <label class="flex items-center gap-2 px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg dark:bg-gray-800 dark:text-white cursor-pointer">
+        <input type="checkbox" v-model="isActive" class="rounded">
+        <span>🟢 活跃维护</span>
+      </label>
+
+      <label class="flex items-center gap-2 px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg dark:bg-gray-800 dark:text-white cursor-pointer">
+        <input type="checkbox" v-model="isNew" class="rounded">
+        <span>🆕 新项目</span>
+      </label>
+
+      <label class="flex items-center gap-2 px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg dark:bg-gray-800 dark:text-white cursor-pointer">
+        <input type="checkbox" v-model="excludeArchived" class="rounded">
+        <span>排除归档</span>
+      </label>
     </div>
 
     <!-- Loading State -->
@@ -67,11 +86,13 @@
       <div
         v-for="repo in repos"
         :key="repo.name_with_owner"
-        class="bg-white dark:bg-gray-800 p-4 rounded-lg shadow-sm hover:shadow-md cursor-pointer transition border border-gray-200 dark:border-gray-700"
+        class="bg-white dark:bg-gray-800 p-4 rounded-lg shadow-sm hover:shadow-md cursor-pointer transition border"
+        :class="repoCollections[repo.name_with_owner] ? 'border-yellow-400 dark:border-yellow-500' : 'border-gray-200 dark:border-gray-700'"
       >
         <div @click="goToRepo(repo.name_with_owner)">
           <h3 class="font-bold text-gray-900 dark:text-white">{{ repo.name_with_owner }}</h3>
           <p class="text-sm text-gray-600 dark:text-gray-400 line-clamp-2">{{ repo.description || repo.summary }}</p>
+
           <div class="flex gap-2 mt-2 flex-wrap">
             <span v-if="repo.primary_language" class="text-xs px-2 py-1 bg-blue-100 dark:bg-blue-900 text-blue-800 dark:text-blue-200 rounded">
               {{ repo.primary_language }}
@@ -89,24 +110,27 @@
         <div class="flex gap-2 mt-3 pt-3 border-t border-gray-200 dark:border-gray-700">
           <button
             @click.stop="openModal('quickNote', repo.name_with_owner)"
-            class="px-3 py-1.5 text-xs font-medium text-gray-600 dark:text-gray-400 hover:text-blue-600 dark:hover:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-900/20 rounded-lg transition"
+            class="px-3 py-1.5 text-xs font-medium rounded-lg transition"
+            :class="repoNotes[repo.name_with_owner] ? 'text-yellow-600 dark:text-yellow-400 bg-yellow-50 dark:bg-yellow-900/20' : 'text-gray-600 dark:text-gray-400 hover:text-blue-600 dark:hover:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-900/20'"
             title="添加笔记"
           >
             笔记
           </button>
           <button
             @click.stop="openModal('quickTag', repo.name_with_owner)"
-            class="px-3 py-1.5 text-xs font-medium text-gray-600 dark:text-gray-400 hover:text-blue-600 dark:hover:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-900/20 rounded-lg transition"
+            class="px-3 py-1.5 text-xs font-medium rounded-lg transition"
+            :class="repoTags[repo.name_with_owner]?.length ? 'text-purple-600 dark:text-purple-400 bg-purple-50 dark:bg-purple-900/20' : 'text-gray-600 dark:text-gray-400 hover:text-blue-600 dark:hover:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-900/20'"
             title="管理标签"
           >
             标签
           </button>
           <button
             @click.stop="openModal('collection', repo.name_with_owner)"
-            class="px-3 py-1.5 text-xs font-medium text-gray-600 dark:text-gray-400 hover:text-blue-600 dark:hover:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-900/20 rounded-lg transition"
+            class="px-3 py-1.5 text-xs font-medium rounded-lg transition"
+            :class="repoCollections[repo.name_with_owner] ? 'text-yellow-600 dark:text-yellow-400 bg-yellow-50 dark:bg-yellow-900/20' : 'text-gray-600 dark:text-gray-400 hover:text-blue-600 dark:hover:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-900/20'"
             title="添加到收藏夹"
           >
-            收藏
+            {{ repoCollections[repo.name_with_owner] ? '已收藏' : '收藏' }}
           </button>
         </div>
       </div>
@@ -200,7 +224,7 @@
             <div>
               <div class="font-medium text-gray-900 dark:text-white">{{ collection.name }}</div>
               <div class="text-xs text-gray-500 dark:text-gray-400">
-                {{ getReposInCollection(collection.id).length }} 个仓库
+                {{ collectionRepoCounts[collection.id] || 0 }} 个仓库
               </div>
             </div>
           </button>
@@ -216,11 +240,15 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, onMounted } from 'vue'
+import { ref, computed, onMounted, onUnmounted } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
 import { useReposStore } from '../stores/repos'
 import { useExport } from '../composables/useExport'
 import { useCollections } from '@/composables/useCollections'
+import { useTags } from '@/composables/useTags'
+import { useNotes } from '@/composables/useNotes'
+import { collectionsApi } from '@/api/user'
+import type { Collection, Tag } from '@/api/user'
 import NoteEditor from '@/components/NoteEditor.vue'
 import TagManager from '@/components/TagManager.vue'
 import { formatStarCount, formatRelativeTime } from '@/utils/format'
@@ -230,10 +258,15 @@ const route = useRoute()
 const reposStore = useReposStore()
 const { exportToJSON: exportJSON, exportToCSV: exportCSV } = useExport()
 const { collections, addRepoToCollection, getReposInCollection } = useCollections()
+const { getAllTags, getTagsForRepo } = useTags()
+const { getNote } = useNotes()
 
 const searchQuery = ref((route.query.q as string) || '')
-const selectedCategory = ref('')
 const selectedLanguage = ref('')
+const selectedOwnerType = ref('')
+const isActive = ref(false)
+const isNew = ref(false)
+const excludeArchived = ref(true)
 
 const modals = ref({
   quickNote: null as string | null,
@@ -241,21 +274,82 @@ const modals = ref({
   collection: { show: false, repoId: null as string | null }
 })
 
+// Cache for repo data (collections, tags, notes)
+const repoCollections = ref<Record<string, Collection>>({})
+const repoTags = ref<Record<string, Tag[]>>({})
+const repoNotes = ref<Record<string, { rating?: number }>>({})
+const collectionRepoCounts = ref<Record<string, number>>({})
+
 const repos = computed(() => reposStore.repos)
-const categories = computed(() => reposStore.categories)
 const isLoading = computed(() => reposStore.isLoading)
 
-onMounted(() => {
-  reposStore.loadCategories()
-  handleSearch()
+// Load collection repo counts
+async function loadCollectionCounts() {
+  const promises: Promise<void>[] = []
+  for (const collection of collections.value) {
+    promises.push(
+      (async () => {
+        const repos = await getReposInCollection(collection.id)
+        collectionRepoCounts.value[collection.id] = repos.length
+      })()
+    )
+  }
+  await Promise.all(promises)
+}
+
+function handleEscape(e: KeyboardEvent) {
+  if (e.key === 'Escape') {
+    if (modals.value.quickNote) closeModal('quickNote')
+    if (modals.value.quickTag) closeModal('quickTag')
+    if (modals.value.collection.show) closeModal('collection')
+  }
+}
+
+onMounted(async () => {
+  await handleSearch()
+  await loadCollectionCounts()
+  window.addEventListener('keydown', handleEscape)
 })
 
-function handleSearch() {
-  reposStore.searchRepos({
+onUnmounted(() => {
+  window.removeEventListener('keydown', handleEscape)
+})
+
+async function loadRepoMetadata() {
+  const promises: Promise<void>[] = []
+
+  for (const repo of repos.value) {
+    promises.push(
+      (async () => {
+        // Get collection
+        const coll = await collectionsApi.getCollectionForRepo(repo.name_with_owner)
+        if (coll) repoCollections.value[repo.name_with_owner] = coll
+
+        // Get tags
+        const tags = await getTagsForRepo(repo.name_with_owner)
+        if (tags.length > 0) repoTags.value[repo.name_with_owner] = tags
+
+        // Get note rating
+        const note = await getNote(repo.name_with_owner)
+        if (note?.rating) repoNotes.value[repo.name_with_owner] = note
+      })()
+    )
+  }
+
+  await Promise.all(promises)
+}
+
+async function handleSearch() {
+  await reposStore.searchRepos({
     query: searchQuery.value,
-    categories: selectedCategory.value ? [selectedCategory.value] : undefined,
-    languages: selectedLanguage.value ? [selectedLanguage.value] : undefined
+    languages: selectedLanguage.value ? [selectedLanguage.value] : undefined,
+    ownerType: selectedOwnerType.value || undefined,
+    isActive: isActive.value || undefined,
+    isNew: isNew.value || undefined,
+    excludeArchived: excludeArchived.value
   })
+  // Load metadata after search completes
+  await loadRepoMetadata()
 }
 
 function goToRepo(nameWithOwner: string) {
@@ -266,6 +360,7 @@ function goToRepo(nameWithOwner: string) {
 function openModal(type: 'quickNote' | 'quickTag' | 'collection', repoId?: string) {
   if (type === 'collection' && repoId) {
     modals.value.collection = { show: true, repoId }
+    loadCollectionCounts()
   } else if (type === 'quickNote' || type === 'quickTag') {
     modals.value[type] = repoId || null
   }
@@ -279,10 +374,16 @@ function closeModal(type: 'quickNote' | 'quickTag' | 'collection') {
   }
 }
 
-function selectCollection(collectionId: string) {
+async function selectCollection(collectionId: string) {
   const { repoId } = modals.value.collection
   if (repoId) {
-    addRepoToCollection(repoId, collectionId)
+    await addRepoToCollection(repoId, collectionId)
+    // Update the count
+    const repos = await getReposInCollection(collectionId)
+    collectionRepoCounts.value[collectionId] = repos.length
+    // Update repo collections cache
+    const coll = collections.value.find(c => c.id === collectionId)
+    if (coll) repoCollections.value[repoId] = coll
     closeModal('collection')
   }
 }

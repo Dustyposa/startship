@@ -1,60 +1,52 @@
 import { ref } from 'vue'
-import { storage } from '@/utils/storage'
-import { STORAGE_KEYS, type Note } from '@/types/collections'
+import { notesApi } from '@/api/user'
+import type { Note } from '@/api/user'
+import { useAsyncOperation } from './useAsyncOperation'
 
 export function useNotes() {
   const notes = ref<Record<string, Note>>({})
+  const { isLoading, error, execute, executeSilent } = useAsyncOperation()
 
-  // Load from storage
-  function load() {
-    notes.value = storage.get<Record<string, Note>>(STORAGE_KEYS.NOTES) || {}
+  async function load() {
+    await execute(async () => {
+      const allNotes = await notesApi.getAll()
+      notes.value = {}
+      allNotes.forEach(note => {
+        notes.value[note.repo_id] = note
+      })
+    }, 'Failed to load notes')
   }
 
-  // Save note for repo
-  function saveNote(repoId: string, note: string, rating: number) {
-    const now = new Date().toISOString()
-    const existing = notes.value[repoId]
+  async function saveNote(repoId: string, note: string, rating: number) {
+    await execute(async () => {
+      const savedNote = await notesApi.upsert(repoId, { note, rating })
+      notes.value[repoId] = savedNote
+    }, 'Failed to save note')
+  }
 
-    if (existing) {
-      // Update existing
-      notes.value[repoId] = {
-        ...existing,
-        note,
-        rating,
-        updated_at: now
-      }
-    } else {
-      // Create new
-      notes.value[repoId] = {
-        repo_id: repoId,
-        note,
-        rating,
-        created_at: now,
-        updated_at: now
-      }
+  async function getNote(repoId: string): Promise<Note | null> {
+    // Check cache first
+    if (notes.value[repoId]) {
+      return notes.value[repoId]
     }
-    save()
+    // Otherwise fetch from API
+    return await executeSilent(async () => {
+      const note = await notesApi.get(repoId)
+      if (note) notes.value[repoId] = note
+      return note
+    }, null)
   }
 
-  // Get note for repo
-  function getNote(repoId: string): Note | null {
-    return notes.value[repoId] || null
+  async function deleteNote(repoId: string) {
+    await execute(async () => {
+      await notesApi.delete(repoId)
+      delete notes.value[repoId]
+    }, 'Failed to delete note')
   }
 
-  // Delete note for repo
-  function deleteNote(repoId: string) {
-    delete notes.value[repoId]
-    save()
-  }
-
-  // Get rating for repo
-  function getRating(repoId: string): number {
-    return notes.value[repoId]?.rating || 0
-  }
-
-  // Save to storage
-  function save() {
-    storage.set(STORAGE_KEYS.NOTES, notes.value)
+  async function getRating(repoId: string): Promise<number> {
+    const note = await getNote(repoId)
+    return note?.rating || 0
   }
 
   // Initialize
@@ -62,6 +54,8 @@ export function useNotes() {
 
   return {
     notes,
+    isLoading,
+    error,
     load,
     saveNote,
     getNote,

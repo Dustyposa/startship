@@ -1,8 +1,8 @@
 """
 Pydantic models for GitHub API data.
 """
-from pydantic import BaseModel, Field, field_validator
-from typing import Optional, List, Union, Any
+from pydantic import BaseModel, Field, field_validator, model_validator
+from typing import Optional, List, Union, Any, Dict
 from datetime import datetime
 
 
@@ -35,8 +35,32 @@ class GitHubRepository(BaseModel):
     pushed_at: Optional[datetime] = None
     starred_at: Optional[datetime] = None  # When this repo was starred by the user
 
+    # Status and visibility
+    archived: bool = False
+    visibility: str = "public"
+    owner_type: Optional[str] = None  # "Organization" or "User" - extracted from owner dict
+    organization: Optional[str] = None  # Organization name if owned by org
+
+    # Internal field to store original owner dict before validation
+    _owner_dict: Optional[Dict[str, Any]] = None
+
     # License
     license_key: Optional[str] = None
+
+    @model_validator(mode='before')
+    @classmethod
+    def extract_owner_fields(cls, data: Any) -> Any:
+        """Extract owner_type and organization from owner dict before field validation"""
+        if isinstance(data, dict):
+            owner_data = data.get('owner')
+            if isinstance(owner_data, dict):
+                # Store owner_type from the owner dict
+                if 'owner_type' not in data and 'type' in owner_data:
+                    data['owner_type'] = owner_data['type']
+                # Store organization if owner type is Organization
+                if 'organization' not in data and owner_data.get('type') == 'Organization':
+                    data['organization'] = owner_data.get('login')
+        return data
 
     @field_validator("owner", mode="before")
     @classmethod

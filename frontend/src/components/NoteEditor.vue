@@ -42,13 +42,15 @@ const { getNote, saveNote } = useNotes()
 
 const localNote = ref('')
 const localRating = ref(0)
+const isLoading = ref(true)
 
-onMounted(() => {
-  const note = getNote(props.repoId)
+onMounted(async () => {
+  const note = await getNote(props.repoId)
   if (note) {
-    localNote.value = note.note
-    localRating.value = note.rating
+    localNote.value = note.note || ''
+    localRating.value = note.rating || 0
   }
+  isLoading.value = false
 })
 
 const renderedNote = ref('')
@@ -63,8 +65,8 @@ function updateRating(rating: number) {
   save()
 }
 
-function save() {
-  saveNote(props.repoId, localNote.value, localRating.value)
+async function save() {
+  await saveNote(props.repoId, localNote.value, localRating.value)
   emit('update')
 }
 </script>

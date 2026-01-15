@@ -4,15 +4,14 @@ Shared utilities for API routes.
 Provides common dependencies and helpers used across multiple route modules.
 """
 from fastapi import HTTPException, Depends
-from src.api.app import db
+from src.db import Database
 
 
 # ==================== Database Dependencies ====================
 
-async def get_db():
+def get_db() -> Database:
     """Dependency injection for database instance."""
-    if db is None:
-        raise HTTPException(status_code=503, detail="Database not available")
+    from src.api.app import db
     return db
 
 

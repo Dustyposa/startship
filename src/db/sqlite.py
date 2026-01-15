@@ -4,7 +4,7 @@ SQLite database implementation.
 import json
 import aiosqlite
 from pathlib import Path
-from typing import List, Dict, Any, Optional, Callable
+from typing import List, Dict, Any, Optional, Callable, Tuple
 from functools import wraps
 from datetime import datetime, timedelta
 from .base import Database
@@ -284,6 +284,11 @@ class SQLiteDatabase(Database):
                 return self._row_to_dict(row)
         return None
 
+    async def execute_query(self, sql: str, params: Tuple = ()) -> None:
+        """Execute a raw SQL query (for inserts, updates, etc.)."""
+        await self._connection.execute(sql, params)
+        await self._connection.commit()
+
     async def search_repositories(
         self,
         categories: Optional[List[str]] = None,
@@ -295,7 +300,11 @@ class SQLiteDatabase(Database):
         is_active: Optional[bool] = None,
         is_new: Optional[bool] = None,
         owner_type: Optional[str] = None,
-        exclude_archived: bool = True
+        exclude_archived: bool = True,
+        is_deleted: Optional[bool] = False,
+        # Sorting
+        sort_by: Optional[str] = None,
+        sort_order: str = "DESC"
     ) -> List[Dict[str, Any]]:
         """Search repositories with filters"""
         from datetime import datetime, timedelta
@@ -344,10 +353,25 @@ class SQLiteDatabase(Database):
         if exclude_archived:
             conditions.append("r.archived = 0")
 
+        # Soft delete filter
+        if is_deleted is not None:
+            conditions.append("r.is_deleted = ?")
+            params.append(1 if is_deleted else 0)
+
         if conditions:
             query += " WHERE " + " AND ".join(conditions)
 
-        query += " ORDER BY r.stargazer_count DESC LIMIT ?"
+        # Sorting
+        valid_sort_fields = {
+            "stargazer_count": "r.stargazer_count",
+            "last_synced_at": "r.last_synced_at",
+            "pushed_at": "r.pushed_at",
+            "created_at": "r.created_at",
+            "name": "r.name"
+        }
+        sort_field = valid_sort_fields.get(sort_by, "r.stargazer_count")
+        query += f" ORDER BY {sort_field} {sort_order if sort_order in ('ASC', 'DESC') else 'DESC'}"
+        query += " LIMIT ?"
         params.append(limit)
 
         async with self._connection.execute(query, params) as cursor:

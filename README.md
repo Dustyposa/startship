@@ -137,6 +137,14 @@ npm run dev -- --port 3001
 - **自定义标签** - 用标签组织项目，建立个人分类体系
 - **收藏夹管理** - 创建收藏夹，按主题或项目分组收藏
 
+### 🔄 智能数据同步
+- **增量同步** - 每日自动同步新增的星标仓库
+- **全量校验** - 每周完整校验，检测仓库更新和变化
+- **软删除保护** - 取消星标时保留笔记和标签，可随时恢复
+- **变更检测** - 自动检测 star 数、fork 数、描述等 8 个字段的变化
+- **后台定时任务** - 凌晨 2 点增量同步，周日凌晨 3 点全量校验
+- **手动触发** - 支持手动增量/全量同步和 AI 重新分析
+
 ### 📊 趋势与洞察
 - **Star 时间线** - 追溯收藏历史，发现技术兴趣演变
 - **语言分布** - 了解技术栈构成，把握技能方向
@@ -212,6 +220,8 @@ startship/
 │   │   ├── stats.py              # 统计服务
 │   │   ├── hybrid_search.py      # 混合搜索
 │   │   ├── init.py               # 初始化服务
+│   │   ├── sync.py               # 同步服务
+│   │   ├── scheduler.py          # 定时任务调度器
 │   │   ├── network.py            # 网络分析服务
 │   │   ├── trend_analysis.py     # 趋势分析服务
 │   │   ├── recommendation.py     # 推荐服务
@@ -231,8 +241,11 @@ startship/
 │       │   ├── TrendView.vue     # 趋势分析页
 │       │   ├── RepoDetailView.vue # 仓库详情页
 │       │   ├── CollectionsView.vue # 收藏页
-│       │   └── TechProfileView.vue # 技术画像页
+│       │   ├── TechProfileView.vue # 技术画像页
+│       │   ├── SyncHistoryView.vue # 同步历史页
+│       │   └── DeletedReposView.vue # 已删除仓库页
 │       ├── components/           # 可复用组件
+│       │   └── SyncStatus.vue    # 同步状态组件
 │       ├── composables/          # 组合式函数
 │       ├── router/               # 路由配置
 │       ├── stores/               # Pinia 状态管理
@@ -301,11 +314,17 @@ npm run dev -- --port 3001
 
 3. **运行测试**
 ```bash
-# 运行所有测试
+# 运行所有测试（单元 + 集成）
 pytest
 
+# 只运行单元测试
+pytest tests/unit/
+
+# 只运行集成测试
+pytest tests/integration/
+
 # 运行特定测试文件
-pytest tests/unit/test_intent.py -v
+pytest tests/unit/test_sync_service.py -v
 
 # 查看覆盖率
 pytest --cov=src tests/
@@ -345,7 +364,7 @@ npm run format
 
 ```bash
 # GitHub
-GITHUB_TOKEN=ghp_xxx  # GitHub 个人访问令牌（提高 API 限制）
+GITHUB_TOKEN=ghp_xxx  # GitHub 个人访问令牌（提高 API 限制，同步功能必需）
 
 # OpenAI
 OPENAI_API_KEY=sk-xxx  # OpenAI API 密钥（用于 LLM）
@@ -412,6 +431,18 @@ docker compose down
 - `POST /api/user/collections` - 创建收藏夹
 - `PUT /api/user/collections/{id}` - 更新收藏夹
 - `DELETE /api/user/collections/{id}` - 删除收藏夹
+
+#### 同步
+- `GET /api/sync/status` - 获取同步状态（最后同步时间、仓库数量、待更新数）
+- `POST /api/sync/manual` - 手动触发同步
+  - 参数: `full_sync` (bool) - 是否全量同步
+  - 参数: `reanalyze` (bool) - 是否重新分析所有仓库
+- `GET /api/sync/history` - 获取同步历史记录
+  - 参数: `limit` - 返回记录数
+- `GET /api/sync/repos/deleted` - 获取已删除仓库列表
+  - 支持恢复软删除的仓库
+- `POST /api/sync/repo/{name}/restore` - 恢复已删除的仓库
+- `POST /api/sync/repo/{name}/reanalyze` - 重新分析单个仓库（AI）
 
 #### 系统
 - `GET /` - 根路径

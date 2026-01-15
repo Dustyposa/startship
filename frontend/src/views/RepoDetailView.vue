@@ -6,13 +6,30 @@
           <h1 class="text-2xl font-bold text-gray-900 dark:text-white">{{ repo.name_with_owner }}</h1>
           <p v-if="repo.description" class="text-gray-600 dark:text-gray-400 mt-2">{{ repo.description }}</p>
         </div>
-        <a
-          :href="`https://github.com/${repo.name_with_owner}`"
-          target="_blank"
-          class="px-4 py-2 bg-gray-900 text-white rounded-lg hover:bg-gray-800"
-        >
-          查看 GitHub
-        </a>
+        <div class="flex items-center gap-2">
+          <button
+            @click="handleReanalyze"
+            :disabled="isReanalyzing"
+            class="px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 disabled:bg-gray-400 disabled:cursor-not-allowed transition flex items-center gap-2"
+            title="使用 AI 重新分析此仓库"
+          >
+            <svg v-if="isReanalyzing" class="animate-spin w-4 h-4" fill="none" viewBox="0 0 24 24">
+              <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+              <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+            </svg>
+            <svg v-else class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z" />
+            </svg>
+            <span>{{ isReanalyzing ? '分析中...' : 'AI 重新分析' }}</span>
+          </button>
+          <a
+            :href="`https://github.com/${repo.name_with_owner}`"
+            target="_blank"
+            class="px-4 py-2 bg-gray-900 text-white rounded-lg hover:bg-gray-800"
+          >
+            查看 GitHub
+          </a>
+        </div>
       </div>
 
       <div class="flex gap-4 mb-6 flex-wrap">
@@ -28,6 +45,29 @@
         <span v-if="repo.fork_count !== undefined" class="px-3 py-1 bg-gray-100 text-gray-800 rounded-full text-sm">
           🍴 {{ formatStarCount(repo.fork_count) }} forks
         </span>
+        <span v-if="lastAnalyzedTime" class="px-3 py-1 bg-purple-100 text-purple-800 rounded-full text-sm">
+          🤖 分析于 {{ lastAnalyzedTime }}
+        </span>
+      </div>
+
+      <!-- Re-analyze Message -->
+      <div v-if="reanalyzeMessage" :class="[
+        'mb-4 p-3 rounded-lg',
+        reanalyzeMessage.type === 'success'
+          ? 'bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800'
+          : 'bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800'
+      ]">
+        <div class="flex items-center gap-2 text-sm"
+          :class="reanalyzeMessage.type === 'success' ? 'text-green-700 dark:text-green-400' : 'text-red-700 dark:text-red-400'"
+        >
+          <svg v-if="reanalyzeMessage.type === 'success'" class="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
+            <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd" />
+          </svg>
+          <svg v-else class="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
+            <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clip-rule="evenodd" />
+          </svg>
+          <span>{{ reanalyzeMessage.text }}</span>
+        </div>
       </div>
 
       <div v-if="repo.summary" class="mb-6">
@@ -95,6 +135,7 @@ import type { Repository } from '../types'
 import CollectionManager from '../components/CollectionManager.vue'
 import NoteEditor from '../components/NoteEditor.vue'
 import TagManager from '../components/TagManager.vue'
+import { syncApi } from '@/api/sync'
 import { formatStarCount, formatRelativeTime } from '@/utils/format'
 
 const route = useRoute()
@@ -102,8 +143,44 @@ const reposStore = useReposStore()
 
 const repo = ref<Repository | null>(null)
 const isLoading = ref(true)
+const isReanalyzing = ref(false)
+const reanalyzeMessage = ref<{ type: 'success' | 'error'; text: string } | null>(null)
 
 const nameWithOwner = computed(() => repo.value?.name_with_owner || '')
+
+const lastAnalyzedTime = computed(() => {
+  if (!repo.value?.last_analyzed_at) return null
+  return formatRelativeTime(repo.value.last_analyzed_at)
+})
+
+async function handleReanalyze() {
+  if (!nameWithOwner.value) return
+
+  reanalyzeMessage.value = null
+  isReanalyzing.value = true
+
+  try {
+    const result = await syncApi.reanalyzeRepo(nameWithOwner.value)
+    reanalyzeMessage.value = {
+      type: 'success',
+      text: result.message || '重新分析已加入队列，请稍后刷新查看结果'
+    }
+
+    // Reload repo data after a delay to get updated analysis
+    setTimeout(async () => {
+      const data = await reposStore.loadRepo(nameWithOwner.value)
+      repo.value = data
+      isReanalyzing.value = false
+    }, 5000)
+  } catch (error) {
+    console.error('Failed to reanalyze repo:', error)
+    reanalyzeMessage.value = {
+      type: 'error',
+      text: '重新分析失败，请稍后重试'
+    }
+    isReanalyzing.value = false
+  }
+}
 
 function handleNoteUpdate() {
   // Notes updated - could trigger refresh if needed

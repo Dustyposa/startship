@@ -9,18 +9,19 @@ from fastapi.responses import JSONResponse
 from fastapi.staticfiles import StaticFiles
 from src.config import settings
 from src.db import create_database
-from src.api.routes import chat, search, init, recommendation, trends, network, user_data
+from src.api.routes import chat, search, init, recommendation, trends, network, user_data, sync
 
 
 # Global database instance
 db = None
 search_service = None
+scheduler = None
 
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     """Application lifespan manager"""
-    global db, search_service
+    global db, search_service, scheduler
 
     # Startup
     print(f"Starting {settings.api_title} v{settings.api_version}")
@@ -38,10 +39,26 @@ async def lifespan(app: FastAPI):
     search_service = SearchService(db)
     print("Search service initialized")
 
+    # Initialize scheduler if GitHub token is configured
+    if settings.github_token:
+        try:
+            from src.services.scheduler import start_scheduler
+            scheduler = start_scheduler(db)
+            print("Sync scheduler started")
+        except Exception as e:
+            print(f"Failed to start scheduler: {e}")
+            scheduler = None
+    else:
+        print("GitHub Token not configured - sync scheduler disabled")
+
     yield
 
     # Shutdown
     print("Shutting down application")
+    if scheduler:
+        from src.services.scheduler import stop_scheduler
+        stop_scheduler()
+        print("Sync scheduler stopped")
     if db:
         await db.close()
         print("Database connection closed")
@@ -71,6 +88,7 @@ app.include_router(recommendation.router)
 app.include_router(trends.router)
 app.include_router(network.router)
 app.include_router(user_data.router)
+app.include_router(sync.router)
 
 # Mount static files for frontend
 # TODO: Uncomment when frontend is built

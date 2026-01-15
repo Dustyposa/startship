@@ -98,17 +98,15 @@ class GitHubClient:
 
     async def get_starred_repositories(
         self,
-        username: Optional[str] = None,
         sort: str = "created",
         direction: str = "desc",
         per_page: int = 100,
         page: int = 1
     ) -> List[GitHubRepository]:
         """
-        Get repositories starred by a user.
+        Get repositories starred by the authenticated user.
 
         Args:
-            username: Username (None for authenticated user)
             sort: created or updated
             direction: asc or desc
             per_page: Results per page (max 100)
@@ -116,11 +114,11 @@ class GitHubClient:
 
         Returns:
             List of repositories with starred_at timestamps
+
+        Note:
+            Requires GitHub Token to be configured.
         """
-        if username:
-            endpoint = f"/users/{username}/starred"
-        else:
-            endpoint = "/user/starred"
+        endpoint = "/user/starred"
 
         params = {
             "sort": sort,
@@ -158,18 +156,19 @@ class GitHubClient:
 
     async def get_all_starred(
         self,
-        username: Optional[str] = None,
         max_results: Optional[int] = None
     ) -> List[GitHubRepository]:
         """
         Get all starred repositories with auto-pagination.
 
         Args:
-            username: Username (None for authenticated user)
             max_results: Maximum number of results to fetch
 
         Returns:
             List of all starred repositories, sorted by starred_at (newest first)
+
+        Note:
+            Requires GitHub Token to be configured.
         """
         all_repos = []
         page = 1
@@ -177,7 +176,6 @@ class GitHubClient:
 
         while True:
             repos = await self.get_starred_repositories(
-                username=username,
                 per_page=per_page,
                 page=page
             )

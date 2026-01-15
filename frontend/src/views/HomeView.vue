@@ -64,6 +64,11 @@
       </div>
     </div>
 
+    <!-- Sync Status Section -->
+    <section v-if="!showOnboarding">
+      <SyncStatus />
+    </section>
+
     <!-- Empty State for Non-Initialized Users -->
     <div v-else-if="stats.total_repositories === 0" class="bg-white rounded-xl shadow-sm p-12 text-center">
       <div class="text-6xl mb-4">📭</div>
@@ -227,6 +232,7 @@
 
 <script setup lang="ts">
 import { ref, onMounted, computed } from 'vue'
+import SyncStatus from '../components/SyncStatus.vue'
 
 interface Stats {
   total_repositories: number

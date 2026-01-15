@@ -1,88 +1,68 @@
-# 研究发现: GitHub API 分类字段
+# 研究发现: 数据同步系统
 
-## GitHub API 官方字段分析
+## 当前数据结构分析
 
-### 🔤 核心分类字段
+### 已有的时间字段
+- `starred_at` - 用户 star 的时间 ✅
+- `pushed_at` - 仓库最后提交时间 ✅
+- `created_at` - 本地记录创建时间 ✅
+- `updated_at` - 本地记录更新时间 ✅
+- `indexed_at` - 索引时间 ✅
 
-| 字段 | 说明 | 示例 | 推荐度 |
-|------|------|------|--------|
-| language | 主要语言 | TypeScript, Python | ⭐⭐⭐⭐⭐ 最佳主分类 |
-| topics | 用户标签 | ["build-tool", "hmr"] | ❌ 太细粒度 |
-| license.key | 许可证 | mit, apache-2.0 | ⭐⭐⭐ 适合筛选 |
-| visibility | 可见性 | public, private | ⭐⭐ 辅助 |
+### GitHub API 时效性
+- REST API: 支持 `since` 参数获取增量数据
+- GraphQL: 支持 `starred_at` 排序和过滤
+- Rate Limit: 认证 5000次/小时，未认证 60次/小时
 
-### 📊 状态字段
+## 同步场景分析
 
-| 字段 | 说明 | 用途 |
-|------|------|------|
-| archived | 是否归档 | 过滤活跃项目 |
-| disabled | 是否禁用 | 状态过滤 |
-| has_issues | 有 issues | 功能完整性 |
-| has_wiki | 有 wiki | 功能完整性 |
-| has_discussions | 有讨论 | 功能完整性 |
+### 场景 1: 用户 star 新仓库
+- **检测**: GitHub 有，本地没有
+- **操作**: INSERT 新仓库记录
+- **LLM**: 可选分析
 
-### ⏰ 时间字段（衍生维度）
+### 场景 2: 仓库有更新
+- **检测**: `pushed_at` 变化，`stargazer_count` 变化
+- **操作**: UPDATE 元数据
+- **LLM**: 不自动重新分析
 
-| 字段 | 说明 | 分类示例 |
-|------|------|----------|
-| created_at | 创建时间 | "新项目" (< 6个月) |
-| pushed_at | 最后推送 | "活跃中" (7天内) |
-| updated_at | 更新时间 | "维护中" |
+### 场景 3: 用户取消 star
+- **检测**: 本地有，GitHub 没有
+- **操作**: `is_deleted = 1`
+- **数据**: 保留笔记和标签
 
-### 📈 数量字段（衍生分组）
+### 场景 4: 重新 star 已删除的仓库
+- **检测**: GitHub 有，本地存在但 `is_deleted = 1`
+- **操作**: `is_deleted = 0`，更新元数据
+- **数据**: 恢复原有笔记和标签
 
-| 字段 | 说明 | 分类示例 |
-|------|------|----------|
-| stargazers_count | 星数 | "热门" (>10000⭐) |
-| forks_count | Fork数 | "广泛使用" (>1000) |
-| open_issues_count | Issue数 | "维护活跃" (>100) |
+## 技术选型
 
-### 🏷️ 组织信息
+### 定时任务
+- **APScheduler**: Python 标准选择，支持 cron 表达式
+- **替代方案**: Celery（过重）、系统 cron（不跨平台）
 
-| 字段 | 说明 | 用途 |
-|------|------|------|
-| organization.login | 组织名 | "Vercel 项目集" |
-| owner.type | 拥有者类型 | Organization / User |
+### 增量检测
+- **基于时间**: 使用 `last_synced_at` 和 GitHub API 的 `since`
+- **GitHub 限制**: REST API 的 star 列表按时间倒序，需要获取全部后对比
 
-## 当前实现分析
+## 数据一致性
 
-### 已使用的字段
-- ✅ language → 主要语言
-- ✅ topics → categories (待移除)
-- ✅ stargazers_count → 星数
-- ✅ starred_at → 收藏时间
-- ✅ pushed_at → 活跃度计算 (数据库已有)
-- ✅ created_at → 项目年龄计算 (数据库已有)
-- ✅ owner_type → 组织/个人分类 (模型已有)
-- ✅ archived → 归档状态 (模型已有)
-- ✅ visibility → 可见性 (模型已有)
-- ✅ organization → 组织名 (模型已有)
+### 并发同步
+- 使用事务保证批量操作的原子性
+- 同步锁防止重复同步
 
-### 当前模型状态
-**GitHub 模型字段已完整** - `archived`, `visibility`, `owner_type`, `organization` 都已在 `GitHubRepository` 模型中定义
+### 错误恢复
+- 记录同步历史，支持断点续传
+- 失败仓库不阻塞整体同步
 
-### 当前问题
-1. **init.py 使用 topics 作为 categories** - 需要移除或改为使用 language (已通过 skip_llm=True 解决)
+## 性能考虑
 
-## 前端分析
+### 全量同步开销
+- 100 个仓库 ~ 100 次 API 调用
+- 使用 token 支持 5000次/小时
+- 建议每周做一次全量校验
 
-### SearchView.vue 新筛选
-- **语言筛选** - Python, JavaScript, TypeScript, Go, Rust, Java, C++
-- **拥有者类型** - 🏢 组织 / 👤 个人
-- **活跃维护** - 🟢 7天内有提交
-- **新项目** - 🆕 6个月内创建
-- **排除归档** - 默认开启
-
-### 已完成的前端组件
-- ✅ SearchView.vue - 移除 categories 筛选，添加新的衍生标签筛选
-- ✅ repos store - 添加新筛选参数传递
-- ✅ 类型定义 - 添加新字段类型
-
-## 后端分析
-
-### 已实现功能
-- ✅ GitHub 模型包含所有字段
-- ✅ 数据库迁移 004 添加缺失字段
-- ✅ search API 暴露新筛选参数
-- ✅ sqlite.py add_repository 保存新字段
-- ✅ search.py search_repositories 支持新维度筛选
+### 增量同步效率
+- 每日新增通常 < 10 个
+- 大部分时间只检测更新，不获取 README

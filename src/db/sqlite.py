@@ -489,7 +489,7 @@ class SQLiteDatabase(Database):
         ) as cursor:
             total_repos = (await cursor.fetchone())[0]
 
-        # Get languages instead of topics categories
+        # Get languages
         async with self._connection.execute(
             """
             SELECT primary_language, COUNT(*) as count
@@ -500,6 +500,18 @@ class SQLiteDatabase(Database):
             """
         ) as cursor:
             languages = {row[0]: row[1] for row in await cursor.fetchall()}
+
+        # Get categories
+        async with self._connection.execute(
+            """
+            SELECT category, COUNT(*) as count
+            FROM repo_categories
+            JOIN repositories ON repo_categories.repo_id = repositories.id
+            GROUP BY category
+            ORDER BY count DESC
+            """
+        ) as cursor:
+            categories = {row[0]: row[1] for row in await cursor.fetchall()}
 
         async with self._connection.execute(
             "SELECT COUNT(DISTINCT session_id) FROM conversations"
@@ -553,6 +565,7 @@ class SQLiteDatabase(Database):
             "total_repositories": total_repos,
             "total_conversations": total_conversations,
             "languages": languages,
+            "categories": categories,
             "top_language": top_language,
             "database_path": self.db_path,
             # Derived tags

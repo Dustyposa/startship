@@ -234,6 +234,9 @@ class NetworkService:
 
     async def get_cached_network(self) -> dict[str, Any] | None:
         """Get cached network data."""
+        if self.db is None or self.db._connection is None:
+            return None
+
         cursor = await self.db._connection.execute(
             "SELECT nodes, edges FROM network_cache ORDER BY updated_at DESC LIMIT 1"
         )

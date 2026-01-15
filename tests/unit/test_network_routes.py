@@ -28,10 +28,11 @@ def test_network_graph_not_found():
     # If 404 or 503, check error message format
     if response.status_code == 404:
         data = response.json()
-        assert "detail" in data
+        # HTTPException handler returns "error" key instead of "detail"
+        assert "error" in data
         # Either our custom message or generic 404 is acceptable
-        assert ("Network data not found" in data["detail"] or
-                "Not Found" in data["detail"])
+        assert ("Network data not found" in data["error"] or
+                "Not Found" in data["error"])
     elif response.status_code == 503:
         data = response.json()
         # 503 errors from the exception handler have 'error' key

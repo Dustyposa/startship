@@ -4,6 +4,7 @@ Test that InitializationService saves starred_at timestamp.
 import pytest
 from unittest.mock import AsyncMock, MagicMock, patch
 from src.services.init import InitializationService
+from src.github.models import GitHubRepository
 
 
 @pytest.mark.asyncio
@@ -25,28 +26,36 @@ async def test_initialization_saves_starred_at():
 
         service = InitializationService(db, None, None)
 
-        # Mock GitHub response with starred_at
-        mock_repo = MagicMock()
-        mock_repo.name_with_owner = "owner/repo"
+        # Mock GitHub GraphQL response with starred_at - return GitHubRepository objects
+        # Note: Use aliases (original field names) for Pydantic model with alias priority
+        from datetime import datetime
+        mock_repo = GitHubRepository(
+            id=1,
+            full_name="owner/repo",  # alias for name_with_owner
+            name="repo",
+            owner="owner",
+            description="Test",
+            language="Python",  # alias for primary_language
+            stargazers_count=100,  # alias for stargazer_count
+            forks_count=10,  # alias for fork_count
+            html_url="https://github.com/owner/repo",  # alias for url
+            homepage=None,  # alias for homepage_url
+            created_at=datetime.now(),
+            updated_at=datetime.now(),
+            pushed_at=datetime.now(),
+            archived=False,
+            visibility="public",
+            owner_type="User"
+        )
+        # Set starred_at as an attribute (simulating GraphQL extension)
         mock_repo.starred_at = "2024-01-01T00:00:00Z"
 
-        # Mock other required attributes
-        mock_repo.name = "repo"
-        mock_repo.owner_login = "owner"
-        mock_repo.description = "Test"
-        mock_repo.primary_language = "Python"
-        mock_repo.topics = []
-        mock_repo.stargazer_count = 100
-        mock_repo.fork_count = 10
-        mock_repo.url = "https://github.com/owner/repo"
-        mock_repo.homepage_url = None
-
-        # Mock GitHubClient context manager
+        # Mock GitHubGraphQLClient context manager
         mock_github = AsyncMock()
-        mock_github.get_all_starred = AsyncMock(return_value=[mock_repo])
+        mock_github.get_starred_repositories = AsyncMock(return_value=[mock_repo])
         mock_github.get_readme_content = AsyncMock(return_value="# Test README")
 
-        with patch('src.services.init.GitHubClient') as mock_github_class:
+        with patch('src.services.init.GitHubGraphQLClient') as mock_github_class:
             mock_github_class.return_value.__aenter__.return_value = mock_github
             mock_github_class.return_value.__aexit__.return_value = None
 
@@ -79,29 +88,34 @@ async def test_initialization_handles_missing_starred_at():
 
         service = InitializationService(db, None, None)
 
-        # Mock GitHub response without starred_at
-        mock_repo = MagicMock()
-        mock_repo.name_with_owner = "owner/repo"
+        # Mock GitHub GraphQL response without starred_at
+        from datetime import datetime
+        mock_repo = GitHubRepository(
+            id=1,
+            full_name="owner/repo",
+            name="repo",
+            owner="owner",
+            description="Test",
+            language="Python",
+            stargazers_count=100,
+            forks_count=10,
+            html_url="https://github.com/owner/repo",
+            homepage=None,
+            created_at=datetime.now(),
+            updated_at=datetime.now(),
+            pushed_at=datetime.now(),
+            archived=False,
+            visibility="public",
+            owner_type="User"
+        )
         # Don't set starred_at - simulate missing attribute
-        del mock_repo.starred_at
 
-        # Mock other required attributes
-        mock_repo.name = "repo"
-        mock_repo.owner_login = "owner"
-        mock_repo.description = "Test"
-        mock_repo.primary_language = "Python"
-        mock_repo.topics = []
-        mock_repo.stargazer_count = 100
-        mock_repo.fork_count = 10
-        mock_repo.url = "https://github.com/owner/repo"
-        mock_repo.homepage_url = None
-
-        # Mock GitHubClient context manager
+        # Mock GitHubGraphQLClient context manager
         mock_github = AsyncMock()
-        mock_github.get_all_starred = AsyncMock(return_value=[mock_repo])
+        mock_github.get_starred_repositories = AsyncMock(return_value=[mock_repo])
         mock_github.get_readme_content = AsyncMock(return_value="# Test README")
 
-        with patch('src.services.init.GitHubClient') as mock_github_class:
+        with patch('src.services.init.GitHubGraphQLClient') as mock_github_class:
             mock_github_class.return_value.__aenter__.return_value = mock_github
             mock_github_class.return_value.__aexit__.return_value = None
 
@@ -134,28 +148,34 @@ async def test_initialization_with_none_starred_at():
 
         service = InitializationService(db, None, None)
 
-        # Mock GitHub response with starred_at set to None
-        mock_repo = MagicMock()
-        mock_repo.name_with_owner = "owner/repo"
+        # Mock GitHub GraphQL response with starred_at set to None
+        from datetime import datetime
+        mock_repo = GitHubRepository(
+            id=1,
+            full_name="owner/repo",
+            name="repo",
+            owner="owner",
+            description="Test",
+            language="Python",
+            stargazers_count=100,
+            forks_count=10,
+            html_url="https://github.com/owner/repo",
+            homepage=None,
+            created_at=datetime.now(),
+            updated_at=datetime.now(),
+            pushed_at=datetime.now(),
+            archived=False,
+            visibility="public",
+            owner_type="User"
+        )
         mock_repo.starred_at = None
 
-        # Mock other required attributes
-        mock_repo.name = "repo"
-        mock_repo.owner_login = "owner"
-        mock_repo.description = "Test"
-        mock_repo.primary_language = "Python"
-        mock_repo.topics = []
-        mock_repo.stargazer_count = 100
-        mock_repo.fork_count = 10
-        mock_repo.url = "https://github.com/owner/repo"
-        mock_repo.homepage_url = None
-
-        # Mock GitHubClient context manager
+        # Mock GitHubGraphQLClient context manager
         mock_github = AsyncMock()
-        mock_github.get_all_starred = AsyncMock(return_value=[mock_repo])
+        mock_github.get_starred_repositories = AsyncMock(return_value=[mock_repo])
         mock_github.get_readme_content = AsyncMock(return_value="# Test README")
 
-        with patch('src.services.init.GitHubClient') as mock_github_class:
+        with patch('src.services.init.GitHubGraphQLClient') as mock_github_class:
             mock_github_class.return_value.__aenter__.return_value = mock_github
             mock_github_class.return_value.__aexit__.return_value = None
 
@@ -167,3 +187,4 @@ async def test_initialization_with_none_starred_at():
         assert call_args is not None
         repo_data = call_args[0][0]
         assert repo_data["starred_at"] is None
+

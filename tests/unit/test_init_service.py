@@ -24,16 +24,16 @@ async def test_initialize_skip_llm_no_error(db, mocker):
     """Test skip_llm=True bypasses LLM requirement"""
     service = InitializationService(db, llm=None)
 
-    # Mock GitHubClient context manager
-    class MockGitHubClient:
+    # Mock GitHubGraphQLClient context manager
+    class MockGraphQLClient:
         async def __aenter__(self):
             return self
         async def __aexit__(self, *args):
             pass
-        async def get_all_starred(self, *args, **kwargs):
+        async def get_starred_repositories(self, *args, **kwargs):
             return []
 
-    mocker.patch("src.services.init.GitHubClient", return_value=MockGitHubClient())
+    mocker.patch("src.services.init.GitHubGraphQLClient", return_value=MockGraphQLClient())
 
     result = await service.initialize_from_stars(skip_llm=True)
     assert "fetched" in result
@@ -44,6 +44,7 @@ async def test_initialize_skip_llm_no_error(db, mocker):
 async def test_initialize_with_data(db, mocker):
     """Test initialization processes repositories"""
     from src.github.models import GitHubRepository
+    from datetime import datetime
 
     # Mock LLM
     class MockLLM:
@@ -57,32 +58,40 @@ async def test_initialize_with_data(db, mocker):
                 "use_cases": []
             }
 
-    # Mock GitHubClient
-    class MockGitHubClient:
+    # Mock GitHubGraphQLClient - return GitHubRepository objects with all required fields
+    # Note: Use aliases (original field names) for Pydantic model with alias priority
+    mock_repo = GitHubRepository(
+        id=1,
+        full_name="test/repo",  # alias for name_with_owner
+        name="repo",
+        owner="test",
+        description="Test repo",
+        language="Python",  # alias for primary_language
+        stargazers_count=100,  # alias for stargazer_count
+        forks_count=10,  # alias for fork_count
+        html_url="https://github.com/test/repo",  # alias for url
+        homepage=None,  # alias for homepage_url
+        created_at=datetime.now(),
+        updated_at=datetime.now(),
+        pushed_at=datetime.now(),
+        archived=False,
+        visibility="public",
+        owner_type="User"
+    )
+
+    class MockGraphQLClient:
         async def __aenter__(self):
             return self
         async def __aexit__(self, *args):
             pass
 
-        async def get_all_starred(self, *args, **kwargs):
-            return [
-                GitHubRepository(
-                    id=1,
-                    full_name="test/repo",
-                    name="repo",
-                    owner="test",
-                    stargazers_count=100,
-                    forks_count=10,
-                    html_url="https://github.com/test/repo",
-                    created_at="2024-01-01T00:00:00Z",
-                    updated_at="2024-01-01T00:00:00Z"
-                )
-            ]
+        async def get_starred_repositories(self, *args, **kwargs):
+            return [mock_repo]
 
         async def get_readme_content(self, *args, **kwargs):
             return "Test README"
 
-    mocker.patch("src.services.init.GitHubClient", return_value=MockGitHubClient())
+    mocker.patch("src.services.init.GitHubGraphQLClient", return_value=MockGraphQLClient())
 
     service = InitializationService(db, llm=MockLLM())
     result = await service.initialize_from_stars(skip_llm=True)

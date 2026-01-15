@@ -14,7 +14,7 @@ async def test_client_initialization():
 async def test_client_without_token(mocker):
     """Test client uses settings token when not provided"""
     # Mock settings to have no token
-    mocker.patch("src.github.client.settings.github_token", None)
+    mocker.patch("src.github.base.settings.github_token", None)
 
     async with GitHubClient(token=None) as client:
         assert client.token is None

@@ -1,5 +1,51 @@
 <template>
   <div class="space-y-6">
+    <!-- Quick Actions (Top Right) -->
+    <div class="flex justify-end">
+      <div class="flex gap-2">
+        <router-link
+          to="/collections"
+          class="quick-action-icon"
+          title="收藏"
+        >
+          <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 5a2 2 0 012-2h10a2 2 0 012 2v16l-7-3.5L5 21V5z" />
+          </svg>
+          <span class="quick-action-label">收藏</span>
+        </router-link>
+        <router-link
+          to="/chat"
+          class="quick-action-icon"
+          title="对话"
+        >
+          <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
+          </svg>
+          <span class="quick-action-label">对话</span>
+        </router-link>
+        <router-link
+          to="/trends"
+          class="quick-action-icon"
+          title="趋势"
+        >
+          <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 12l3-9 9m0 0l9-9m-9 9h13a2 2 0 002-2V5a2 2 0 00-2-2H5a2 2 0 00-2 2v14a2 2 0 002 2z" />
+          </svg>
+          <span class="quick-action-label">趋势</span>
+        </router-link>
+        <router-link
+          to="/network"
+          class="quick-action-icon"
+          title="网络"
+        >
+          <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z" />
+          </svg>
+          <span class="quick-action-label">网络</span>
+        </router-link>
+      </div>
+    </div>
+
     <!-- Search Header with Export -->
     <div class="flex flex-col gap-4">
       <div class="flex gap-4">
@@ -398,3 +444,60 @@ const exportToCSV = () => {
   }
 }
 </script>
+
+<style scoped>
+.quick-action-icon {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 40px;
+  height: 40px;
+  padding: 8px;
+  background: white;
+  border: 1px solid rgb(229 231 235);
+  border-radius: 8px;
+  color: rgb(107 114 128);
+  transition: all 0.2s;
+  overflow: hidden;
+}
+
+.dark .quick-action-icon {
+  background: rgb(31 41 55);
+  border-color: rgb(55 65 81);
+  color: rgb(156 163 175);
+}
+
+.quick-action-icon:hover {
+  color: rgb(37 99 235);
+  background: rgb(249 250 251);
+  border-color: rgb(37 99 235);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+  width: auto;
+  min-width: 80px;
+}
+
+.dark .quick-action-icon:hover {
+  color: rgb(96 165 250);
+  background: rgb(55 65 81);
+  border-color: rgb(96 165 250);
+}
+
+.quick-action-label {
+  position: absolute;
+  opacity: 0;
+  transform: translateX(10px);
+  transition: all 0.2s;
+  pointer-events: none;
+  font-size: 12px;
+  font-weight: 500;
+  white-space: nowrap;
+  color: inherit;
+  margin-left: 28px;
+}
+
+.quick-action-icon:hover .quick-action-label {
+  opacity: 1;
+  transform: translateX(0);
+}
+</style>

@@ -1,7 +1,7 @@
 """
 Data synchronization service for GitHub starred repositories.
 
-Handles full sync, incremental sync, change detection, and soft delete.
+Handles sync, change detection, and deletion of repositories.
 """
 from datetime import datetime
 from typing import Any
@@ -17,10 +17,9 @@ class SyncService:
     Service for synchronizing GitHub starred repositories with local database.
 
     Supports:
-    - Full sync: Fetch all stars and compare with local
-    - Incremental sync: Only fetch changes since last sync
-    - Soft delete: Mark repos as deleted instead of removing them
+    - Sync: Fetch all stars and compare with local
     - Change detection: Detect updates based on pushed_at, stargazer_count, etc.
+    - Deletion: Remove repositories that are no longer starred
     """
 
     def __init__(self, db: Database):
@@ -32,19 +31,19 @@ class SyncService:
         """
         self.db = db
 
-    async def full_sync(
+    async def sync(
         self,
         skip_llm: bool = True
     ) -> dict[str, Any]:
         """
-        Full synchronization: fetch all stars and compare with local database.
+        Synchronize all starred repositories from GitHub.
 
         This will:
         1. Fetch all starred repositories from GitHub
         2. Compare with local database
         3. Add new repositories
         4. Update existing repositories with changes
-        5. Soft-delete repositories that are no longer starred
+        5. Delete repositories that are no longer starred
 
         Args:
             skip_llm: Skip LLM analysis (faster)
@@ -59,7 +58,7 @@ class SyncService:
 
         try:
             async with GitHubClient() as github:
-                log_info("Starting full sync")
+                log_info("Starting sync")
 
                 github_repos = await github.get_all_starred()
                 github_repo_map = {repo.name_with_owner: repo for repo in github_repos}
@@ -85,76 +84,13 @@ class SyncService:
                 await self._process_deletions(deleted_names, stats)
 
             stats["completed_at"] = datetime.now().isoformat()
-            log_info(f"Full sync completed: +{stats['added']} ~{stats['updated']} -{stats['deleted']}")
+            log_info(f"Sync completed: +{stats['added']} ~{stats['updated']} -{stats['deleted']}")
 
             await self._record_sync_history(stats)
             return stats
 
         except Exception as e:
-            return await self._handle_sync_error(stats, e, "Full sync")
-
-    async def incremental_sync(
-        self,
-        skip_llm: bool = True
-    ) -> dict[str, Any]:
-        """
-        Incremental synchronization: only process changes since last sync.
-
-        This is more efficient than full sync but may miss some edge cases.
-        Should be followed by periodic full sync for consistency.
-
-        Args:
-            skip_llm: Skip LLM analysis (faster)
-
-        Returns:
-            Statistics about the sync operation
-
-        Note:
-            Requires GitHub Token to be configured.
-        """
-        stats = self._init_stats("incremental")
-
-        try:
-            async with GitHubClient() as github:
-                log_info("Starting incremental sync")
-
-                github_repos = await github.get_all_starred()
-                github_repo_map = {repo.name_with_owner: repo for repo in github_repos}
-
-                local_repos = await self.db.search_repositories(
-                    is_deleted=False,
-                    limit=1000
-                )
-                local_repo_map = {
-                    repo['name_with_owner']: repo
-                    for repo in local_repos
-                }
-
-                github_names = set(github_repo_map.keys())
-                local_names = set(local_repo_map.keys())
-
-                new_names = github_names - local_names
-                deleted_names = local_names - github_names
-                common_names = github_names & local_names
-
-                await self._process_new_repos(github_repo_map, new_names, stats, skip_llm)
-
-                # Update repos that need changes
-                for name in common_names:
-                    if await self._should_update_repo(name, github_repo_map, local_repo_map, stats, skip_llm):
-                        stats["updated"] += 1
-                        log_debug(f"Updated repo: {name}")
-
-                await self._process_deletions(deleted_names, stats)
-
-            stats["completed_at"] = datetime.now().isoformat()
-            log_info(f"Incremental sync completed: +{stats['added']} ~{stats['updated']} -{stats['deleted']}")
-
-            await self._record_sync_history(stats)
-            return stats
-
-        except Exception as e:
-            return await self._handle_sync_error(stats, e, "Incremental sync")
+            return await self._handle_sync_error(stats, e, "Sync")
 
     def _init_stats(self, sync_type: str) -> dict[str, Any]:
         """Initialize statistics dictionary for sync operation."""
@@ -238,12 +174,12 @@ class SyncService:
         deleted_names: set[str],
         stats: dict
     ) -> None:
-        """Process and soft-delete removed repositories."""
+        """Process and delete removed repositories."""
         for name in deleted_names:
             try:
-                await self.soft_delete_repo(name)
+                await self.db.delete_repository(name)
                 stats["deleted"] += 1
-                log_debug(f"Soft-deleted repo: {name}")
+                log_debug(f"Deleted repo: {name}")
             except Exception as e:
                 stats["failed"] += 1
                 stats["errors"].append(f"{name}: {str(e)}")
@@ -285,26 +221,6 @@ class SyncService:
             return True
 
         return False
-
-    async def soft_delete_repo(self, name_with_owner: str) -> None:
-        """
-        Soft delete a repository (marks as deleted but preserves data).
-
-        Args:
-            name_with_owner: Repository name in format "owner/repo"
-        """
-        await self.db.update_repository(name_with_owner, {"is_deleted": 1})
-        log_info(f"Soft-deleted repository: {name_with_owner}")
-
-    async def restore_repo(self, name_with_owner: str) -> None:
-        """
-        Restore a soft-deleted repository.
-
-        Args:
-            name_with_owner: Repository name in format "owner/repo"
-        """
-        await self.db.update_repository(name_with_owner, {"is_deleted": 0})
-        log_info(f"Restored repository: {name_with_owner}")
 
     async def _add_repository(
         self,

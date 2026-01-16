@@ -28,13 +28,11 @@ class SyncStatusResponse(BaseModel):
     sync_type: Optional[str] = None
     total_repos: int = 0
     pending_updates: int = 0
-    deleted_repos: int = 0
 
 
 class ManualSyncRequest(BaseModel):
     """Manual sync request."""
     reanalyze: bool = False
-    full_sync: bool = False
 
 
 class SyncHistoryResponse(BaseModel):
@@ -72,11 +70,6 @@ async def get_sync_status(db: Database = Depends(get_db)):
     )
     total_repos = (await cursor.fetchone())[0]
 
-    # Count deleted repos
-    cursor = await db._connection.execute(
-        """SELECT COUNT(*) FROM repositories WHERE is_deleted = 1"""
-    )
-    deleted_repos = (await cursor.fetchone())[0]
 
     # Count repos that haven't been synced in over 24 hours (potentially need updates)
     # This is a lightweight proxy - actual changes can only be detected by fetching from GitHub
@@ -92,8 +85,7 @@ async def get_sync_status(db: Database = Depends(get_db)):
         last_sync_at=last_sync["started_at"] if last_sync else None,
         sync_type=last_sync["sync_type"] if last_sync else None,
         total_repos=total_repos,
-        pending_updates=pending_updates,
-        deleted_repos=deleted_repos
+        pending_updates=pending_updates
     )
 
 
@@ -107,7 +99,7 @@ async def manual_sync(
     Trigger manual synchronization.
 
     Args:
-        request: Sync request with reanalyze and full_sync flags
+        request: Sync request with reanalyze flag
         background_tasks: FastAPI background tasks
         db: Database instance
 
@@ -120,14 +112,9 @@ async def manual_sync(
         loop = asyncio.new_event_loop()
         asyncio.set_event_loop(loop)
         try:
-            if request.full_sync:
-                loop.run_until_complete(
-                    sync_service.full_sync(skip_llm=not request.reanalyze)
-                )
-            else:
-                loop.run_until_complete(
-                    sync_service.incremental_sync(skip_llm=not request.reanalyze)
-                )
+            loop.run_until_complete(
+                sync_service.sync(skip_llm=not request.reanalyze)
+            )
         finally:
             loop.close()
 
@@ -135,8 +122,7 @@ async def manual_sync(
 
     return {
         "success": True,
-        "message": "Sync started in background",
-        "sync_type": "full" if request.full_sync else "incremental"
+        "message": "Sync started in background"
     }
 
 
@@ -157,44 +143,6 @@ async def get_sync_history(limit: int = 20, db: Database = Depends(get_db)):
 
     return {
         "results": [dict(row) for row in rows]
-    }
-
-
-@router.get("/repos/deleted")
-async def get_deleted_repos(limit: int = 50, db: Database = Depends(get_db)):
-    """
-    Get list of soft-deleted repositories.
-
-    Returns repositories that are no longer starred but preserved in database.
-    """
-    result = await db.search_repositories(
-        is_deleted=True,
-        limit=limit,
-        sort_by="last_synced_at",
-        sort_order="DESC"
-    )
-
-    return {
-        "results": result,
-        "total": len(result)
-    }
-
-
-@router.post("/repo/{name_with_owner:path}/restore")
-async def restore_repo(name_with_owner: str, db: Database = Depends(get_db)):
-    """
-    Restore a soft-deleted repository.
-
-    Args:
-        name_with_owner: Repository name in format "owner/repo"
-        db: Database instance
-    """
-    sync_service = SyncService(db)
-    await sync_service.restore_repo(name_with_owner)
-
-    return {
-        "success": True,
-        "message": f"Repository {name_with_owner} restored"
     }
 
 

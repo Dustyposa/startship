@@ -1,23 +1,21 @@
-import { ref, watch, onMounted } from 'vue'
+import { ref, watch } from 'vue'
+
+function getInitialDarkMode(): boolean {
+  // Check localStorage first
+  const saved = localStorage.getItem('darkMode')
+  if (saved !== null) {
+    return saved === 'true'
+  }
+  // Fall back to system preference
+  return window.matchMedia('(prefers-color-scheme: dark)').matches
+}
 
 export function useDark() {
-  const isDark = ref(false)
+  // Initialize immediately with stored/system preference
+  const isDark = ref(getInitialDarkMode())
 
-  // Check localStorage and system preference on mount
-  onMounted(() => {
-    const saved = localStorage.getItem('darkMode')
-    if (saved !== null) {
-      // Use saved preference
-      isDark.value = saved === 'true'
-    } else {
-      // Use system preference
-      const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches
-      isDark.value = prefersDark
-    }
-
-    // Apply immediately
-    applyDarkMode(isDark.value)
-  })
+  // Apply initial dark mode
+  applyDarkMode(isDark.value)
 
   // Watch for changes and update DOM
   watch(isDark, (value) => {

@@ -134,15 +134,15 @@ onMounted(() => {
   <div class="network-view">
     <div class="p-6">
       <div class="flex items-center gap-3 mb-4">
-        <h1 class="text-2xl font-bold">Repository Network</h1>
-        <span class="px-2 py-1 bg-yellow-100 text-yellow-800 text-sm font-medium rounded">Beta</span>
+        <h1 class="text-2xl font-bold text-gray-900 dark:text-white">Repository Network</h1>
+        <span class="px-2 py-1 bg-yellow-100 dark:bg-yellow-900/30 text-yellow-800 dark:text-yellow-200 text-sm font-medium rounded">Beta</span>
       </div>
 
       <div v-if="loading" class="text-center py-12">
-        <div class="text-gray-600">Loading network visualization...</div>
+        <div class="text-gray-600 dark:text-gray-400">Loading network visualization...</div>
       </div>
 
-      <div v-else-if="error" class="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded mb-4">
+      <div v-else-if="error" class="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 text-red-700 dark:text-red-400 px-4 py-3 rounded mb-4">
         {{ error }}
         <router-link to="/init" class="ml-4 underline">Initialize System</router-link>
       </div>
@@ -155,11 +155,11 @@ onMounted(() => {
         />
       </div>
 
-      <div v-if="selectedNode" class="mt-4 p-4 bg-blue-50 rounded">
-        <h3 class="font-bold">{{ selectedNode.name }}</h3>
-        <p>Stars: {{ selectedNode.starCount }}</p>
-        <p>Language: {{ selectedNode.language || 'N/A' }}</p>
-        <p>Categories: {{ selectedNode.categories.join(', ') }}</p>
+      <div v-if="selectedNode" class="mt-4 p-4 bg-blue-50 dark:bg-blue-900/20 rounded">
+        <h3 class="font-bold text-gray-900 dark:text-white">{{ selectedNode.name }}</h3>
+        <p class="text-gray-700 dark:text-gray-300">Stars: {{ selectedNode.starCount }}</p>
+        <p class="text-gray-700 dark:text-gray-300">Language: {{ selectedNode.language || 'N/A' }}</p>
+        <p class="text-gray-700 dark:text-gray-300">Categories: {{ selectedNode.categories.join(', ') }}</p>
       </div>
     </div>
   </div>
@@ -171,10 +171,19 @@ onMounted(() => {
   background-color: #f9fafb;
 }
 
+.dark .network-view {
+  background-color: #111827;
+}
+
 .chart-container {
   background: white;
   border-radius: 8px;
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
   padding: 16px;
+}
+
+.dark .chart-container {
+  background: #1f2937;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.3);
 }
 </style>

@@ -51,11 +51,6 @@ const routes: RouteRecordRaw[] = [
     path: '/sync/history',
     name: 'sync-history',
     component: () => import('../views/SyncHistoryView.vue')
-  },
-  {
-    path: '/sync/deleted',
-    name: 'sync-deleted',
-    component: () => import('../views/DeletedReposView.vue')
   }
 ]
 

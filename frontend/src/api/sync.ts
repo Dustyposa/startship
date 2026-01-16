@@ -10,18 +10,15 @@ export interface SyncStatus {
   sync_type: string | null
   total_repos: number
   pending_updates: number
-  deleted_repos: number
 }
 
 export interface ManualSyncRequest {
   reanalyze?: boolean
-  full_sync?: boolean
 }
 
 export interface ManualSyncResponse {
   success: boolean
   message: string
-  sync_type: string
 }
 
 export interface SyncHistory {
@@ -36,22 +33,8 @@ export interface SyncHistory {
   error_message: string | null
 }
 
-export interface DeletedRepo {
-  name_with_owner: string
-  description: string | null
-  primary_language: string | null
-  stargazer_count: number
-  starred_at: string
-  last_synced_at: string | null
-}
-
 export interface SyncHistoryResponse {
   results: SyncHistory[]
-}
-
-export interface DeletedReposResponse {
-  results: DeletedRepo[]
-  total: number
 }
 
 // ==================== Sync API ====================
@@ -71,20 +54,6 @@ export const syncApi = {
     const response = await axios.get<SyncHistoryResponse>(`${API_BASE}/history`, {
       params: { limit }
     })
-    return response.data
-  },
-
-  async getDeletedRepos(limit: number = 50): Promise<DeletedReposResponse> {
-    const response = await axios.get<DeletedReposResponse>(`${API_BASE}/repos/deleted`, {
-      params: { limit }
-    })
-    return response.data
-  },
-
-  async restoreRepo(nameWithOwner: string): Promise<{ success: boolean; message: string }> {
-    const response = await axios.post<{ success: boolean; message: string }>(
-      `${API_BASE}/repo/${encodeURIComponent(nameWithOwner)}/restore`
-    )
     return response.data
   },
 

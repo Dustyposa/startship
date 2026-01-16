@@ -20,7 +20,7 @@
 
       <!-- Export Buttons (shown when has results) -->
       <div v-if="repos.length > 0" class="flex gap-2 items-center">
-        <span class="text-sm text-gray-600 dark:text-gray-400">导出结果 ({{ repos.length }} 个):</span>
+        <span class="text-sm text-gray-600 dark:text-gray-400">导出结果 ({{ repos.length }}):</span>
         <button
           @click="exportToCSV"
           class="px-4 py-1.5 text-sm bg-green-600 text-white rounded-lg hover:bg-green-700 transition flex items-center gap-1"
@@ -77,8 +77,8 @@
     </div>
 
     <!-- Loading State -->
-    <div v-if="isLoading" class="text-center py-8">
-      <div class="text-gray-600 dark:text-gray-400">加载中...</div>
+    <div v-if="isLoading" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+      <RepoCardSkeleton v-for="i in 6" :key="i" />
     </div>
 
     <!-- Results Grid -->
@@ -111,7 +111,7 @@
           <button
             @click.stop="openModal('quickNote', repo.name_with_owner)"
             class="px-3 py-1.5 text-xs font-medium rounded-lg transition"
-            :class="repoNotes[repo.name_with_owner] ? 'text-yellow-600 dark:text-yellow-400 bg-yellow-50 dark:bg-yellow-900/20' : 'text-gray-600 dark:text-gray-400 hover:text-blue-600 dark:hover:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-900/20'"
+            :class="repoNotes[repo.name_with_owner] ? 'text-yellow-600 dark:text-yellow-400 bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-300 dark:border-yellow-700' : 'text-gray-600 dark:text-gray-400 hover:text-yellow-600 dark:hover:text-yellow-400 hover:bg-yellow-50 dark:hover:bg-yellow-900/20'"
             title="添加笔记"
           >
             笔记
@@ -119,7 +119,7 @@
           <button
             @click.stop="openModal('quickTag', repo.name_with_owner)"
             class="px-3 py-1.5 text-xs font-medium rounded-lg transition"
-            :class="repoTags[repo.name_with_owner]?.length ? 'text-purple-600 dark:text-purple-400 bg-purple-50 dark:bg-purple-900/20' : 'text-gray-600 dark:text-gray-400 hover:text-blue-600 dark:hover:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-900/20'"
+            :class="repoTags[repo.name_with_owner]?.length ? 'text-purple-600 dark:text-purple-400 bg-purple-50 dark:bg-purple-900/20 border border-purple-300 dark:border-purple-700' : 'text-gray-600 dark:text-gray-400 hover:text-purple-600 dark:hover:text-purple-400 hover:bg-purple-50 dark:hover:bg-purple-900/20'"
             title="管理标签"
           >
             标签
@@ -127,7 +127,7 @@
           <button
             @click.stop="openModal('collection', repo.name_with_owner)"
             class="px-3 py-1.5 text-xs font-medium rounded-lg transition"
-            :class="repoCollections[repo.name_with_owner] ? 'text-yellow-600 dark:text-yellow-400 bg-yellow-50 dark:bg-yellow-900/20' : 'text-gray-600 dark:text-gray-400 hover:text-blue-600 dark:hover:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-900/20'"
+            :class="repoCollections[repo.name_with_owner] ? 'text-green-600 dark:text-green-400 bg-green-50 dark:bg-green-900/20 border border-green-300 dark:border-green-700' : 'text-gray-600 dark:text-gray-400 hover:text-green-600 dark:hover:text-green-400 hover:bg-green-50 dark:hover:bg-green-900/20'"
             title="添加到收藏夹"
           >
             {{ repoCollections[repo.name_with_owner] ? '已收藏' : '收藏' }}
@@ -137,105 +137,68 @@
     </div>
 
     <!-- Quick Note Modal -->
-    <div
-      v-if="modals.quickNote"
-      class="fixed inset-0 bg-black/50 flex items-center justify-center z-50"
-      @click.self="closeModal('quickNote')"
+    <BaseModal
+      :show="!!modals.quickNote"
+      :title="`笔记 - ${modals.quickNote}`"
+      @close="closeModal('quickNote')"
     >
-      <div class="bg-white dark:bg-gray-800 rounded-lg shadow-xl p-6 max-w-lg w-full mx-4 max-h-[80vh] overflow-y-auto">
-        <div class="flex items-center justify-between mb-4">
-          <h3 class="text-lg font-semibold text-gray-900 dark:text-white">
-            笔记 - {{ modals.quickNote }}
-          </h3>
-          <button
-            @click="closeModal('quickNote')"
-            class="text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 transition"
-          >
-            <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
-            </svg>
-          </button>
-        </div>
-        <NoteEditor
-          :repo-id="modals.quickNote"
-          @update="closeModal('quickNote')"
-        />
-      </div>
-    </div>
+      <NoteEditor
+        v-if="modals.quickNote"
+        :repo-id="modals.quickNote"
+        @update="closeModal('quickNote')"
+      />
+    </BaseModal>
 
     <!-- Quick Tag Modal -->
-    <div
-      v-if="modals.quickTag"
-      class="fixed inset-0 bg-black/50 flex items-center justify-center z-50"
-      @click.self="closeModal('quickTag')"
+    <BaseModal
+      :show="!!modals.quickTag"
+      :title="`标签 - ${modals.quickTag}`"
+      @close="closeModal('quickTag')"
     >
-      <div class="bg-white dark:bg-gray-800 rounded-lg shadow-xl p-6 max-w-lg w-full mx-4 max-h-[80vh] overflow-y-auto">
-        <div class="flex items-center justify-between mb-4">
-          <h3 class="text-lg font-semibold text-gray-900 dark:text-white">
-            标签 - {{ modals.quickTag }}
-          </h3>
-          <button
-            @click="closeModal('quickTag')"
-            class="text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 transition"
-          >
-            <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
-            </svg>
-          </button>
-        </div>
-        <TagManager
-          :repo-id="modals.quickTag"
-          @update="closeModal('quickTag')"
-        />
-      </div>
-    </div>
+      <TagManager
+        v-if="modals.quickTag"
+        :repo-id="modals.quickTag"
+        @update="closeModal('quickTag')"
+      />
+    </BaseModal>
 
     <!-- Collection Selector Modal -->
-    <div
-      v-if="modals.collection.show"
-      class="fixed inset-0 bg-black/50 flex items-center justify-center z-50"
-      @click.self="closeModal('collection')"
+    <BaseModal
+      :show="modals.collection.show"
+      :title="`添加到收藏夹 - ${modals.collection.repoId}`"
+      @close="closeModal('collection')"
     >
-      <div class="bg-white dark:bg-gray-800 rounded-lg shadow-xl p-6 max-w-lg w-full mx-4 max-h-[80vh] overflow-y-auto">
-        <div class="flex items-center justify-between mb-4">
-          <h3 class="text-lg font-semibold text-gray-900 dark:text-white">
-            添加到收藏夹 - {{ modals.collection.repoId }}
-          </h3>
-          <button
-            @click="closeModal('collection')"
-            class="text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 transition"
-          >
-            <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
-            </svg>
-          </button>
-        </div>
-        <div v-if="collections.length === 0" class="text-center py-8 text-gray-600 dark:text-gray-400">
-          还没有收藏夹，先去创建一个吧！
-        </div>
-        <div v-else class="space-y-2">
-          <button
-            v-for="collection in collections"
-            :key="collection.id"
-            @click="selectCollection(collection.id)"
-            class="w-full flex items-center gap-3 p-3 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 transition text-left"
-          >
-            <span class="text-2xl">{{ collection.icon || '📁' }}</span>
-            <div>
-              <div class="font-medium text-gray-900 dark:text-white">{{ collection.name }}</div>
-              <div class="text-xs text-gray-500 dark:text-gray-400">
-                {{ collectionRepoCounts[collection.id] || 0 }} 个仓库
-              </div>
+      <EmptyState
+        v-if="collections.length === 0"
+        icon="📁"
+        title="还没有收藏夹"
+        message="先去创建一个收藏夹吧！"
+      />
+      <div v-else class="space-y-2">
+        <button
+          v-for="collection in collections"
+          :key="collection.id"
+          @click="selectCollection(collection.id)"
+          class="w-full flex items-center gap-3 p-3 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 transition text-left"
+        >
+          <span class="text-2xl">{{ collection.icon || '📁' }}</span>
+          <div>
+            <div class="font-medium text-gray-900 dark:text-white">{{ collection.name }}</div>
+            <div class="text-xs text-gray-500 dark:text-gray-400">
+              {{ collectionRepoCounts[collection.id] || 0 }} 个仓库
             </div>
-          </button>
-        </div>
+          </div>
+        </button>
       </div>
-    </div>
+    </BaseModal>
 
     <!-- Empty State -->
-    <div v-if="!isLoading && repos.length === 0" class="text-center py-8 text-gray-600 dark:text-gray-400">
-      没有找到匹配的仓库
-    </div>
+    <EmptyState
+      v-if="!isLoading && repos.length === 0"
+      icon="🔍"
+      title="没有找到匹配的仓库"
+      message="尝试调整搜索条件或筛选器"
+    />
   </div>
 </template>
 
@@ -251,6 +214,9 @@ import { collectionsApi } from '@/api/user'
 import type { Collection, Tag } from '@/api/user'
 import NoteEditor from '@/components/NoteEditor.vue'
 import TagManager from '@/components/TagManager.vue'
+import BaseModal from '@/components/BaseModal.vue'
+import RepoCardSkeleton from '@/components/RepoCardSkeleton.vue'
+import EmptyState from '@/components/EmptyState.vue'
 import { formatStarCount, formatRelativeTime } from '@/utils/format'
 
 const router = useRouter()

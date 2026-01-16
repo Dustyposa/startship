@@ -2563,7 +2563,7 @@ wheels = [
 
 [[package]]
 name = "starship"
-version = "1.0.0"
+version = "1.0.2"
 source = { editable = "." }
 dependencies = [
     { name = "aiosqlite" },

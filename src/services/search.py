@@ -157,3 +157,83 @@ class SearchService:
 
         # Exclude the original repository
         return [r for r in results if r["name_with_owner"] != name_with_owner][:limit]
+
+    async def search_with_relations(
+        self,
+        query: Optional[str] = None,
+        categories: Optional[List[str]] = None,
+        languages: Optional[List[str]] = None,
+        min_stars: Optional[int] = None,
+        max_stars: Optional[int] = None,
+        limit: int = 1000,
+        offset: int = 0,
+        is_active: Optional[bool] = None,
+        is_new: Optional[bool] = None,
+        owner_type: Optional[str] = None,
+        exclude_archived: bool = True,
+        sort_by: str = "starred_at",
+        include_related: bool = True
+    ) -> Dict[str, Any]:
+        """
+        Search repositories with filters and include related recommendations.
+
+        Args:
+            query: Full-text search query
+            categories: Filter by categories
+            languages: Filter by programming languages
+            min_stars: Minimum star count
+            max_stars: Maximum star count
+            limit: Maximum number of results
+            offset: Number of results to skip
+            is_active: Filter by active maintenance (pushed within 7 days)
+            is_new: Filter by new projects (created within 6 months)
+            owner_type: Filter by owner type ("Organization" or "User")
+            exclude_archived: Exclude archived repos
+            sort_by: Sort field
+            include_related: Whether to include related repo recommendations
+
+        Returns:
+            Dictionary with "results" and "related" keys
+        """
+        # Get direct matches
+        results = await self.search(
+            query=query,
+            categories=categories,
+            languages=languages,
+            min_stars=min_stars,
+            max_stars=max_stars,
+            limit=limit,
+            offset=offset,
+            is_active=is_active,
+            is_new=is_new,
+            owner_type=owner_type,
+            exclude_archived=exclude_archived,
+            sort_by=sort_by
+        )
+
+        related = []
+        if include_related and results:
+            # Get related repos for top results
+            related_repos = set()
+            for repo in results[:5]:  # Top 5 results
+                edges = await self.db.get_graph_edges(
+                    repo['name_with_owner'],
+                    limit=3
+                )
+                for edge in edges:
+                    related_repos.add(edge['target_repo'])
+
+            # Remove already shown repos
+            result_names = {r['name_with_owner'] for r in results}
+            related_repos = related_repos - result_names
+
+            # Fetch full repo data for related
+            for repo_name in list(related_repos)[:5]:  # Top 5 related
+                repo_data = await self.db.get_repository(repo_name)
+                if repo_data:
+                    related.append(repo_data)
+
+        return {
+            "results": results,
+            "related": related
+        }

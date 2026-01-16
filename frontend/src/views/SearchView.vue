@@ -19,6 +19,36 @@
       </div>
     </div>
 
+    <!-- Related Recommendations (Graph-based) -->
+    <div v-if="relatedRepos.length > 0" class="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg p-4">
+      <h3 class="text-sm font-semibold text-gray-900 dark:text-white mb-3 flex items-center gap-2">
+        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1" />
+        </svg>
+        关联推荐
+        <span class="text-xs font-normal text-gray-500 dark:text-gray-400">基于知识图谱</span>
+      </h3>
+      <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3">
+        <div
+          v-for="repo in relatedRepos"
+          :key="repo.name_with_owner"
+          @click="goToRepo(repo.name_with_owner)"
+          class="p-3 rounded-lg bg-gray-50 dark:bg-gray-700 hover:bg-gray-100 dark:hover:bg-gray-600 cursor-pointer transition border border-gray-200 dark:border-gray-600"
+        >
+          <h4 class="font-medium text-sm text-gray-900 dark:text-white mb-1 truncate" :title="repo.name_with_owner">{{ repo.name_with_owner }}</h4>
+          <p class="text-xs text-gray-600 dark:text-gray-400 line-clamp-2 mb-2">{{ repo.description || repo.summary }}</p>
+          <div class="flex items-center gap-2">
+            <span class="text-xs px-2 py-0.5 bg-gray-200 dark:bg-gray-600 text-gray-700 dark:text-gray-300 rounded">
+              ⭐ {{ formatStarCount(repo.stargazer_count) }}
+            </span>
+            <span v-if="repo.primary_language" class="text-xs px-2 py-0.5 bg-blue-100 dark:bg-blue-900 text-blue-700 dark:text-blue-300 rounded">
+              {{ repo.primary_language }}
+            </span>
+          </div>
+        </div>
+      </div>
+    </div>
+
     <!-- Search and Filters -->
     <div class="space-y-4">
       <!-- Search Bar -->
@@ -349,6 +379,9 @@ const collectionRepoCounts = ref<Record<string, number>>({})
 const repos = computed(() => reposStore.repos)
 const isLoading = computed(() => reposStore.isLoading)
 
+// Related repos from graph-based recommendations
+const relatedRepos = ref<any[]>([])
+
 // Dark mode detection
 const isDark = computed(() => {
   if (typeof window !== 'undefined') {
@@ -449,13 +482,21 @@ async function loadPage(page: number) {
       `&owner_type=${selectedOwnerType.value || ''}` +
       `&is_active=${isActive.value}` +
       `&is_new=${isNew.value}` +
-      `&exclude_archived=${excludeArchived.value}`
+      `&exclude_archived=${excludeArchived.value}` +
+      `&include_related=true`
     )
     const data = await response.json()
     const newRepos = data.results || []
 
     // Update store with new page data
     reposStore.repos = newRepos
+
+    // Load related repos (only on first page)
+    if (page === 1 && data.related) {
+      relatedRepos.value = data.related
+    } else if (page > 1) {
+      relatedRepos.value = []
+    }
 
     // Load metadata for repos
     await loadRepoMetadata(newRepos)

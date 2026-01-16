@@ -35,9 +35,29 @@ async def search_repositories(
     is_new: Optional[bool] = None,
     owner_type: Optional[str] = None,
     exclude_archived: bool = True,
+    include_related: bool = True,
     search_service = Depends(get_search_service)
 ):
-    """Search repositories with filters"""
+    """Search repositories with filters and optional related recommendations"""
+    # Use search_with_relations if related repos are requested
+    if include_related:
+        result = await search_service.search_with_relations(
+            query=q,
+            categories=parse_list_param(categories),
+            languages=parse_list_param(languages),
+            min_stars=min_stars,
+            max_stars=max_stars,
+            limit=limit,
+            offset=offset,
+            is_active=is_active,
+            is_new=is_new,
+            owner_type=owner_type,
+            exclude_archived=exclude_archived,
+            include_related=True
+        )
+        return build_response(result["results"], related=result["related"])
+
+    # Use regular search if related repos are not requested
     results = await search_service.search(
         query=q,
         categories=parse_list_param(categories),

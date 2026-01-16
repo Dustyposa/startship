@@ -17,12 +17,15 @@ def get_db() -> Database:
 
 # ==================== Common Response Builders ====================
 
-def build_response(results: list, count: int | None = None) -> dict:
+def build_response(results: list, count: int | None = None, related: list | None = None) -> dict:
     """Build standard API response with results and count."""
-    return {
+    response = {
         "results": results,
         "count": count if count is not None else len(results)
     }
+    if related is not None:
+        response["related"] = related
+    return response
 
 
 # ==================== Common Error Helpers ====================

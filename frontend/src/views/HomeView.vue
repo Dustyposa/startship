@@ -129,20 +129,40 @@
         <h2 class="text-xl font-bold text-gray-900 dark:text-white mb-4">📊 数据概览</h2>
         <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
           <div class="bg-white dark:bg-gray-800 p-4 rounded-lg shadow-sm border-l-4 border-blue-500">
-            <div class="text-2xl font-bold text-blue-600">{{ displayStats.totalRepos }}</div>
-            <div class="text-sm text-gray-600 dark:text-gray-400">总仓库数</div>
+            <div class="flex items-end justify-between">
+              <div>
+                <div class="text-2xl font-bold text-blue-600">{{ displayStats.totalRepos }}</div>
+                <div class="text-sm text-gray-600 dark:text-gray-400">总仓库数</div>
+              </div>
+              <Sparkline v-if="sparklineData.repos.length > 1" :data="sparklineData.repos" color="#3b82f6" class="w-16 h-8" />
+            </div>
           </div>
           <div class="bg-white dark:bg-gray-800 p-4 rounded-lg shadow-sm border-l-4 border-green-500">
-            <div class="text-2xl font-bold text-green-600">{{ displayStats.totalLanguages }}</div>
-            <div class="text-sm text-gray-600 dark:text-gray-400">语言数量</div>
+            <div class="flex items-end justify-between">
+              <div>
+                <div class="text-2xl font-bold text-green-600">{{ displayStats.totalLanguages }}</div>
+                <div class="text-sm text-gray-600 dark:text-gray-400">语言数量</div>
+              </div>
+              <Sparkline v-if="sparklineData.languages.length > 1" :data="sparklineData.languages" color="#22c55e" class="w-16 h-8" />
+            </div>
           </div>
           <div class="bg-white dark:bg-gray-800 p-4 rounded-lg shadow-sm border-l-4 border-purple-500">
-            <div class="text-2xl font-bold text-purple-600">{{ displayStats.topLanguage }}</div>
-            <div class="text-sm text-gray-600 dark:text-gray-400">主要语言</div>
+            <div class="flex items-end justify-between">
+              <div>
+                <div class="text-2xl font-bold text-purple-600">{{ displayStats.topLanguage }}</div>
+                <div class="text-sm text-gray-600 dark:text-gray-400">主要语言</div>
+              </div>
+              <TrendIndicator :trend="sparklineData.topLanguageTrend" />
+            </div>
           </div>
           <div class="bg-white dark:bg-gray-800 p-4 rounded-lg shadow-sm border-l-4 border-orange-500">
-            <div class="text-2xl font-bold text-orange-600">{{ displayStats.totalConversations }}</div>
-            <div class="text-sm text-gray-600 dark:text-gray-400">对话数</div>
+            <div class="flex items-end justify-between">
+              <div>
+                <div class="text-2xl font-bold text-orange-600">{{ displayStats.totalConversations }}</div>
+                <div class="text-sm text-gray-600 dark:text-gray-400">对话数</div>
+              </div>
+              <Sparkline v-if="sparklineData.conversations.length > 1" :data="sparklineData.conversations" color="#f97316" class="w-16 h-8" />
+            </div>
           </div>
         </div>
       </section>
@@ -245,12 +265,19 @@
 <script setup lang="ts">
 import { ref, onMounted, computed } from 'vue'
 import SyncStatus from '../components/SyncStatus.vue'
+import Sparkline from '../components/Sparkline.vue'
+import TrendIndicator from '../components/TrendIndicator.vue'
 
 interface Stats {
   total_repositories: number
   total_conversations: number
   languages: Record<string, number>
   top_language: string | null
+}
+
+interface TimelinePoint {
+  month: string
+  count: number
 }
 
 const stats = ref<Stats>({
@@ -261,6 +288,36 @@ const stats = ref<Stats>({
 })
 
 const showOnboarding = ref(false)
+const timelineData = ref<TimelinePoint[]>([])
+const languageTrendData = ref<Record<string, TimelinePoint[]>>({})
+
+const sparklineData = computed(() => {
+  // Last 6 months of repository counts
+  const reposData = timelineData.value.slice(-6).map(p => p.count)
+
+  // Calculate top language trend
+  const topLang = stats.value.top_language
+  const topLangData = topLang ? (languageTrendData.value[topLang] || []) : []
+  const topLangTrend = topLangData.length >= 2
+    ? (topLangData[topLangData.length - 1].count > topLangData[topLangData.length - 2].count ? 'up' : 'down')
+    : 'neutral'
+
+  // Total languages over time (sum of all language counts per month)
+  const languagesByMonth: Record<string, number> = {}
+  for (const trends of Object.values(languageTrendData.value)) {
+    for (const point of trends) {
+      languagesByMonth[point.month] = (languagesByMonth[point.month] || 0) + point.count
+    }
+  }
+  const languagesData = Object.values(languagesByMonth).slice(-6)
+
+  return {
+    repos: reposData,
+    languages: languagesData,
+    conversations: [], // No real data yet - YAGNI
+    topLanguageTrend: topLangTrend
+  }
+})
 
 // Check if user has seen onboarding
 const hasSeenOnboarding = () => {
@@ -289,9 +346,32 @@ const topLanguages = computed(() => {
 
 onMounted(async () => {
   try {
-    const response = await fetch('/api/stats')
-    const data = await response.json()
-    stats.value = data.data || stats.value
+    const [statsRes, timelineRes, langRes] = await Promise.all([
+      fetch('/api/stats'),
+      fetch('/api/trends/timeline'),
+      fetch('/api/trends/languages')
+    ])
+
+    const [statsData, timeline, langTrends] = await Promise.all([
+      statsRes.json(),
+      timelineRes.json(),
+      langRes.json()
+    ])
+
+    stats.value = statsData.data || stats.value
+    timelineData.value = timeline || []
+
+    // Group language trends by language
+    const langMap: Record<string, TimelinePoint[]> = {}
+    for (const item of langTrends) {
+      if (item.language) {
+        if (!langMap[item.language]) {
+          langMap[item.language] = []
+        }
+        langMap[item.language].push({ month: item.month, count: item.count })
+      }
+    }
+    languageTrendData.value = langMap
 
     // Only show onboarding if first time visit AND no data yet
     // If user already has repositories, they've already initialized - mark as seen

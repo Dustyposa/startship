@@ -156,7 +156,6 @@
             <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
             </svg>
-            <span class="repo-action-label">笔记</span>
           </button>
           <button
             @click.stop="openModal('quickTag', repo.name_with_owner)"
@@ -167,7 +166,6 @@
             <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 7h.01M7 3h5c.512 0 1.024.195 1.414.586l7 7a2 2 0 010 2.828l-7 7a2 2 0 01-2.828 0l-7-7A1.994 1.994 0 013 12V7a4 4 0 014-4z" />
             </svg>
-            <span class="repo-action-label">标签</span>
           </button>
           <button
             @click.stop="openModal('collection', repo.name_with_owner)"
@@ -178,7 +176,6 @@
             <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 5a2 2 0 012-2h10a2 2 0 012 2v16l-7-3.5L5 21V5z" />
             </svg>
-            <span class="repo-action-label">收藏</span>
           </button>
         </div>
 
@@ -506,7 +503,6 @@ const exportToCSV = () => {
 
 /* Repository Card Actions */
 .repo-action-icon {
-  position: relative;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -516,7 +512,6 @@ const exportToCSV = () => {
   border-radius: 6px;
   color: rgb(107 114 128);
   transition: all 0.2s;
-  overflow: hidden;
 }
 
 .dark .repo-action-icon {
@@ -525,9 +520,8 @@ const exportToCSV = () => {
 }
 
 .repo-action-icon:hover {
-  width: auto;
-  min-width: 64px;
   background: rgb(229 231 235);
+  transform: scale(1.05);
 }
 
 .dark .repo-action-icon:hover {
@@ -542,23 +536,5 @@ const exportToCSV = () => {
 .dark .repo-action-active {
   color: rgb(96 165 250);
   background: rgb(30 58 138);
-}
-
-.repo-action-label {
-  position: absolute;
-  opacity: 0;
-  transform: translateX(8px);
-  transition: all 0.2s;
-  pointer-events: none;
-  font-size: 11px;
-  font-weight: 500;
-  white-space: nowrap;
-  color: inherit;
-  margin-left: 20px;
-}
-
-.repo-action-icon:hover .repo-action-label {
-  opacity: 1;
-  transform: translateX(0);
 }
 </style>

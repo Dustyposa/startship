@@ -5,6 +5,20 @@
       找到 <span class="font-semibold text-gray-900 dark:text-white">{{ repos.length }}</span> 个仓库
     </div>
 
+    <!-- Language Distribution Chart -->
+    <div v-if="repos.length > 0 && languageDistribution.length > 0" class="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg p-4">
+      <h3 class="text-sm font-semibold text-gray-900 dark:text-white mb-3">当前结果语言分布</h3>
+      <div class="flex flex-col sm:flex-row items-center justify-center gap-6">
+        <PieChart
+          :data="languageDistribution"
+          :size="160"
+          :donut="true"
+          :donut-radius="50"
+          :is-dark="isDark"
+        />
+      </div>
+    </div>
+
     <!-- Search and Filters -->
     <div class="space-y-4">
       <!-- Search Bar -->
@@ -112,7 +126,7 @@
     </div>
 
     <!-- Results Grid -->
-    <div v-else class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
       <div
         v-for="repo in repos"
         :key="repo.name_with_owner"
@@ -154,21 +168,60 @@
         </div>
 
         <div @click="goToRepo(repo.name_with_owner)" class="flex-1 flex flex-col">
-          <h3 class="font-bold text-gray-900 dark:text-white mb-2">{{ repo.name_with_owner }}</h3>
+          <h3 class="font-bold text-gray-900 dark:text-white mb-2 pr-24 truncate" :title="repo.name_with_owner">{{ repo.name_with_owner }}</h3>
           <p class="text-sm text-gray-600 dark:text-gray-400 line-clamp-2 mb-3 flex-1">{{ repo.description || repo.summary }}</p>
 
-          <div class="flex gap-2 flex-wrap">
-            <span v-if="repo.primary_language" class="text-xs px-2 py-1 bg-blue-100 dark:bg-blue-900 text-blue-800 dark:text-blue-200 rounded">
-              {{ repo.primary_language }}
-            </span>
-            <span class="text-xs px-2 py-1 bg-gray-100 dark:bg-gray-700 text-gray-800 dark:text-gray-200 rounded">
-              ⭐ {{ formatStarCount(repo.stargazer_count) }}
-            </span>
-            <span v-if="repo.starred_at" class="text-xs px-2 py-1 bg-green-100 dark:bg-green-900 text-green-800 dark:text-green-200 rounded">
-              ⭐ {{ formatRelativeTime(repo.starred_at) }}
-            </span>
+          <div class="flex items-center justify-between gap-2">
+            <div class="flex gap-2 flex-wrap">
+              <span class="text-xs px-2 py-1 bg-gray-100 dark:bg-gray-700 text-gray-800 dark:text-gray-200 rounded">
+                ⭐ {{ formatStarCount(repo.stargazer_count) }}
+              </span>
+              <span v-if="repo.starred_at" class="text-xs px-2 py-1 bg-green-100 dark:bg-green-900 text-green-800 dark:text-green-200 rounded">
+                ⭐ {{ formatRelativeTime(repo.starred_at) }}
+              </span>
+            </div>
+
+            <!-- Language Indicator -->
+            <LanguageBarChart v-if="repo.languages && repo.languages.length > 0" :languages="repo.languages" :limit="3" />
           </div>
         </div>
+      </div>
+    </div>
+
+    <!-- Pagination Controls -->
+    <div v-if="repos.length > 0" class="flex items-center justify-center gap-4 py-6">
+      <button
+        @click="prevPage"
+        :disabled="currentPage === 1 || isLoadingPage"
+        class="px-4 py-2 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 transition disabled:opacity-50 disabled:cursor-not-allowed text-gray-900 dark:text-white"
+      >
+        上一页
+      </button>
+
+      <span class="text-gray-900 dark:text-white">
+        第
+        <input
+          type="number"
+          :value="currentPage"
+          @change="goToPage(Number(($event.target as HTMLInputElement).value))"
+          @keyup.enter="goToPage(Number(($event.target as HTMLInputElement).value))"
+          min="1"
+          class="w-16 px-2 py-1 border border-gray-300 dark:border-gray-600 rounded dark:bg-gray-800 dark:text-white text-center"
+        />
+        页
+      </span>
+
+      <button
+        @click="nextPage"
+        :disabled="repos.length < pageSize || isLoadingPage"
+        class="px-4 py-2 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 transition disabled:opacity-50 disabled:cursor-not-allowed text-gray-900 dark:text-white"
+      >
+        下一页
+      </button>
+
+      <div v-if="isLoadingPage" class="flex items-center gap-2">
+        <div class="animate-spin rounded-full h-5 w-5 border-b-2 border-blue-600 dark:border-blue-400"></div>
+        <span class="text-gray-600 dark:text-gray-400 text-sm">加载中...</span>
       </div>
     </div>
 
@@ -254,6 +307,8 @@ import TagManager from '@/components/TagManager.vue'
 import BaseModal from '@/components/BaseModal.vue'
 import RepoCardSkeleton from '@/components/RepoCardSkeleton.vue'
 import EmptyState from '@/components/EmptyState.vue'
+import PieChart from '@/components/PieChart.vue'
+import LanguageBarChart from '@/components/LanguageBarChart.vue'
 import { formatStarCount, formatRelativeTime } from '@/utils/format'
 
 const router = useRouter()
@@ -280,6 +335,11 @@ const modals = ref({
 
 const showExportMenu = ref(false)
 
+// Pagination
+const currentPage = ref(1)
+const pageSize = 30
+const isLoadingPage = ref(false)
+
 // Cache for repo data (collections, tags, notes)
 const repoCollections = ref<Record<string, Collection>>({})
 const repoTags = ref<Record<string, Tag[]>>({})
@@ -289,18 +349,59 @@ const collectionRepoCounts = ref<Record<string, number>>({})
 const repos = computed(() => reposStore.repos)
 const isLoading = computed(() => reposStore.isLoading)
 
-// Load collection repo counts
-async function loadCollectionCounts() {
+// Dark mode detection
+const isDark = computed(() => {
+  if (typeof window !== 'undefined') {
+    return window.matchMedia('(prefers-color-scheme: dark)').matches ||
+           document.documentElement.classList.contains('dark')
+  }
+  return false
+})
+
+// Language distribution from search results
+const languageDistribution = computed(() => {
+  const langMap = new Map<string, number>()
+
+  for (const repo of repos.value) {
+    if (repo.primary_language) {
+      langMap.set(repo.primary_language, (langMap.get(repo.primary_language) || 0) + 1)
+    }
+  }
+
+  return Array.from(langMap.entries())
+    .map(([label, value]) => ({ label, value }))
+    .sort((a, b) => b.value - a.value)
+    .slice(0, 8)
+})
+
+async function loadRepoMetadata(reposToLoad = repos.value) {
   const promises: Promise<void>[] = []
-  for (const collection of collections.value) {
+
+  for (const repo of reposToLoad) {
     promises.push(
       (async () => {
-        const repos = await getReposInCollection(collection.id)
-        collectionRepoCounts.value[collection.id] = repos.length
+        const coll = await collectionsApi.getCollectionForRepo(repo.name_with_owner)
+        if (coll) repoCollections.value[repo.name_with_owner] = coll
+
+        const tags = await getTagsForRepo(repo.name_with_owner)
+        if (tags.length > 0) repoTags.value[repo.name_with_owner] = tags
+
+        const note = await getNote(repo.name_with_owner)
+        if (note?.rating) repoNotes.value[repo.name_with_owner] = note
       })()
     )
   }
+
   await Promise.all(promises)
+}
+
+async function loadAllCollectionCounts() {
+  await Promise.all(
+    collections.value.map(async (collection) => {
+      const repos = await getReposInCollection(collection.id)
+      collectionRepoCounts.value[collection.id] = repos.length
+    })
+  )
 }
 
 function handleEscape(e: KeyboardEvent) {
@@ -322,7 +423,7 @@ function handleClickOutside(e: MouseEvent) {
 
 onMounted(async () => {
   await handleSearch()
-  await loadCollectionCounts()
+  await loadAllCollectionCounts()
   window.addEventListener('keydown', handleEscape)
   window.addEventListener('click', handleClickOutside)
 })
@@ -332,41 +433,52 @@ onUnmounted(() => {
   window.removeEventListener('click', handleClickOutside)
 })
 
-async function loadRepoMetadata() {
-  const promises: Promise<void>[] = []
-
-  for (const repo of repos.value) {
-    promises.push(
-      (async () => {
-        // Get collection
-        const coll = await collectionsApi.getCollectionForRepo(repo.name_with_owner)
-        if (coll) repoCollections.value[repo.name_with_owner] = coll
-
-        // Get tags
-        const tags = await getTagsForRepo(repo.name_with_owner)
-        if (tags.length > 0) repoTags.value[repo.name_with_owner] = tags
-
-        // Get note rating
-        const note = await getNote(repo.name_with_owner)
-        if (note?.rating) repoNotes.value[repo.name_with_owner] = note
-      })()
-    )
-  }
-
-  await Promise.all(promises)
+async function handleSearch() {
+  currentPage.value = 1
+  await loadPage(1)
 }
 
-async function handleSearch() {
-  await reposStore.searchRepos({
-    query: searchQuery.value,
-    languages: selectedLanguage.value ? [selectedLanguage.value] : undefined,
-    ownerType: selectedOwnerType.value || undefined,
-    isActive: isActive.value || undefined,
-    isNew: isNew.value || undefined,
-    excludeArchived: excludeArchived.value
-  })
-  // Load metadata after search completes
-  await loadRepoMetadata()
+async function loadPage(page: number) {
+  isLoadingPage.value = true
+  const offset = (page - 1) * pageSize
+
+  try {
+    const response = await fetch(
+      `/api/search?q=${encodeURIComponent(searchQuery.value)}&limit=${pageSize}&offset=${offset}` +
+      `&languages=${selectedLanguage.value || ''}` +
+      `&owner_type=${selectedOwnerType.value || ''}` +
+      `&is_active=${isActive.value}` +
+      `&is_new=${isNew.value}` +
+      `&exclude_archived=${excludeArchived.value}`
+    )
+    const data = await response.json()
+    const newRepos = data.results || []
+
+    // Update store with new page data
+    reposStore.repos = newRepos
+
+    // Load metadata for repos
+    await loadRepoMetadata(newRepos)
+  } catch (err) {
+    console.error('Failed to load page:', err)
+  } finally {
+    isLoadingPage.value = false
+  }
+}
+
+function goToPage(page: number) {
+  currentPage.value = page
+  loadPage(page)
+}
+
+function nextPage() {
+  goToPage(currentPage.value + 1)
+}
+
+function prevPage() {
+  if (currentPage.value > 1) {
+    goToPage(currentPage.value - 1)
+  }
 }
 
 function goToRepo(nameWithOwner: string) {
@@ -377,7 +489,7 @@ function goToRepo(nameWithOwner: string) {
 function openModal(type: 'quickNote' | 'quickTag' | 'collection', repoId?: string) {
   if (type === 'collection' && repoId) {
     modals.value.collection = { show: true, repoId }
-    loadCollectionCounts()
+    loadAllCollectionCounts()
   } else if (type === 'quickNote' || type === 'quickTag') {
     modals.value[type] = repoId || null
   }

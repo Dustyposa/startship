@@ -23,6 +23,7 @@ export const useReposStore = defineStore('repos', () => {
     try {
       const params = new URLSearchParams()
       params.append('q', filters.query || '')
+      params.append('limit', (filters.limit || 1000).toString())
       if (filters.categories?.length) params.append('categories', filters.categories.join(','))
       if (filters.languages?.length) params.append('languages', filters.languages.join(','))
       if (filters.minStars) params.append('min_stars', filters.minStars.toString())

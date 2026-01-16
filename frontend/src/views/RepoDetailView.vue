@@ -52,6 +52,27 @@
         </span>
       </div>
 
+      <!-- Language Distribution -->
+      <div v-if="repo.languages && repo.languages.length > 0" class="mb-6">
+        <h2 class="text-lg font-bold text-gray-900 dark:text-white mb-3">语言分布</h2>
+        <div class="space-y-2">
+          <div
+            v-for="lang in repo.languages"
+            :key="lang.name"
+            class="flex items-center gap-3"
+          >
+            <span class="w-16 text-sm text-gray-700 dark:text-gray-300 truncate">{{ lang.name }}</span>
+            <div class="flex-1 h-6 bg-gray-100 dark:bg-gray-700 rounded-full overflow-hidden">
+              <div
+                class="h-full bg-gradient-to-r from-blue-500 to-blue-600 dark:from-blue-400 dark:to-blue-500 rounded-full transition-all duration-500"
+                :style="{ width: `${lang.percent}%` }"
+              ></div>
+            </div>
+            <span class="w-12 text-right text-sm text-gray-600 dark:text-gray-400">{{ lang.percent }}%</span>
+          </div>
+        </div>
+      </div>
+
       <!-- Re-analyze Message -->
       <div v-if="reanalyzeMessage" :class="[
         'mb-4 p-3 rounded-lg',

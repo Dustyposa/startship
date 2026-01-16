@@ -5,14 +5,12 @@ from typing import Any
 from progress.bar import Bar
 
 from src.config import settings
-from src.github.client import GitHubClient
 from src.github.graphql import GitHubGraphQLClient
 from src.github.models import GitHubRepository
 from src.llm import create_llm, LLM
 from src.db import Database
 
 
-# Default analysis when LLM is skipped
 def _default_analysis(repo: GitHubRepository) -> dict[str, Any]:
     """Create default analysis without LLM."""
     return {
@@ -39,7 +37,7 @@ def _build_repo_data(repo: GitHubRepository, starred_at, analysis: dict[str, Any
         "url": repo.url,
         "homepage_url": repo.homepage_url,
         "readme_path": f"{settings.readme_storage_path}/{repo.name_with_owner.replace('/', '_')}.md",
-        "readme_content": None,  # Set separately if needed
+        "readme_content": None,
         "starred_at": starred_at,
         "pushed_at": repo.pushed_at.isoformat() if repo.pushed_at else None,
         "created_at": repo.created_at.isoformat() if repo.created_at else None,
@@ -118,14 +116,7 @@ class InitializationService:
         llm: LLM | None = None,
         semantic: object | None = None
     ):
-        """
-        Initialize service.
-
-        Args:
-            db: Database instance
-            llm: LLM instance (optional)
-            semantic: SemanticSearch instance (optional)
-        """
+        """Initialize service."""
         self.db = db
         self.llm = llm
         self.semantic = semantic
@@ -134,9 +125,7 @@ class InitializationService:
         self,
         username: str | None = None,
         max_repos: int | None = None,
-        skip_llm: bool = False,
-        force_graphql: bool = False,
-        force_rest: bool = False
+        skip_llm: bool = False
     ) -> dict[str, any]:
         """
         Initialize database from user's starred repositories.
@@ -145,8 +134,6 @@ class InitializationService:
             username: GitHub username (None for authenticated user)
             max_repos: Maximum number of repositories to fetch
             skip_llm: Skip LLM analysis (faster)
-            force_graphql: Force use of GraphQL API (requires token)
-            force_rest: Force use of REST API
 
         Returns:
             Statistics about initialization
@@ -154,46 +141,24 @@ class InitializationService:
         if not self.llm and not skip_llm:
             raise ValueError("LLM is required for analysis. Set skip_llm=True or provide an LLM.")
 
-        has_token = bool(settings.github_token and settings.github_token.strip())
-        use_graphql = force_graphql or (has_token and not force_rest)
-
-        if use_graphql:
-            repos, stats = await self._fetch_with_graphql(username, max_repos)
-        else:
-            repos, stats = await self._fetch_with_rest(username, max_repos)
+        repos, stats = await self._fetch_with_graphql(username, max_repos)
 
         if not repos:
             return stats
 
-        # Process repositories
         processing_stats = await _process_repos(
             repos,
             self.db,
             self.llm,
             skip_llm,
-            self._get_readme_for_graphql if use_graphql else self._get_readme_for_rest
+            self._get_readme
         )
         stats.update(processing_stats)
 
-        # Generate vector embeddings if enabled
         await self._generate_embeddings(repos)
-
-        # Build network graph
         await self._build_network_graph()
 
         return stats
-
-    async def _fetch_with_rest(
-        self,
-        username: str | None,
-        max_repos: int | None
-    ) -> tuple[list[GitHubRepository], dict[str, any]]:
-        """Fetch repositories using REST API."""
-        async with GitHubClient() as github:
-            print(f"Fetching starred repositories for {username or 'authenticated user'} using REST API...")
-            repos = await github.get_all_starred(username=username, max_results=max_repos)
-            print(f"Fetched {len(repos)} repositories using REST API")
-            return repos, {"fetched": len(repos), "api_used": "REST"}
 
     async def _fetch_with_graphql(
         self,
@@ -207,12 +172,7 @@ class InitializationService:
             print(f"Fetched {len(repos)} repositories using GraphQL API")
             return repos, {"fetched": len(repos), "api_used": "GraphQL"}
 
-    async def _get_readme_for_rest(self, repo: GitHubRepository) -> str | None:
-        """Get README content using REST API (separate call needed)."""
-        async with GitHubClient() as github:
-            return await github.get_readme_content(repo.owner_login, repo.name)
-
-    async def _get_readme_for_graphql(self, repo: GitHubRepository) -> str | None:
+    async def _get_readme(self, repo: GitHubRepository) -> str | None:
         """Get README content from GraphQL client (cached during fetch)."""
         return getattr(repo, "_readme_content", None)
 

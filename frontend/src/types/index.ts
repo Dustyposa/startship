@@ -4,6 +4,7 @@ export interface Repository {
   owner: string
   description: string | null
   primary_language: string | null
+  languages?: LanguageInfo[]  // All languages with percentages
   categories: string[]  // Deprecated - kept for backward compatibility
   tech_stack: string[]
   stargazer_count: number
@@ -20,6 +21,12 @@ export interface Repository {
   visibility?: string
   owner_type?: string | null
   organization?: string | null
+}
+
+export interface LanguageInfo {
+  name: string
+  size: number
+  percent: number
 }
 
 export interface ChatMessage {

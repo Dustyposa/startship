@@ -1,5 +1,5 @@
-"""GitHub package for API client and models."""
-from .client import GitHubClient
+"""GitHub package for GraphQL API client and models."""
+from .graphql import GitHubGraphQLClient
 from .models import (
     GitHubRepository,
     GitHubUser,
@@ -10,7 +10,7 @@ from .models import (
 )
 
 __all__ = [
-    "GitHubClient",
+    "GitHubGraphQLClient",
     "GitHubRepository",
     "GitHubUser",
     "GitHubReadme",

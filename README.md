@@ -3,7 +3,7 @@
 ![Python](https://img.shields.io/badge/Python-3.13+-blue.svg)
 ![Vue](https://img.shields.io/badge/Vue-3.0+-green.svg)
 ![License](https://img.shields.io/badge/License-MIT-yellow.svg)
-![Version](https://img.shields.io/badge/version-v0.0.1-orange.svg)
+![Version](https://img.shields.io/badge/version-v1.0.2-orange.svg)
 
 **智能的 GitHub 星标仓库管理和分析助手。**
 
@@ -119,11 +119,13 @@ npm run dev -- --port 3001
 
 ### 🔍 智能搜索
 - **混合搜索引擎** - 全文检索 + 语义向量搜索，精准定位目标项目
+- **点击翻页** - 每页 30 个仓库，支持页码跳转
 - **多维度过滤** - 按语言、活跃度、项目类型、所有者类型快速筛选
   - 🟢 活跃维护（7天内有提交）
   - 🆕 新项目（6个月内创建）
   - 🏢 组织 / 👤 个人
   - 排除归档项目
+- **语言分布可视化** - 仓库卡片展示 Top 3 编程语言分布
 - **查询扩展** - AI 自动理解意图，扩展相关关键词
 
 ### 💬 AI 对话助手
@@ -139,6 +141,8 @@ npm run dev -- --port 3001
 
 ### 🔄 智能数据同步
 - **增量同步** - 每日自动同步新增的星标仓库
+- **README 抓取** - 同步时自动获取完整 README 内容
+- **GraphQL API** - 使用 GitHub GraphQL API 提高效率
 - **全量校验** - 每周完整校验，检测仓库更新和变化
 - **软删除保护** - 取消星标时保留笔记和标签，可随时恢复
 - **变更检测** - 自动检测 star 数、fork 数、描述等 8 个字段的变化
@@ -207,9 +211,8 @@ startship/
 │   │   ├── base.py               # 数据库抽象
 │   │   └── sqlite.py             # SQLite 实现
 │   ├── github/                   # GitHub API
-│   │   ├── client.py             # GitHub API 客户端
 │   │   ├── models.py             # GitHub 数据模型
-│   │   └── graphql.py            # GraphQL 查询
+│   │   └── graphql.py            # GraphQL API（已替代 REST API）
 │   ├── llm/                      # LLM 抽象层
 │   │   ├── base.py               # LLM 抽象接口
 │   │   └── openai.py             # OpenAI 实现
@@ -245,7 +248,9 @@ startship/
 │       │   ├── SyncHistoryView.vue # 同步历史页
 │       │   └── DeletedReposView.vue # 已删除仓库页
 │       ├── components/           # 可复用组件
-│       │   └── SyncStatus.vue    # 同步状态组件
+│       │   ├── LanguageBarChart.vue  # 语言分布指示器
+│       │   ├── PieChart.vue          # 饼图组件
+│       │   └── SyncStatus.vue        # 同步状态组件
 │       ├── composables/          # 组合式函数
 │       ├── router/               # 路由配置
 │       ├── stores/               # Pinia 状态管理
@@ -500,10 +505,14 @@ docker compose down
 - **数据可视化**: 网络图谱、趋势分析
 
 #### ✅ 第二阶段：知识管理（已完成）
+- **点击翻页**: 每页 30 个仓库，支持页码跳转
 - **多维度筛选**: 使用 GitHub 官方字段（活跃度、归档、所有者类型）
 - **笔记功能**: 为仓库添加个人笔记
 - **标签系统**: 自定义标签组织项目
 - **收藏夹管理**: 创建收藏夹分组收藏
+- **语言分布可视化**: Top 3 语言分布指示器
+- **README 抓取**: 同步时自动获取完整 README 内容
+- **GraphQL API**: 使用 GitHub GraphQL API 提高效率
 - **Docker 部署**: 一键部署方案 ✅
 
 #### 📋 第三阶段：智能增强（规划中）

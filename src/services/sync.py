@@ -6,7 +6,6 @@ Handles sync, change detection, and deletion of repositories.
 from datetime import datetime
 from typing import Any
 
-from src.github.client import GitHubClient
 from src.github.models import GitHubRepository
 from src.db import Database
 from src.utils import log_info, log_error, log_debug
@@ -57,10 +56,22 @@ class SyncService:
         stats = self._init_stats("full")
 
         try:
-            async with GitHubClient() as github:
+            from src.github.graphql import GitHubGraphQLClient
+            import os
+
+            async with GitHubGraphQLClient() as github:
                 log_info("Starting sync")
 
-                github_repos = await github.get_all_starred()
+                # Get username from environment or GraphQL
+                username = os.getenv("GITHUB_USER")
+                if not username:
+                    # Get authenticated user from GraphQL
+                    user = await github.get_authenticated_user()
+                    username = user.get("login")
+                    if not username:
+                        raise ValueError("Could not get authenticated user. Please set GITHUB_USER environment variable.")
+
+                github_repos = await github.get_starred_repositories(username)
                 github_repo_map = {repo.name_with_owner: repo for repo in github_repos}
 
                 local_repos = await self.db.search_repositories(
@@ -190,16 +201,12 @@ class SyncService:
         local_repo: dict[str, Any],
         github_repo: GitHubRepository
     ) -> bool:
-        """
-        Check if a repository needs to be updated.
+        """Check if a repository needs to be updated."""
+        # Check if languages data is missing or empty
+        local_languages = local_repo.get("languages")
+        if not local_languages or len(local_languages) == 0:
+            return True
 
-        Args:
-            local_repo: Local repository data from database
-            github_repo: GitHub repository data from API
-
-        Returns:
-            True if update is needed, False otherwise
-        """
         # Fields that commonly change
         if local_repo.get("pushed_at") != (github_repo.pushed_at.isoformat() if github_repo.pushed_at else None):
             return True
@@ -222,43 +229,59 @@ class SyncService:
 
         return False
 
-    async def _add_repository(
-        self,
-        github_repo: GitHubRepository,
-        skip_llm: bool = True
-    ) -> None:
-        """
-        Add a new repository to the database.
-
-        Args:
-            github_repo: GitHub repository data
-            skip_llm: Skip LLM analysis
-        """
-        repo_data = {
-            "name_with_owner": github_repo.name_with_owner,
-            "name": github_repo.name,
-            "owner": github_repo.owner_login,
+    def _build_repo_data(self, github_repo: GitHubRepository, existing: dict[str, Any] | None = None) -> dict[str, Any]:
+        """Build repository data dict from GitHub repo."""
+        base_data = {
             "description": github_repo.description,
             "primary_language": github_repo.primary_language,
+            "languages": [lang.model_dump() for lang in github_repo.languages] if github_repo.languages else [],
             "topics": github_repo.topics or [],
             "stargazer_count": github_repo.stargazer_count,
             "fork_count": github_repo.fork_count,
             "url": github_repo.url,
             "homepage_url": github_repo.homepage_url,
+            "readme_content": github_repo.readme_content,
             "pushed_at": github_repo.pushed_at.isoformat() if github_repo.pushed_at else None,
             "created_at": github_repo.created_at.isoformat() if github_repo.created_at else None,
             "archived": github_repo.archived,
             "visibility": github_repo.visibility,
             "owner_type": github_repo.owner_type,
             "organization": github_repo.organization,
-            "starred_at": github_repo.starred_at.isoformat() if github_repo.starred_at else None,
             "last_synced_at": datetime.now().isoformat(),
-            "summary": github_repo.description or github_repo.name_with_owner,
-            "categories": [],
-            "features": [],
-            "tech_stack": [github_repo.primary_language] if github_repo.primary_language else [],
-            "use_cases": []
         }
+
+        if existing:
+            # Preserve analysis fields when updating
+            base_data.update({
+                "summary": existing.get("summary"),
+                "categories": existing.get("categories", []),
+                "features": existing.get("features", []),
+                "tech_stack": existing.get("tech_stack", []),
+                "use_cases": existing.get("use_cases", [])
+            })
+        else:
+            # Default values for new repos
+            base_data.update({
+                "name_with_owner": github_repo.name_with_owner,
+                "name": github_repo.name,
+                "owner": github_repo.owner_login,
+                "starred_at": github_repo.starred_at.isoformat() if github_repo.starred_at else None,
+                "summary": github_repo.description or github_repo.name_with_owner,
+                "categories": [],
+                "features": [],
+                "tech_stack": [github_repo.primary_language] if github_repo.primary_language else [],
+                "use_cases": []
+            })
+
+        return base_data
+
+    async def _add_repository(
+        self,
+        github_repo: GitHubRepository,
+        skip_llm: bool = True
+    ) -> None:
+        """Add a new repository to the database."""
+        repo_data = self._build_repo_data(github_repo)
         await self.db.add_repository(repo_data)
 
     async def _update_repository(
@@ -266,48 +289,16 @@ class SyncService:
         github_repo: GitHubRepository,
         skip_llm: bool = True
     ) -> None:
-        """
-        Update an existing repository in the database.
-
-        Args:
-            github_repo: GitHub repository data
-            skip_llm: Skip LLM analysis
-        """
+        """Update an existing repository in the database."""
         existing = await self.db.get_repository(github_repo.name_with_owner)
         if not existing:
             return await self._add_repository(github_repo, skip_llm)
 
-        update_data = {
-            "description": github_repo.description,
-            "primary_language": github_repo.primary_language,
-            "topics": github_repo.topics or [],
-            "stargazer_count": github_repo.stargazer_count,
-            "fork_count": github_repo.fork_count,
-            "url": github_repo.url,
-            "homepage_url": github_repo.homepage_url,
-            "pushed_at": github_repo.pushed_at.isoformat() if github_repo.pushed_at else None,
-            "created_at": github_repo.created_at.isoformat() if github_repo.created_at else None,
-            "archived": github_repo.archived,
-            "visibility": github_repo.visibility,
-            "owner_type": github_repo.owner_type,
-            "organization": github_repo.organization,
-            "last_synced_at": datetime.now().isoformat(),
-            "summary": existing.get("summary"),
-            "categories": existing.get("categories", []),
-            "features": existing.get("features", []),
-            "tech_stack": existing.get("tech_stack", []),
-            "use_cases": existing.get("use_cases", [])
-        }
-
+        update_data = self._build_repo_data(github_repo, existing)
         await self.db.update_repository(github_repo.name_with_owner, update_data)
 
     async def _record_sync_history(self, stats: dict[str, Any]) -> None:
-        """
-        Record sync operation to history table.
-
-        Args:
-            stats: Sync statistics
-        """
+        """Record sync operation to history table."""
         try:
             await self.db.execute_query("""
                 INSERT INTO sync_history (

@@ -22,6 +22,16 @@ def get_db() -> Database:
     return db
 
 
+def run_async_task(coro):
+    """Run an async task in a background thread with its own event loop."""
+    loop = asyncio.new_event_loop()
+    asyncio.set_event_loop(loop)
+    try:
+        loop.run_until_complete(coro)
+    finally:
+        loop.close()
+
+
 class SyncStatusResponse(BaseModel):
     """Sync status response."""
     last_sync_at: Optional[str] = None
@@ -50,12 +60,7 @@ class SyncHistoryResponse(BaseModel):
 
 @router.get("/status", response_model=SyncStatusResponse)
 async def get_sync_status(db: Database = Depends(get_db)):
-    """
-    Get current synchronization status.
-
-    Returns information about the last sync and pending updates.
-    """
-    # Get last sync history
+    """Get current synchronization status."""
     cursor = await db._connection.execute(
         """SELECT * FROM sync_history
            ORDER BY started_at DESC
@@ -64,15 +69,11 @@ async def get_sync_status(db: Database = Depends(get_db)):
     row = await cursor.fetchone()
     last_sync = dict(row) if row else None
 
-    # Count active repos (non-deleted)
     cursor = await db._connection.execute(
         """SELECT COUNT(*) FROM repositories WHERE is_deleted = 0"""
     )
     total_repos = (await cursor.fetchone())[0]
 
-
-    # Count repos that haven't been synced in over 24 hours (potentially need updates)
-    # This is a lightweight proxy - actual changes can only be detected by fetching from GitHub
     cursor = await db._connection.execute(
         """SELECT COUNT(*) FROM repositories
            WHERE is_deleted = 0
@@ -95,30 +96,12 @@ async def manual_sync(
     background_tasks: BackgroundTasks,
     db: Database = Depends(get_db)
 ):
-    """
-    Trigger manual synchronization.
-
-    Args:
-        request: Sync request with reanalyze flag
-        background_tasks: FastAPI background tasks
-        db: Database instance
-
-    Note:
-        Requires GitHub Token to be configured.
-    """
+    """Trigger manual synchronization."""
     sync_service = SyncService(db)
-
-    def run_sync():
-        loop = asyncio.new_event_loop()
-        asyncio.set_event_loop(loop)
-        try:
-            loop.run_until_complete(
-                sync_service.sync(skip_llm=not request.reanalyze)
-            )
-        finally:
-            loop.close()
-
-    background_tasks.add_task(run_sync)
+    background_tasks.add_task(
+        run_async_task,
+        sync_service.sync(skip_llm=not request.reanalyze)
+    )
 
     return {
         "success": True,
@@ -128,11 +111,7 @@ async def manual_sync(
 
 @router.get("/history")
 async def get_sync_history(limit: int = 20, db: Database = Depends(get_db)):
-    """
-    Get synchronization history.
-
-    Returns recent sync operations with statistics.
-    """
+    """Get synchronization history."""
     cursor = await db._connection.execute(
         """SELECT * FROM sync_history
            ORDER BY started_at DESC
@@ -152,26 +131,11 @@ async def reanalyze_repo(
     background_tasks: BackgroundTasks,
     db: Database = Depends(get_db)
 ):
-    """
-    Re-analyze a repository with LLM.
-
-    Args:
-        name_with_owner: Repository name in format "owner/repo"
-        background_tasks: FastAPI background tasks
-        db: Database instance
-    """
-    def run_reanalyze():
-        """Run the reanalysis in background."""
-        loop = asyncio.new_event_loop()
-        asyncio.set_event_loop(loop)
-        try:
-            loop.run_until_complete(_reanalyze_task(name_with_owner, db))
-        except Exception as e:
-            print(f"Error reanalyzing {name_with_owner}: {e}")
-        finally:
-            loop.close()
-
-    background_tasks.add_task(run_reanalyze)
+    """Re-analyze a repository with LLM."""
+    background_tasks.add_task(
+        run_async_task,
+        _reanalyze_task(name_with_owner, db)
+    )
 
     return {
         "success": True,
@@ -183,28 +147,23 @@ async def reanalyze_repo(
 async def _reanalyze_task(name_with_owner: str, db: Database):
     """Async task for reanalyzing a repository."""
     try:
-        # Parse owner and repo
         parts = name_with_owner.split("/")
         if len(parts) != 2:
             return
 
         owner, repo_name = parts
 
-        # Get existing repository
         repo = await db.get_repository(name_with_owner)
         if not repo:
             return
 
-        # Fetch README from GitHub
-        from src.github.client import GitHubClient
-        async with GitHubClient() as github:
+        from src.github.graphql import GitHubGraphQLClient
+        async with GitHubGraphQLClient() as github:
             readme = await github.get_readme_content(owner, repo_name)
 
-        # Get LLM instance
         from src.llm import create_llm
         llm = create_llm("openai")
 
-        # Analyze with LLM
         analysis = await llm.analyze_repository(
             repo_name=name_with_owner,
             description=repo.get("description") or "",
@@ -213,7 +172,6 @@ async def _reanalyze_task(name_with_owner: str, db: Database):
             topics=repo.get("topics") or []
         )
 
-        # Update database with new analysis
         from datetime import datetime
         update_data = {
             "summary": analysis.get("summary", repo.get("description")),
@@ -227,5 +185,4 @@ async def _reanalyze_task(name_with_owner: str, db: Database):
         await db.update_repository(name_with_owner, update_data)
 
     except Exception as e:
-        # Log error but don't fail the request
         print(f"Error reanalyzing {name_with_owner}: {e}")

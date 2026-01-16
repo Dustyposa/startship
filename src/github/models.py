@@ -6,28 +6,36 @@ from typing import Optional, List, Union, Any, Dict
 from datetime import datetime
 
 
+class LanguageInfo(BaseModel):
+    """Language information with percentage"""
+    name: str
+    size: int
+    percent: float
+
+
 class GitHubRepository(BaseModel):
     """Repository model from GitHub API"""
 
     # Basic fields
     id: int
-    name_with_owner: str = Field(..., alias="full_name")
+    name_with_owner: str
     name: str
     owner: str
 
     # Description and metadata
     description: Optional[str] = None
-    primary_language: Optional[str] = Field(None, alias="language")
+    primary_language: Optional[str] = None
+    languages: List[LanguageInfo] = Field(default_factory=list)
     topics: List[str] = Field(default_factory=list)
 
     # Stats
-    stargazer_count: int = Field(..., alias="stargazers_count")
-    fork_count: int = Field(..., alias="forks_count")
-    open_issues_count: int = Field(default=0, alias="open_issues_count")
+    stargazer_count: int
+    fork_count: int
+    open_issues_count: int = 0
 
     # URLs
-    url: str = Field(..., alias="html_url")
-    homepage_url: Optional[str] = Field(None, alias="homepage")
+    url: str
+    homepage_url: Optional[str] = None
 
     # Dates
     created_at: datetime
@@ -41,11 +49,11 @@ class GitHubRepository(BaseModel):
     owner_type: Optional[str] = None  # "Organization" or "User" - extracted from owner dict
     organization: Optional[str] = None  # Organization name if owned by org
 
-    # Internal field to store original owner dict before validation
-    _owner_dict: Optional[Dict[str, Any]] = None
-
     # License
     license_key: Optional[str] = None
+
+    # README content
+    readme_content: Optional[str] = None
 
     @model_validator(mode='before')
     @classmethod

@@ -24,12 +24,14 @@ class SearchService:
         languages: Optional[List[str]] = None,
         min_stars: Optional[int] = None,
         max_stars: Optional[int] = None,
-        limit: int = 20,
+        limit: int = 1000,
+        offset: int = 0,
         # New filter dimensions
         is_active: Optional[bool] = None,  # Filter by active maintenance (pushed within 7 days)
         is_new: Optional[bool] = None,  # Filter by new projects (created within 6 months)
         owner_type: Optional[str] = None,  # Filter by owner type ("Organization" or "User")
-        exclude_archived: bool = True  # Exclude archived repos by default
+        exclude_archived: bool = True,  # Exclude archived repos by default
+        sort_by: str = "starred_at"  # Default sort by starred_at (newest stars first)
     ) -> List[Dict[str, Any]]:
         """
         Search repositories with filters.
@@ -41,6 +43,7 @@ class SearchService:
             min_stars: Minimum star count
             max_stars: Maximum star count
             limit: Maximum number of results
+            offset: Number of results to skip
             is_active: Filter by active maintenance (pushed within 7 days)
             is_new: Filter by new projects (created within 6 months)
             owner_type: Filter by owner type ("Organization" or "User")
@@ -49,8 +52,8 @@ class SearchService:
         Returns:
             List of matching repositories
         """
-        # Use full-text search if query is provided
-        if query:
+        # Use full-text search if query is provided and non-empty
+        if query and query.strip():
             results = await self.db.search_repositories_fulltext(
                 query=query,
                 limit=limit
@@ -63,10 +66,12 @@ class SearchService:
                 min_stars=min_stars,
                 max_stars=max_stars,
                 limit=limit,
+                offset=offset,
                 is_active=is_active,
                 is_new=is_new,
                 owner_type=owner_type,
-                exclude_archived=exclude_archived
+                exclude_archived=exclude_archived,
+                sort_by=sort_by
             )
 
         return results

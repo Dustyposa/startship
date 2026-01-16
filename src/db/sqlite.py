@@ -202,12 +202,12 @@ class SQLiteDatabase(Database):
                 """
                 INSERT INTO repositories (
                     name_with_owner, name, owner, description,
-                    primary_language, topics, stargazer_count, fork_count,
+                    primary_language, languages, topics, stargazer_count, fork_count,
                     url, homepage_url, summary, categories, features,
                     tech_stack, use_cases, readme_summary, readme_path,
                     readme_content, search_text, starred_at,
                     pushed_at, archived, visibility, owner_type, organization
-                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                 """,
                 (
                     repo_data.get("name_with_owner"),
@@ -215,6 +215,7 @@ class SQLiteDatabase(Database):
                     repo_data.get("owner"),
                     repo_data.get("description"),
                     repo_data.get("primary_language"),
+                    json.dumps(repo_data.get("languages", []), ensure_ascii=False),
                     json.dumps(repo_data.get("topics", []), ensure_ascii=False),
                     repo_data.get("stargazer_count", 0),
                     repo_data.get("fork_count", 0),
@@ -276,6 +277,7 @@ class SQLiteDatabase(Database):
         min_stars: Optional[int] = None,
         max_stars: Optional[int] = None,
         limit: int = 10,
+        offset: int = 0,
         # New filter dimensions
         is_active: Optional[bool] = None,
         is_new: Optional[bool] = None,
@@ -343,16 +345,18 @@ class SQLiteDatabase(Database):
 
         # Sorting
         valid_sort_fields = {
+            "starred_at": "r.starred_at",
             "stargazer_count": "r.stargazer_count",
             "last_synced_at": "r.last_synced_at",
             "pushed_at": "r.pushed_at",
             "created_at": "r.created_at",
             "name": "r.name"
         }
-        sort_field = valid_sort_fields.get(sort_by, "r.stargazer_count")
+        sort_field = valid_sort_fields.get(sort_by, "r.starred_at")
         query += f" ORDER BY {sort_field} {sort_order if sort_order in ('ASC', 'DESC') else 'DESC'}"
-        query += " LIMIT ?"
+        query += " LIMIT ? OFFSET ?"
         params.append(limit)
+        params.append(offset)
 
         async with self._connection.execute(query, params) as cursor:
             rows = await cursor.fetchall()

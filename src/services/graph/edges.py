@@ -110,3 +110,146 @@ class EdgeDiscoveryService:
 
         logger.info(f"Discovered {len(edges)} author edges from {len(repos)} repositories")
         return edges
+
+    async def discover_ecosystem_edges(
+        self,
+        repos: List[Dict[str, Any]]
+    ) -> List[Dict[str, Any]]:
+        """
+        Discover edges based on common primary language or topics.
+
+        Uses Jaccard similarity for topics to find related repositories.
+
+        Args:
+            repos: List of repository dictionaries containing at minimum
+                   'name_with_owner' field, and optionally 'primary_language'
+                   and 'topics' fields
+
+        Returns:
+            List of edge dictionaries with format:
+            {
+                "source": "owner/repo1",
+                "target": "owner/repo2",
+                "type": "ecosystem",
+                "weight": 0.6,
+                "metadata": {"language": "Python"}
+            }
+
+        Raises:
+            ValueError: If repos is not a list
+
+        Example:
+            >>> repos = [
+            ...     {"name_with_owner": "owner/repo1", "primary_language": "Python", "topics": ["web", "api"]},
+            ...     {"name_with_owner": "owner/repo2", "primary_language": "Python", "topics": ["web", "http"]},
+            ... ]
+            >>> edges = await service.discover_ecosystem_edges(repos)
+            >>> len(edges) > 0
+            True
+        """
+        if not isinstance(repos, list):
+            raise ValueError("repos must be a list")
+
+        # Handle empty input
+        if not repos:
+            logger.info("Empty repo list, no ecosystem edges to discover")
+            return []
+
+        # Validate repos and extract valid ones
+        valid_repos = []
+        skipped_count = 0
+
+        for repo in repos:
+            if not isinstance(repo, dict):
+                logger.warning(f"Skipping non-dict repo item: {repo}")
+                skipped_count += 1
+                continue
+
+            # Safely get and validate name_with_owner field
+            name_with_owner = repo.get('name_with_owner')
+
+            if not name_with_owner or not isinstance(name_with_owner, str) or not name_with_owner.strip():
+                logger.warning("Skipping repo with invalid name_with_owner")
+                skipped_count += 1
+                continue
+
+            name_with_owner = name_with_owner.strip()
+
+            # Validate format (should contain "/")
+            if '/' not in name_with_owner:
+                logger.warning(f"Skipping repo with invalid name_with_owner format: {name_with_owner}")
+                skipped_count += 1
+                continue
+
+            # Ensure topics is a list
+            topics = repo.get('topics', [])
+            if not isinstance(topics, list):
+                logger.warning(f"Repo {name_with_owner} has non-list topics, converting to empty list")
+                topics = []
+
+            # Create a validated repo dict
+            valid_repo = {
+                'name_with_owner': name_with_owner,
+                'primary_language': repo.get('primary_language'),
+                'topics': topics
+            }
+
+            valid_repos.append(valid_repo)
+
+        if skipped_count > 0:
+            logger.warning(f"Skipped {skipped_count} repos due to missing or invalid fields")
+
+        edges = []
+
+        # Group by primary language
+        lang_repos: Dict[str, List[str]] = {}
+        for repo in valid_repos:
+            lang = repo.get('primary_language')
+            if lang and isinstance(lang, str) and lang.strip():
+                lang = lang.strip()
+                if lang not in lang_repos:
+                    lang_repos[lang] = []
+                lang_repos[lang].append(repo['name_with_owner'])
+
+        # Create edges for repos with same language (limit to avoid too many)
+        for lang, repo_list in lang_repos.items():
+            # Only if there are multiple repos with this language
+            if len(repo_list) > 1 and len(repo_list) < 50:  # Avoid popular languages
+                for i, repo1 in enumerate(repo_list[:20]):  # Limit per language
+                    for repo2 in repo_list[i+1:20]:
+                        edges.append({
+                            "source": repo1,
+                            "target": repo2,
+                            "type": "ecosystem",
+                            "weight": 0.6,
+                            "metadata": {"language": lang}
+                        })
+
+        # Group by topics (Jaccard similarity)
+        for i, repo1 in enumerate(valid_repos):
+            topics1 = set(repo1.get('topics', []))
+            if not topics1:
+                continue
+
+            for repo2 in valid_repos[i+1:]:
+                topics2 = set(repo2.get('topics', []))
+                if not topics2:
+                    continue
+
+                # Calculate Jaccard similarity
+                intersection = len(topics1 & topics2)
+                union = len(topics1 | topics2)
+
+                if intersection >= 2:  # At least 2 common topics
+                    jaccard = intersection / union if union > 0 else 0
+                    if jaccard > 0.3:  # Threshold for similarity
+                        edges.append({
+                            "source": repo1['name_with_owner'],
+                            "target": repo2['name_with_owner'],
+                            "type": "ecosystem",
+                            "weight": round(jaccard, 2),
+                            "metadata": {"common_topics": intersection}
+                        })
+
+        logger.info(f"Discovered {len(edges)} ecosystem edges from {len(repos)} repositories")
+        return edges

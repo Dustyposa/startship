@@ -290,3 +290,381 @@ class TestDiscoverAuthorEdges:
 
         # Should skip all repos and return empty list
         assert edges == []
+
+
+class TestDiscoverEcosystemEdges:
+    """Test suite for EdgeDiscoveryService.discover_ecosystem_edges method."""
+
+    @pytest.mark.asyncio
+    async def test_discover_language_edges_basic(self):
+        """Test basic edge discovery with repos sharing same language."""
+        service = EdgeDiscoveryService()
+
+        repos = [
+            {"name_with_owner": "owner/repo1", "primary_language": "Python"},
+            {"name_with_owner": "owner/repo2", "primary_language": "Python"},
+            {"name_with_owner": "owner/repo3", "primary_language": "JavaScript"}
+        ]
+
+        edges = await service.discover_ecosystem_edges(repos)
+
+        # Should create 1 edge for the 2 Python repos
+        assert len(edges) == 1
+        assert edges[0]["source"] == "owner/repo1"
+        assert edges[0]["target"] == "owner/repo2"
+        assert edges[0]["type"] == "ecosystem"
+        assert edges[0]["weight"] == 0.6
+        assert isinstance(edges[0]["metadata"], dict)
+        assert edges[0]["metadata"]["language"] == "Python"
+
+    @pytest.mark.asyncio
+    async def test_discover_topic_edges_jaccard(self):
+        """Test topic-based edge discovery with Jaccard similarity."""
+        service = EdgeDiscoveryService()
+
+        repos = [
+            {"name_with_owner": "owner/repo1", "topics": ["web", "api", "rest"]},
+            {"name_with_owner": "owner/repo2", "topics": ["web", "api", "graphql"]},
+            {"name_with_owner": "owner/repo3", "topics": ["database", "sql"]}
+        ]
+
+        edges = await service.discover_ecosystem_edges(repos)
+
+        # repo1 and repo2 share 2 topics (web, api) out of 4 unique (web, api, rest, graphql)
+        # Jaccard = 2/4 = 0.5, which is > 0.3 threshold
+        assert len(edges) == 1
+        assert edges[0]["source"] == "owner/repo1"
+        assert edges[0]["target"] == "owner/repo2"
+        assert edges[0]["type"] == "ecosystem"
+        assert edges[0]["weight"] == 0.5
+        assert edges[0]["metadata"]["common_topics"] == 2
+
+    @pytest.mark.asyncio
+    async def test_empty_input_list(self):
+        """Test with empty input list."""
+        service = EdgeDiscoveryService()
+        edges = await service.discover_ecosystem_edges([])
+
+        assert edges == []
+
+    @pytest.mark.asyncio
+    async def test_single_repository(self):
+        """Test with single repository (no edges possible)."""
+        service = EdgeDiscoveryService()
+
+        repos = [
+            {"name_with_owner": "owner/repo1", "primary_language": "Python"}
+        ]
+
+        edges = await service.discover_ecosystem_edges(repos)
+
+        assert edges == []
+
+    @pytest.mark.asyncio
+    async def test_missing_name_with_owner(self):
+        """Test with repositories missing name_with_owner field."""
+        service = EdgeDiscoveryService()
+
+        repos = [
+            {"primary_language": "Python"},  # Missing name_with_owner
+            {"name_with_owner": "owner/repo2", "primary_language": "Python"}
+        ]
+
+        edges = await service.discover_ecosystem_edges(repos)
+
+        # Should skip the repo without name_with_owner
+        assert edges == []
+
+    @pytest.mark.asyncio
+    async def test_empty_name_with_owner(self):
+        """Test with repositories having empty name_with_owner field."""
+        service = EdgeDiscoveryService()
+
+        repos = [
+            {"name_with_owner": "", "primary_language": "Python"},
+            {"name_with_owner": "owner/repo2", "primary_language": "Python"}
+        ]
+
+        edges = await service.discover_ecosystem_edges(repos)
+
+        # Should skip the repo with empty name_with_owner
+        assert edges == []
+
+    @pytest.mark.asyncio
+    async def test_invalid_name_with_owner_format(self):
+        """Test with repositories having invalid name_with_owner format (missing slash)."""
+        service = EdgeDiscoveryService()
+
+        repos = [
+            {"name_with_owner": "invalid-format", "primary_language": "Python"},
+            {"name_with_owner": "owner/repo2", "primary_language": "Python"}
+        ]
+
+        edges = await service.discover_ecosystem_edges(repos)
+
+        # Should skip the repo with invalid format
+        assert edges == []
+
+    @pytest.mark.asyncio
+    async def test_no_common_language_or_topics(self):
+        """Test with repos that have no common language or topics."""
+        service = EdgeDiscoveryService()
+
+        repos = [
+            {"name_with_owner": "owner/repo1", "primary_language": "Python", "topics": ["web"]},
+            {"name_with_owner": "owner/repo2", "primary_language": "JavaScript", "topics": ["database"]}
+        ]
+
+        edges = await service.discover_ecosystem_edges(repos)
+
+        # No common language or topics, so no edges
+        assert edges == []
+
+    @pytest.mark.asyncio
+    async def test_popular_language_no_edges(self):
+        """Test that popular languages (50+ repos) don't create edges."""
+        service = EdgeDiscoveryService()
+
+        # Create 51 repos with Python language (simulating popular language)
+        repos = [
+            {"name_with_owner": f"owner/repo{i}", "primary_language": "Python"}
+            for i in range(51)
+        ]
+
+        edges = await service.discover_ecosystem_edges(repos)
+
+        # Should not create edges for popular languages
+        assert len(edges) == 0
+
+    @pytest.mark.asyncio
+    async def test_language_limit_per_language(self):
+        """Test that only 20 repos per language are considered for edges."""
+        service = EdgeDiscoveryService()
+
+        # Create 25 repos with Rust language (less than 50, more than 20)
+        repos = [
+            {"name_with_owner": f"owner/repo{i}", "primary_language": "Rust"}
+            for i in range(25)
+        ]
+
+        edges = await service.discover_ecosystem_edges(repos)
+
+        # Should create edges for first 20 repos only
+        # C(20, 2) = 190 edges
+        assert len(edges) == 190
+
+    @pytest.mark.asyncio
+    async def test_insufficient_common_topics(self):
+        """Test that repos with less than 2 common topics don't create edges."""
+        service = EdgeDiscoveryService()
+
+        repos = [
+            {"name_with_owner": "owner/repo1", "topics": ["web", "api"]},
+            {"name_with_owner": "owner/repo2", "topics": ["web", "database"]}
+        ]
+
+        edges = await service.discover_ecosystem_edges(repos)
+
+        # Only 1 common topic (web), so no edge
+        assert len(edges) == 0
+
+    @pytest.mark.asyncio
+    async def test_jaccard_threshold(self):
+        """Test that Jaccard similarity below 0.3 doesn't create edges."""
+        service = EdgeDiscoveryService()
+
+        repos = [
+            {"name_with_owner": "owner/repo1", "topics": ["web", "api", "rest", "graphql", "database", "cache", "auth"]},
+            {"name_with_owner": "owner/repo2", "topics": ["web", "api", "mobile", "ios", "android", "react", "vue"]}
+        ]
+
+        edges = await service.discover_ecosystem_edges(repos)
+
+        # 2 common topics out of 12 unique: Jaccard = 2/12 = 0.167 < 0.3
+        assert len(edges) == 0
+
+    @pytest.mark.asyncio
+    async def test_metadata_format_is_dict(self):
+        """Test that metadata is returned as a dictionary, not a string."""
+        service = EdgeDiscoveryService()
+
+        repos = [
+            {"name_with_owner": "owner/repo1", "primary_language": "Python"},
+            {"name_with_owner": "owner/repo2", "primary_language": "Python"}
+        ]
+
+        edges = await service.discover_ecosystem_edges(repos)
+
+        assert isinstance(edges[0]["metadata"], dict)
+        assert "language" in edges[0]["metadata"]
+        assert edges[0]["metadata"]["language"] == "Python"
+        # Ensure it's not a JSON string
+        assert not isinstance(edges[0]["metadata"], str)
+
+    @pytest.mark.asyncio
+    async def test_non_dict_repo_items(self):
+        """Test with non-dict items in the repos list."""
+        service = EdgeDiscoveryService()
+
+        repos = [
+            {"name_with_owner": "owner/repo1", "primary_language": "Python"},
+            "not a dict",  # Invalid item
+            {"name_with_owner": "owner/repo2", "primary_language": "Python"}
+        ]
+
+        edges = await service.discover_ecosystem_edges(repos)
+
+        # Should skip the invalid item and create edge from valid repos
+        assert len(edges) == 1
+        assert edges[0]["source"] == "owner/repo1"
+        assert edges[0]["target"] == "owner/repo2"
+
+    @pytest.mark.asyncio
+    async def test_invalid_input_type(self):
+        """Test with invalid input type (not a list)."""
+        service = EdgeDiscoveryService()
+
+        with pytest.raises(ValueError, match="repos must be a list"):
+            await service.discover_ecosystem_edges("not a list")
+
+        with pytest.raises(ValueError, match="repos must be a list"):
+            await service.discover_ecosystem_edges(None)
+
+        with pytest.raises(ValueError, match="repos must be a list"):
+            await service.discover_ecosystem_edges({})
+
+    @pytest.mark.asyncio
+    async def test_empty_topics_list(self):
+        """Test with repos having empty topics lists."""
+        service = EdgeDiscoveryService()
+
+        repos = [
+            {"name_with_owner": "owner/repo1", "topics": []},
+            {"name_with_owner": "owner/repo2", "topics": []},
+            {"name_with_owner": "owner/repo3", "topics": ["web"]}
+        ]
+
+        edges = await service.discover_ecosystem_edges(repos)
+
+        # No edges from empty topics
+        assert len(edges) == 0
+
+    @pytest.mark.asyncio
+    async def test_missing_topics_field(self):
+        """Test with repos missing topics field."""
+        service = EdgeDiscoveryService()
+
+        repos = [
+            {"name_with_owner": "owner/repo1"},  # Missing topics
+            {"name_with_owner": "owner/repo2", "topics": ["web"]}
+        ]
+
+        edges = await service.discover_ecosystem_edges(repos)
+
+        # Should handle missing topics gracefully
+        assert len(edges) == 0
+
+    @pytest.mark.asyncio
+    async def test_non_list_topics_field(self):
+        """Test with repos having non-list topics field."""
+        service = EdgeDiscoveryService()
+
+        repos = [
+            {"name_with_owner": "owner/repo1", "topics": "not-a-list"},
+            {"name_with_owner": "owner/repo2", "topics": ["web"]}
+        ]
+
+        edges = await service.discover_ecosystem_edges(repos)
+
+        # Should convert non-list topics to empty list
+        assert len(edges) == 0
+
+    @pytest.mark.asyncio
+    async def test_missing_primary_language(self):
+        """Test with repos missing primary_language field."""
+        service = EdgeDiscoveryService()
+
+        repos = [
+            {"name_with_owner": "owner/repo1"},  # Missing primary_language
+            {"name_with_owner": "owner/repo2", "primary_language": "Python"}
+        ]
+
+        edges = await service.discover_ecosystem_edges(repos)
+
+        # Should handle missing language gracefully
+        assert len(edges) == 0
+
+    @pytest.mark.asyncio
+    async def test_empty_primary_language(self):
+        """Test with repos having empty primary_language field."""
+        service = EdgeDiscoveryService()
+
+        repos = [
+            {"name_with_owner": "owner/repo1", "primary_language": ""},
+            {"name_with_owner": "owner/repo2", "primary_language": ""}
+        ]
+
+        edges = await service.discover_ecosystem_edges(repos)
+
+        # Should skip repos with empty language
+        assert len(edges) == 0
+
+    @pytest.mark.asyncio
+    async def test_combined_language_and_topic_edges(self):
+        """Test that both language and topic edges can be created."""
+        service = EdgeDiscoveryService()
+
+        repos = [
+            {"name_with_owner": "owner/repo1", "primary_language": "Rust", "topics": ["web", "api", "async"]},
+            {"name_with_owner": "owner/repo2", "primary_language": "Rust", "topics": ["web", "api", "graphql"]},
+            {"name_with_owner": "owner/repo3", "primary_language": "Rust", "topics": ["database", "sql"]}
+        ]
+
+        edges = await service.discover_ecosystem_edges(repos)
+
+        # Should create:
+        # - 3 language edges (3 choose 2 = 3)
+        # - 1 topic edge between repo1 and repo2
+        assert len(edges) == 4
+
+        # Check language edges
+        lang_edges = [e for e in edges if "language" in e["metadata"]]
+        assert len(lang_edges) == 3
+
+        # Check topic edge
+        topic_edges = [e for e in edges if "common_topics" in e["metadata"]]
+        assert len(topic_edges) == 1
+        assert topic_edges[0]["metadata"]["common_topics"] == 2
+
+    @pytest.mark.asyncio
+    async def test_name_with_owner_with_whitespace(self):
+        """Test that name_with_owner values are properly trimmed."""
+        service = EdgeDiscoveryService()
+
+        repos = [
+            {"name_with_owner": "  owner/repo1  ", "primary_language": "Python"},
+            {"name_with_owner": "owner/repo2", "primary_language": "Python"}
+        ]
+
+        edges = await service.discover_ecosystem_edges(repos)
+
+        # Should trim whitespace and create edge
+        assert len(edges) == 1
+        assert edges[0]["source"] == "owner/repo1"
+        assert edges[0]["target"] == "owner/repo2"
+
+    @pytest.mark.asyncio
+    async def test_all_repos_skipped(self):
+        """Test when all repos are invalid and should be skipped."""
+        service = EdgeDiscoveryService()
+
+        repos = [
+            {"primary_language": "Python"},  # Missing name_with_owner
+            {"name_with_owner": ""},  # Empty name_with_owner
+            {"name_with_owner": "invalid-format"},  # Invalid format
+        ]
+
+        edges = await service.discover_ecosystem_edges(repos)
+
+        # Should skip all repos and return empty list
+        assert edges == []

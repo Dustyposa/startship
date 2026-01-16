@@ -9,7 +9,7 @@ from fastapi.responses import JSONResponse
 from fastapi.staticfiles import StaticFiles
 from src.config import settings
 from src.db import create_database
-from src.api.routes import chat, search, init, recommendation, trends, network, user_data, sync
+from src.api.routes import chat, search, init, recommendation, trends, network, user_data, sync, graph
 
 
 # Global database instance
@@ -89,6 +89,7 @@ app.include_router(trends.router)
 app.include_router(network.router)
 app.include_router(user_data.router)
 app.include_router(sync.router)
+app.include_router(graph.router)
 
 # Mount static files for frontend
 # TODO: Uncomment when frontend is built

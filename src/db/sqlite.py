@@ -140,10 +140,16 @@ class SQLiteDatabase(Database):
             row = await cursor.fetchone()
             return dict(row) if row else None
 
-    async def execute(self, sql: str) -> None:
+    async def execute(self, sql: str, params: Tuple = ()) -> None:
         """Execute a SQL statement"""
-        await self._connection.execute(sql)
+        await self._connection.execute(sql, params)
         await self._connection.commit()
+
+    async def fetch_all(self, sql: str, params: Tuple = ()) -> List[Dict[str, Any]]:
+        """Execute a SQL query and return all results as a list of dicts"""
+        async with self._connection.execute(sql, params) as cursor:
+            rows = await cursor.fetchall()
+            return [dict(row) for row in rows]
 
     async def _run_migrations(self) -> None:
         """Run pending database migrations.
@@ -949,3 +955,85 @@ class SQLiteDatabase(Database):
                 except:
                     d[key] = []
         return d
+
+    # ==================== Graph Edge Operations ====================
+
+    async def add_graph_edge(
+        self,
+        source_repo: str,
+        target_repo: str,
+        edge_type: str,
+        weight: float = 1.0,
+        metadata: Optional[str] = None
+    ) -> None:
+        """Add or update a graph edge."""
+        await self.execute(
+            """INSERT OR REPLACE INTO graph_edges
+               (source_repo, target_repo, edge_type, weight, metadata)
+               VALUES (?, ?, ?, ?, ?)""",
+            (source_repo, target_repo, edge_type, weight, metadata)
+        )
+
+    async def get_graph_edges(
+        self,
+        repo: str,
+        edge_types: Optional[List[str]] = None,
+        limit: int = 50
+    ) -> List[Dict[str, Any]]:
+        """Get all edges for a repository."""
+        if edge_types:
+            placeholders = ','.join('?' * len(edge_types))
+            query = f"""
+                SELECT source_repo, target_repo, edge_type, weight, metadata
+                FROM graph_edges
+                WHERE source_repo = ? AND edge_type IN ({placeholders})
+                ORDER BY weight DESC
+                LIMIT ?
+            """
+            params = [repo] + edge_types + [limit]
+        else:
+            query = """
+                SELECT source_repo, target_repo, edge_type, weight, metadata
+                FROM graph_edges
+                WHERE source_repo = ?
+                ORDER BY weight DESC
+                LIMIT ?
+            """
+            params = [repo, limit]
+
+        return await self.fetch_all(query, tuple(params))
+
+    async def delete_repo_edges(self, repo: str) -> None:
+        """Delete all edges for a repository (when unstarred)."""
+        await self.execute(
+            "DELETE FROM graph_edges WHERE source_repo = ? OR target_repo = ?",
+            (repo, repo)
+        )
+
+    async def update_graph_status(
+        self,
+        repo: str,
+        edges_computed: bool = False,
+        dependencies_parsed: bool = False
+    ) -> None:
+        """Update graph computation status for a repo."""
+        updates = []
+        params = []
+
+        if edges_computed:
+            updates.append("edges_computed_at = ?")
+            params.append(datetime.now().isoformat())
+
+        if dependencies_parsed:
+            updates.append("dependencies_parsed_at = ?")
+            params.append(datetime.now().isoformat())
+
+        if not updates:
+            return
+
+        params.append(repo)
+        await self.execute(
+            f"""INSERT OR REPLACE INTO graph_status (repo_id, {', '.join(updates)})
+               VALUES (?, {', '.join(['?'] * len(updates))})""",
+            tuple(params)
+        )

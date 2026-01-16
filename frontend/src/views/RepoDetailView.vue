@@ -1,7 +1,10 @@
 <template>
-  <div v-if="repo" class="max-w-4xl mx-auto">
-    <div class="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg shadow-sm p-6">
-      <div class="flex justify-between items-start mb-4">
+  <div v-if="repo" class="max-w-6xl mx-auto">
+    <div class="flex gap-6">
+      <!-- Main Content -->
+      <div class="flex-1">
+        <div class="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg shadow-sm p-6">
+          <div class="flex justify-between items-start mb-4">
         <div>
           <h1 class="text-2xl font-bold text-gray-900 dark:text-white">{{ repo.name_with_owner }}</h1>
           <p v-if="repo.description" class="text-gray-600 dark:text-gray-400 mt-2">{{ repo.description }}</p>
@@ -139,6 +142,77 @@
         <TagManager :repo-id="nameWithOwner" @update="handleTagUpdate" />
       </div>
     </div>
+    </div>
+      </div>
+
+      <!-- Sidebar -->
+      <div class="w-80 flex-shrink-0">
+        <div class="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg shadow-sm p-4 sticky top-4">
+          <h2 class="text-lg font-bold text-gray-900 dark:text-white mb-4">相关星标</h2>
+
+          <div v-if="isLoadingRelated" class="text-center py-8">
+            <div class="text-gray-600 dark:text-gray-400 text-sm">加载中...</div>
+          </div>
+
+          <div v-else-if="relatedRepos.length > 0" class="space-y-3">
+            <router-link
+              v-for="related in relatedRepos"
+              :key="related.name_with_owner"
+              :to="`/repo/${related.owner}/${related.name}`"
+              class="block p-3 bg-gray-50 dark:bg-gray-700 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-600 transition"
+            >
+              <div class="flex items-start gap-3">
+                <div class="flex-1 min-w-0">
+                  <h3 class="font-semibold text-gray-900 dark:text-white text-sm truncate">
+                    {{ related.name }}
+                  </h3>
+                  <p v-if="related.description" class="text-xs text-gray-600 dark:text-gray-400 mt-1 line-clamp-2">
+                    {{ related.description }}
+                  </p>
+                  <div class="flex items-center gap-2 mt-2">
+                    <span
+                      v-if="related.primary_language"
+                      class="px-2 py-0.5 bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 rounded text-xs"
+                    >
+                      {{ related.primary_language }}
+                    </span>
+                    <span class="text-xs text-gray-500 dark:text-gray-400">
+                      ⭐ {{ formatStarCount(related.stargazer_count) }}
+                    </span>
+                  </div>
+                </div>
+              </div>
+
+              <!-- Relationship Badge -->
+              <div class="mt-2 pt-2 border-t border-gray-200 dark:border-gray-600">
+                <div class="flex items-center justify-between">
+                  <span class="text-xs text-gray-500 dark:text-gray-400">
+                    {{ getRelationTypeLabel(related.relation_type) }}
+                  </span>
+                  <div class="flex items-center gap-1">
+                    <div class="w-16 h-1.5 bg-gray-200 dark:bg-gray-600 rounded-full overflow-hidden">
+                      <div
+                        class="h-full bg-purple-500 rounded-full"
+                        :style="{ width: `${Math.min(related.relation_weight * 20, 100)}%` }"
+                      ></div>
+                    </div>
+                    <span class="text-xs text-gray-500 dark:text-gray-400 w-8 text-right">
+                      {{ (related.relation_weight * 100).toFixed(0) }}%
+                    </span>
+                  </div>
+                </div>
+              </div>
+            </router-link>
+          </div>
+
+          <div v-else class="text-center py-8">
+            <div class="text-gray-600 dark:text-gray-400 text-sm">
+              暂无相关仓库
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
   </div>
 
   <div v-else-if="isLoading" class="text-center py-12">
@@ -159,6 +233,7 @@ import CollectionManager from '../components/CollectionManager.vue'
 import NoteEditor from '../components/NoteEditor.vue'
 import TagManager from '../components/TagManager.vue'
 import { syncApi } from '@/api/sync'
+import { getRelatedRepos, type RelatedRepo } from '@/api/graph'
 import { formatStarCount, formatRelativeTime } from '@/utils/format'
 
 const route = useRoute()
@@ -168,6 +243,8 @@ const repo = ref<Repository | null>(null)
 const isLoading = ref(true)
 const isReanalyzing = ref(false)
 const reanalyzeMessage = ref<{ type: 'success' | 'error'; text: string } | null>(null)
+const relatedRepos = ref<RelatedRepo[]>([])
+const isLoadingRelated = ref(false)
 
 const nameWithOwner = computed(() => repo.value?.name_with_owner || '')
 
@@ -213,6 +290,31 @@ function handleTagUpdate() {
   // Tags updated - could trigger refresh if needed
 }
 
+async function loadRelatedRepos() {
+  if (!nameWithOwner.value) return
+
+  isLoadingRelated.value = true
+  try {
+    const response = await getRelatedRepos(nameWithOwner.value, 5)
+    relatedRepos.value = response.data
+  } catch (error) {
+    console.error('Failed to load related repos:', error)
+    relatedRepos.value = []
+  } finally {
+    isLoadingRelated.value = false
+  }
+}
+
+function getRelationTypeLabel(type: string): string {
+  const labels: Record<string, string> = {
+    'author': '同一作者',
+    'ecosystem': '技术生态',
+    'collection': '同一收藏',
+    'dependency': '依赖关系'
+  }
+  return labels[type] || type
+}
+
 onMounted(async () => {
   const { owner, name } = route.params
   const repoNameWithOwner = `${owner}/${name}`
@@ -220,5 +322,8 @@ onMounted(async () => {
   const data = await reposStore.loadRepo(repoNameWithOwner)
   repo.value = data
   isLoading.value = false
+
+  // Load related repos after main repo is loaded
+  await loadRelatedRepos()
 })
 </script>

@@ -33,3 +33,23 @@ export async function getGraphStatus(): Promise<GraphStatusResponse> {
   const response = await axios.get('/api/graph/status')
   return response.data
 }
+
+export interface RelatedRepo {
+  name_with_owner: string
+  name: string
+  owner: string
+  description?: string
+  primary_language?: string
+  stargazer_count: number
+  relation_type: string
+  relation_weight: number
+}
+
+export interface RelatedReposResponse {
+  data: RelatedRepo[]
+}
+
+export async function getRelatedRepos(repo: string, limit: number = 5): Promise<RelatedReposResponse> {
+  const response = await axios.get(`/api/graph/nodes/${repo}/related?limit=${limit}`)
+  return response.data
+}

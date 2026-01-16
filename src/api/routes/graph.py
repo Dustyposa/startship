@@ -40,6 +40,23 @@ class RebuildResponse(BaseModel):
     edges_count: int
 
 
+class RelatedRepoResponse(BaseModel):
+    """Response model for a related repository."""
+    name_with_owner: str
+    name: str
+    owner: str
+    description: Optional[str] = None
+    primary_language: Optional[str] = None
+    stargazer_count: int
+    relation_type: str
+    relation_weight: float
+
+
+class RelatedReposResponse(BaseModel):
+    """Response model for related repositories list."""
+    data: List[RelatedRepoResponse]
+
+
 # ==================== Endpoints ====================
 
 @router.get("/nodes/{repo}/edges", response_model=List[EdgeResponse])
@@ -189,4 +206,60 @@ async def get_graph_status(db = Depends(get_db)):
         raise HTTPException(
             status_code=500,
             detail=f"Failed to retrieve graph status: {str(e)}"
+        )
+
+
+@router.get("/nodes/{repo}/related", response_model=RelatedReposResponse)
+async def get_related_repos(
+    repo: str,
+    limit: int = 5,
+    db = Depends(get_db)
+):
+    """
+    Get repositories related to the given repository.
+
+    Uses graph edges to find related repositories and returns
+    full repository data with relationship information.
+
+    Args:
+        repo: Repository name_with_owner (e.g., "owner/repo")
+        limit: Maximum number of related repos to return (default: 5)
+
+    Returns:
+        List of related repositories with their relationship type and weight
+
+    Raises:
+        HTTPException: If database query fails
+    """
+    try:
+        # Get graph edges for this repo
+        edges = await db.get_graph_edges(repo, limit=limit)
+
+        # Fetch full repo data for each edge target
+        repos = []
+        for edge in edges:
+            target_repo = edge['target_repo']
+
+            # Get full repository data
+            repo_data = await db.get_repository(target_repo)
+
+            if repo_data:
+                # Add relationship information
+                repos.append({
+                    "name_with_owner": repo_data.get('name_with_owner'),
+                    "name": repo_data.get('name'),
+                    "owner": repo_data.get('owner'),
+                    "description": repo_data.get('description'),
+                    "primary_language": repo_data.get('primary_language'),
+                    "stargazer_count": repo_data.get('stargazer_count', 0),
+                    "relation_type": edge['edge_type'],
+                    "relation_weight": edge['weight']
+                })
+
+        return RelatedReposResponse(data=repos)
+
+    except Exception as e:
+        raise HTTPException(
+            status_code=500,
+            detail=f"Failed to retrieve related repos for '{repo}': {str(e)}"
         )

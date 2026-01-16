@@ -20,20 +20,24 @@
 
       <!-- Export Buttons (shown when has results) -->
       <div v-if="repos.length > 0" class="flex gap-2 items-center">
-        <span class="text-sm text-gray-600 dark:text-gray-400">导出结果 ({{ repos.length }}):</span>
+        <span class="text-sm text-gray-600 dark:text-gray-400">{{ repos.length }}</span>
         <button
           @click="exportToCSV"
-          class="px-4 py-1.5 text-sm bg-green-600 text-white rounded-lg hover:bg-green-700 transition flex items-center gap-1"
+          class="p-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition"
           title="导出为 CSV"
         >
-          CSV
+          <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M9 19l3 3m0 0l3-3m-3 3V10" />
+          </svg>
         </button>
         <button
           @click="exportToJSON"
-          class="px-4 py-1.5 text-sm bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition flex items-center gap-1"
+          class="p-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition"
           title="导出为 JSON"
         >
-          JSON
+          <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+          </svg>
         </button>
       </div>
     </div>
@@ -60,19 +64,25 @@
       </select>
 
       <!-- Derived Tag Filters -->
-      <label class="flex items-center gap-2 px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg dark:bg-gray-800 dark:text-white cursor-pointer">
+      <label class="flex items-center gap-2 px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg dark:bg-gray-800 dark:text-white cursor-pointer" title="活跃维护">
         <input type="checkbox" v-model="isActive" class="rounded">
-        <span>🟢 活跃维护</span>
+        <svg class="w-4 h-4 text-green-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+        </svg>
       </label>
 
-      <label class="flex items-center gap-2 px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg dark:bg-gray-800 dark:text-white cursor-pointer">
+      <label class="flex items-center gap-2 px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg dark:bg-gray-800 dark:text-white cursor-pointer" title="新项目">
         <input type="checkbox" v-model="isNew" class="rounded">
-        <span>🆕 新项目</span>
+        <svg class="w-4 h-4 text-blue-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z" />
+        </svg>
       </label>
 
-      <label class="flex items-center gap-2 px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg dark:bg-gray-800 dark:text-white cursor-pointer">
+      <label class="flex items-center gap-2 px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg dark:bg-gray-800 dark:text-white cursor-pointer" title="排除归档">
         <input type="checkbox" v-model="excludeArchived" class="rounded">
-        <span>排除归档</span>
+        <svg class="w-4 h-4 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 8h14M5 8a2 2 0 110-4h14a2 2 0 110 4M5 8v10a2 2 0 002 2h10a2 2 0 002-2V8m-9 4h4"/>
+        </svg>
       </label>
     </div>
 
@@ -107,30 +117,36 @@
         </div>
 
         <!-- Quick Actions -->
-        <div class="flex gap-2 mt-3 pt-3 border-t border-gray-200 dark:border-gray-700">
+        <div class="flex gap-1.5 mt-3 pt-3 border-t border-gray-200 dark:border-gray-700">
           <button
             @click.stop="openModal('quickNote', repo.name_with_owner)"
-            class="px-3 py-1.5 text-xs font-medium rounded-lg transition"
-            :class="repoNotes[repo.name_with_owner] ? 'text-yellow-600 dark:text-yellow-400 bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-300 dark:border-yellow-700' : 'text-gray-600 dark:text-gray-400 hover:text-yellow-600 dark:hover:text-yellow-400 hover:bg-yellow-50 dark:hover:bg-yellow-900/20'"
-            title="添加笔记"
+            class="p-1.5 rounded-lg transition"
+            :class="repoNotes[repo.name_with_owner] ? 'text-yellow-600 dark:text-yellow-400 bg-yellow-50 dark:bg-yellow-900/20' : 'text-gray-500 dark:text-gray-400 hover:text-yellow-600 dark:hover:text-yellow-400 hover:bg-yellow-50 dark:hover:bg-yellow-900/20'"
+            title="笔记"
           >
-            笔记
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+            </svg>
           </button>
           <button
             @click.stop="openModal('quickTag', repo.name_with_owner)"
-            class="px-3 py-1.5 text-xs font-medium rounded-lg transition"
-            :class="repoTags[repo.name_with_owner]?.length ? 'text-purple-600 dark:text-purple-400 bg-purple-50 dark:bg-purple-900/20 border border-purple-300 dark:border-purple-700' : 'text-gray-600 dark:text-gray-400 hover:text-purple-600 dark:hover:text-purple-400 hover:bg-purple-50 dark:hover:bg-purple-900/20'"
-            title="管理标签"
+            class="p-1.5 rounded-lg transition"
+            :class="repoTags[repo.name_with_owner]?.length ? 'text-purple-600 dark:text-purple-400 bg-purple-50 dark:bg-purple-900/20' : 'text-gray-500 dark:text-gray-400 hover:text-purple-600 dark:hover:text-purple-400 hover:bg-purple-50 dark:hover:bg-purple-900/20'"
+            title="标签"
           >
-            标签
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 7h.01M7 3h5c.512 0 1.024.195 1.414.586l7 7a2 2 0 010 2.828l-7 7a2 2 0 01-2.828 0l-7-7A1.994 1.994 0 013 12V7a4 4 0 014-4z" />
+            </svg>
           </button>
           <button
             @click.stop="openModal('collection', repo.name_with_owner)"
-            class="px-3 py-1.5 text-xs font-medium rounded-lg transition"
-            :class="repoCollections[repo.name_with_owner] ? 'text-green-600 dark:text-green-400 bg-green-50 dark:bg-green-900/20 border border-green-300 dark:border-green-700' : 'text-gray-600 dark:text-gray-400 hover:text-green-600 dark:hover:text-green-400 hover:bg-green-50 dark:hover:bg-green-900/20'"
-            title="添加到收藏夹"
+            class="p-1.5 rounded-lg transition"
+            :class="repoCollections[repo.name_with_owner] ? 'text-green-600 dark:text-green-400 bg-green-50 dark:bg-green-900/20' : 'text-gray-500 dark:text-gray-400 hover:text-green-600 dark:hover:text-green-400 hover:bg-green-50 dark:hover:bg-green-900/20'"
+            title="收藏"
           >
-            {{ repoCollections[repo.name_with_owner] ? '已收藏' : '收藏' }}
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 5a2 2 0 012-2h10a2 2 0 012 2v16l-7-3.5L5 21V5z" />
+            </svg>
           </button>
         </div>
       </div>

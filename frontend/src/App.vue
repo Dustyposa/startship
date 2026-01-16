@@ -6,16 +6,56 @@
           <h1 class="text-xl font-bold text-gray-900 dark:text-white">⭐ GitHub Star Helper</h1>
 
           <!-- Desktop Navigation & Controls -->
-          <div class="hidden md:flex items-center gap-6">
-            <nav class="flex gap-6">
-              <router-link to="/" class="text-gray-600 dark:text-gray-300 hover:text-blue-600 dark:hover:text-blue-400 font-medium transition">首页</router-link>
-              <router-link to="/init" class="text-gray-600 dark:text-gray-300 hover:text-blue-600 dark:hover:text-blue-400 font-medium transition">初始化</router-link>
-              <router-link to="/search" class="text-gray-600 dark:text-gray-300 hover:text-blue-600 dark:hover:text-blue-400 font-medium transition">搜索</router-link>
-              <router-link to="/chat" class="text-gray-600 dark:text-gray-300 hover:text-blue-600 dark:hover:text-blue-400 font-medium transition">对话</router-link>
-              <router-link to="/trends" class="text-gray-600 dark:text-gray-300 hover:text-blue-600 dark:hover:text-blue-400 font-medium transition">趋势</router-link>
-              <router-link to="/network" class="text-gray-600 dark:text-gray-300 hover:text-blue-600 dark:hover:text-blue-400 font-medium transition">网络</router-link>
-              <router-link to="/collections" class="text-gray-600 dark:text-gray-300 hover:text-blue-600 dark:hover:text-blue-400 font-medium transition">收藏</router-link>
-              <router-link to="/profile" class="text-gray-600 dark:text-gray-300 hover:text-blue-600 dark:hover:text-blue-400 font-medium transition">画像</router-link>
+          <div class="hidden md:flex items-center gap-4">
+            <nav class="flex gap-1">
+              <router-link to="/" class="nav-icon" title="首页">
+                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6" />
+                </svg>
+                <span class="nav-text">首页</span>
+              </router-link>
+              <router-link to="/init" class="nav-icon" title="初始化">
+                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                </svg>
+                <span class="nav-text">同步</span>
+              </router-link>
+              <router-link to="/search" class="nav-icon" title="搜索">
+                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                </svg>
+                <span class="nav-text">搜索</span>
+              </router-link>
+              <router-link to="/chat" class="nav-icon" title="对话">
+                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
+                </svg>
+                <span class="nav-text">对话</span>
+              </router-link>
+              <router-link to="/trends" class="nav-icon" title="趋势">
+                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 12l3-9 9m0 0l9-9m-9 9h13a2 2 0 002-2V5a2 2 0 00-2-2H5a2 2 0 00-2 2v14a2 2 0 002 2z" />
+                </svg>
+                <span class="nav-text">趋势</span>
+              </router-link>
+              <router-link to="/network" class="nav-icon" title="网络">
+                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z" />
+                </svg>
+                <span class="nav-text">网络</span>
+              </router-link>
+              <router-link to="/collections" class="nav-icon" title="收藏">
+                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 5a2 2 0 012-2h10a2 2 0 012 2v16l-7-3.5L5 21V5z" />
+                </svg>
+                <span class="nav-text">收藏</span>
+              </router-link>
+              <router-link to="/profile" class="nav-icon" title="画像">
+                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+                </svg>
+                <span class="nav-text">画像</span>
+              </router-link>
             </nav>
 
             <!-- Dark Mode Toggle -->
@@ -326,5 +366,45 @@ useKeyboard({
 .modal-leave-to {
   opacity: 0;
   transform: scale(0.95);
+}
+
+/* Navigation Icon Styles */
+.nav-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.375rem;
+  padding: 0.5rem 0.75rem;
+  border-radius: 0.5rem;
+  color: rgb(75 85 99);
+  transition: all 0.2s;
+  position: relative;
+}
+
+.dark .nav-icon {
+  color: rgb(156 163 175);
+}
+
+.nav-icon:hover {
+  color: rgb(37 99 235);
+  background-color: rgb(249 250 251);
+}
+
+.dark .nav-icon:hover {
+  color: rgb(96 165 250);
+  background-color: rgb(31 41 55);
+}
+
+.nav-icon.router-link-active {
+  color: rgb(37 99 235);
+}
+
+.dark .nav-icon.router-link-active {
+  color: rgb(96 165 250);
+}
+
+.nav-text {
+  font-size: 0.875rem;
+  font-weight: 500;
 }
 </style>

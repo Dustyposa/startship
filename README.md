@@ -154,6 +154,15 @@ npm run dev -- --port 3001
 - **语言分布** - 了解技术栈构成，把握技能方向
 - **关系图谱** - 项目相似度网络，发现关联宝藏
 
+### 🕸️ 知识图谱
+- **智能关系发现** - 自动发现项目间的关系网络
+  - 作者关系 - 同一作者/组织的项目
+  - 技术生态 - 相同语言或技术栈的项目
+  - 收藏分组 - 同一收藏夹的项目
+- **关系权重计算** - 基于多维度的关系强度评分
+- **相关项目推荐** - 基于图谱关系发现相关项目
+- **图谱可视化** - 交互式网络图谱展示项目关系
+
 ### 🚀 一键初始化
 - 从 GitHub 星标仓库一键导入
 - 使用 GitHub 官方字段：活跃度、归档状态、可见性、所有者类型
@@ -204,7 +213,8 @@ startship/
 │   │       ├── search.py         # 搜索接口
 │   │       ├── init.py           # 初始化接口
 │   │       ├── trends.py         # 趋势分析接口
-│   │       └── network.py        # 网络可视化接口
+│   │       ├── network.py        # 网络可视化接口
+│   │       └── graph.py          # 知识图谱接口
 │   ├── config.py                 # 配置管理
 │   ├── data/                     # 数据模型
 │   ├── db/                       # 数据库层
@@ -226,6 +236,8 @@ startship/
 │   │   ├── sync.py               # 同步服务
 │   │   ├── scheduler.py          # 定时任务调度器
 │   │   ├── network.py            # 网络分析服务
+│   │   ├── graph/                # 知识图谱服务
+│   │   │   └── edges.py          # 关系边发现服务
 │   │   ├── trend_analysis.py     # 趋势分析服务
 │   │   ├── recommendation.py     # 推荐服务
 │   │   ├── context.py            # 对话上下文
@@ -448,6 +460,15 @@ docker compose down
   - 支持恢复软删除的仓库
 - `POST /api/sync/repo/{name}/restore` - 恢复已删除的仓库
 - `POST /api/sync/repo/{name}/reanalyze` - 重新分析单个仓库（AI）
+
+#### 知识图谱
+- `POST /api/graph/rebuild` - 重建知识图谱（发现所有关系）
+- `GET /api/graph/nodes/{repo}/edges` - 获取指定仓库的关系边
+  - 参数: `edge_types` - 过滤边类型（author,ecosystem,collection）
+  - 参数: `limit` - 返回边数量限制
+- `GET /api/graph/nodes/{repo}/related` - 获取相关仓库推荐
+  - 参数: `limit` - 返回相关仓库数量限制
+- `GET /api/graph/status` - 获取图谱计算状态
 
 #### 系统
 - `GET /` - 根路径

@@ -59,7 +59,7 @@ class RelatedReposResponse(BaseModel):
 
 # ==================== Endpoints ====================
 
-@router.get("/nodes/{repo}/edges", response_model=List[EdgeResponse])
+@router.get("/nodes/{repo:path}/edges", response_model=List[EdgeResponse])
 async def get_repo_edges(
     repo: str,
     edge_types: Optional[str] = None,
@@ -209,7 +209,7 @@ async def get_graph_status(db = Depends(get_db)):
         )
 
 
-@router.get("/nodes/{repo}/related", response_model=RelatedReposResponse)
+@router.get("/nodes/{repo:path}/related", response_model=RelatedReposResponse)
 async def get_related_repos(
     repo: str,
     limit: int = 5,

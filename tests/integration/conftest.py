@@ -178,9 +178,10 @@ async def integration_client(integration_db) -> AsyncGenerator:
     import src.api.routes.sync as sync_routes
     import src.api.routes.user_data as user_data_routes
     import src.api.routes.search as search_routes
+    import src.api.routes.graph as graph_routes
 
     # Override the get_db dependency to use test database
-    for routes_module in [sync_routes, user_data_routes, search_routes]:
+    for routes_module in [sync_routes, user_data_routes, search_routes, graph_routes]:
         if hasattr(routes_module, 'get_db'):
             app.dependency_overrides[routes_module.get_db] = lambda: integration_db
 

@@ -147,6 +147,25 @@
         <p class="mt-4 text-sm text-gray-500 dark:text-gray-400">在 Windows/Linux 上使用 Ctrl 代替 ⌘</p>
       </div>
     </div>
+
+    <!-- Global Confirm Dialog -->
+    <ConfirmDialog
+      :show="confirmState.show"
+      :title="confirmState.title"
+      :message="confirmState.message"
+      :sub-message="confirmState.subMessage"
+      :icon="confirmState.icon"
+      :warning="confirmState.warning"
+      :details="confirmState.details"
+      :confirm-text="confirmState.confirmText"
+      :cancel-text="confirmState.cancelText"
+      :show-cancel="confirmState.showCancel"
+      :type="confirmState.type"
+      :size="confirmState.size"
+      :loading="confirmState.loading"
+      @confirm="handleConfirm"
+      @cancel="handleCancel"
+    />
   </div>
 </template>
 
@@ -155,12 +174,15 @@ import { ref } from 'vue'
 import { useDark } from './composables/useDark'
 import { useKeyboard } from './composables/useKeyboard'
 import { useCollections } from './composables/useCollections'
+import { useConfirm } from './composables/useConfirm'
 import DarkModeToggle from './components/DarkModeToggle.vue'
+import ConfirmDialog from './components/ConfirmDialog.vue'
 
 const mobileMenuOpen = ref(false)
 const showKeyboardShortcuts = ref(false)
 const { isDark, toggle } = useDark()
 const { createCollection } = useCollections()
+const { state: confirmState, handleConfirm, handleCancel } = useConfirm()
 
 function handleKeyboardShortcuts() {
   showKeyboardShortcuts.value = true

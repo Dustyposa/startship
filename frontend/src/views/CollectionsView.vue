@@ -193,6 +193,8 @@
 import { ref, computed, onMounted } from 'vue'
 import { useCollections } from '@/composables/useCollections'
 import { useReposStore } from '@/stores/repos'
+import { useConfirm } from '@/composables/useConfirm'
+import { useToast } from '@/composables/useToast'
 import type { Collection } from '@/api/user'
 import BaseModal from '@/components/BaseModal.vue'
 import CollectionCardSkeleton from '@/components/CollectionCardSkeleton.vue'
@@ -201,6 +203,8 @@ import EmptyState from '@/components/EmptyState.vue'
 
 const { collections, isLoading, createCollection, deleteCollection, removeRepoFromCollection, getReposInCollection, load } = useCollections()
 const reposStore = useReposStore()
+const { confirmDelete, confirmRemove } = useConfirm()
+const { success, error: showError } = useToast()
 
 const selectedCollection = ref<Collection & { repoCount?: number } | null>(null)
 const showAllRepos = ref(false)
@@ -263,23 +267,35 @@ function closeModal() {
 async function handleCreate() {
   const result = await createCollection(newCollectionName.value, newCollectionIcon.value || undefined)
   if (result) {
+    success('收藏夹创建成功', { timeout: 2000 })
     newCollectionName.value = ''
     newCollectionIcon.value = ''
     showCreateDialog.value = false
+  } else {
+    showError('创建失败，请稍后重试')
   }
 }
 
 async function handleDeleteCollection(id: string) {
-  if (!confirm('确定要删除这个收藏夹吗？')) return
-  await deleteCollection(id)
+  const collection = collections.value.find(c => c.id === id)
+  const confirmed = await confirmDelete('收藏夹', collection?.name)
+  if (confirmed) {
+    await deleteCollection(id)
+    success('收藏夹已删除', { timeout: 2000 })
+  }
 }
 
 async function removeRepoFromCollectionClick(repoId: string) {
   if (!selectedCollection.value) return
-  await removeRepoFromCollection(repoId, selectedCollection.value.id)
-  collectionRepos.value = collectionRepos.value.filter(id => id !== repoId)
-  if (selectedCollection.value.repoCount !== undefined) {
-    selectedCollection.value.repoCount--
+
+  const confirmed = await confirmRemove('收藏夹', repoId)
+  if (confirmed) {
+    await removeRepoFromCollection(repoId, selectedCollection.value.id)
+    collectionRepos.value = collectionRepos.value.filter(id => id !== repoId)
+    if (selectedCollection.value.repoCount !== undefined) {
+      selectedCollection.value.repoCount--
+    }
+    success('已从收藏夹移除', { timeout: 2000 })
   }
 }
 </script>

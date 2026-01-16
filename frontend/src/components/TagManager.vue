@@ -40,6 +40,8 @@
 <script setup lang="ts">
 import { ref, watch, nextTick, onMounted } from 'vue'
 import { useTags } from '@/composables/useTags'
+import { useConfirm } from '@/composables/useConfirm'
+import { useToast } from '@/composables/useToast'
 import type { Tag } from '@/types/collections'
 
 const props = defineProps<{
@@ -51,6 +53,8 @@ const emit = defineEmits<{
 }>()
 
 const { tags, getTagsForRepo, addTagToRepo, removeTagFromRepo, getOrCreateTag } = useTags()
+const { confirmRemove } = useConfirm()
+const { success, error: showError } = useToast()
 
 const selectedTags = ref<Tag[]>([])
 const showInput = ref(false)
@@ -66,9 +70,16 @@ watch(() => props.repoId, async () => {
 })
 
 async function removeTag(tagId: string) {
-  await removeTagFromRepo(props.repoId, tagId)
-  selectedTags.value = await getTagsForRepo(props.repoId)
-  emit('update')
+  const tag = selectedTags.value.find(t => t.id === tagId)
+  if (!tag) return
+
+  const confirmed = await confirmRemove('标签', tag.name)
+  if (confirmed) {
+    await removeTagFromRepo(props.repoId, tagId)
+    selectedTags.value = await getTagsForRepo(props.repoId)
+    emit('update')
+    success(`已移除标签 "${tag.name}"`, { timeout: 2000 })
+  }
 }
 
 async function addTag() {
@@ -77,12 +88,18 @@ async function addTag() {
     showInput.value = false
     return
   }
-  const tag = await getOrCreateTag(name)
-  await addTagToRepo(props.repoId, tag.id)
-  selectedTags.value = await getTagsForRepo(props.repoId)
-  newTagName.value = ''
-  showInput.value = false
-  emit('update')
+
+  try {
+    const tag = await getOrCreateTag(name)
+    await addTagToRepo(props.repoId, tag.id)
+    selectedTags.value = await getTagsForRepo(props.repoId)
+    newTagName.value = ''
+    showInput.value = false
+    emit('update')
+    success(`已添加标签 "${tag.name}"`, { timeout: 2000 })
+  } catch (err) {
+    showError('添加标签失败，请稍后重试')
+  }
 }
 
 watch(showInput, async (show) => {

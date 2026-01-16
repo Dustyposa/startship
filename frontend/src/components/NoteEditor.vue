@@ -29,6 +29,7 @@ import { marked } from 'marked'
 import DOMPurify from 'dompurify'
 import RatingStars from './RatingStars.vue'
 import { useNotes } from '@/composables/useNotes'
+import { useToast } from '@/composables/useToast'
 
 const props = defineProps<{
   repoId: string
@@ -39,10 +40,12 @@ const emit = defineEmits<{
 }>()
 
 const { getNote, saveNote } = useNotes()
+const { success } = useToast()
 
 const localNote = ref('')
 const localRating = ref(0)
 const isLoading = ref(true)
+const saveTimeout = ref<number | null>(null)
 
 onMounted(async () => {
   const note = await getNote(props.repoId)
@@ -63,10 +66,21 @@ watch(localNote, () => {
 function updateRating(rating: number) {
   localRating.value = rating
   save()
+  success('评分已更新', { timeout: 1500 })
 }
 
 async function save() {
-  await saveNote(props.repoId, localNote.value, localRating.value)
-  emit('update')
+  // Debounce save and show success message
+  if (saveTimeout.value) {
+    clearTimeout(saveTimeout.value)
+  }
+
+  saveTimeout.value = window.setTimeout(async () => {
+    await saveNote(props.repoId, localNote.value, localRating.value)
+    if (localNote.value) {
+      success('笔记已保存', { timeout: 1500 })
+    }
+    emit('update')
+  }, 500)
 }
 </script>

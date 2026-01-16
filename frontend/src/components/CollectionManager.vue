@@ -58,6 +58,8 @@
 <script setup lang="ts">
 import { ref, onMounted } from 'vue'
 import { useCollections } from '@/composables/useCollections'
+import { useConfirm } from '@/composables/useConfirm'
+import { useToast } from '@/composables/useToast'
 import type { Collection } from '@/api/user'
 
 const props = defineProps<{
@@ -65,6 +67,8 @@ const props = defineProps<{
 }>()
 
 const { collections, getCollectionForRepo, addRepoToCollection, removeRepoFromCollection } = useCollections()
+const { confirmRemove } = useConfirm()
+const { success, error: showError } = useToast()
 
 const currentCollection = ref<Collection | null>(null)
 const showSelector = ref(false)
@@ -74,14 +78,30 @@ onMounted(async () => {
 })
 
 async function addToCollection(collectionId: string) {
-  await addRepoToCollection(props.repoId, collectionId)
-  currentCollection.value = await getCollectionForRepo(props.repoId)
-  showSelector.value = false
+  try {
+    await addRepoToCollection(props.repoId, collectionId)
+    currentCollection.value = await getCollectionForRepo(props.repoId)
+    showSelector.value = false
+    const collection = collections.value.find(c => c.id === collectionId)
+    success(`已添加到 ${collection?.name || '收藏夹'}`, { timeout: 2000 })
+  } catch (err) {
+    showError('添加失败，请稍后重试')
+  }
 }
 
 async function removeFromCollection() {
   if (!currentCollection.value) return
-  await removeRepoFromCollection(props.repoId, currentCollection.value.id)
-  currentCollection.value = null
+
+  const confirmed = await confirmRemove('收藏夹', currentCollection.value.name)
+  if (confirmed) {
+    try {
+      await removeRepoFromCollection(props.repoId, currentCollection.value.id)
+      const collectionName = currentCollection.value.name
+      currentCollection.value = null
+      success(`已从 ${collectionName} 移除`, { timeout: 2000 })
+    } catch (err) {
+      showError('移除失败，请稍后重试')
+    }
+  }
 }
 </script>

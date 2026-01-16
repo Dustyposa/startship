@@ -210,6 +210,7 @@ import { useExport } from '../composables/useExport'
 import { useCollections } from '@/composables/useCollections'
 import { useTags } from '@/composables/useTags'
 import { useNotes } from '@/composables/useNotes'
+import { useToast } from '@/composables/useToast'
 import { collectionsApi } from '@/api/user'
 import type { Collection, Tag } from '@/api/user'
 import NoteEditor from '@/components/NoteEditor.vue'
@@ -226,6 +227,7 @@ const { exportToJSON: exportJSON, exportToCSV: exportCSV } = useExport()
 const { collections, addRepoToCollection, getReposInCollection } = useCollections()
 const { getAllTags, getTagsForRepo } = useTags()
 const { getNote } = useNotes()
+const { success, error: showError } = useToast()
 
 const searchQuery = ref((route.query.q as string) || '')
 const selectedLanguage = ref('')
@@ -351,6 +353,10 @@ async function selectCollection(collectionId: string) {
     const coll = collections.value.find(c => c.id === collectionId)
     if (coll) repoCollections.value[repoId] = coll
     closeModal('collection')
+
+    // Show success message
+    const collectionName = coll?.name || '收藏夹'
+    success(`已添加到 ${collectionName}`, { timeout: 2000 })
   }
 }
 
@@ -358,6 +364,21 @@ function getExportFilename() {
   return `repos-${searchQuery.value || 'all'}-${new Date().toISOString().slice(0, 10)}`
 }
 
-const exportToJSON = () => exportJSON(repos.value, getExportFilename())
-const exportToCSV = () => exportCSV(repos.value, getExportFilename())
+const exportToJSON = () => {
+  try {
+    exportJSON(repos.value, getExportFilename())
+    success('导出成功', { timeout: 2000 })
+  } catch (err) {
+    showError('导出失败，请稍后重试')
+  }
+}
+
+const exportToCSV = () => {
+  try {
+    exportCSV(repos.value, getExportFilename())
+    success('导出成功', { timeout: 2000 })
+  } catch (err) {
+    showError('导出失败，请稍后重试')
+  }
+}
 </script>

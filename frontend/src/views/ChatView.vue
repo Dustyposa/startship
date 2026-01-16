@@ -114,8 +114,12 @@
 <script setup lang="ts">
 import { ref, nextTick, onMounted, computed, watch } from 'vue'
 import { useChatStore } from '../stores/chat'
+import { useConfirm } from '@/composables/useConfirm'
+import { useToast } from '@/composables/useToast'
 
 const chatStore = useChatStore()
+const { confirmClear } = useConfirm()
+const { success } = useToast()
 const inputMessage = ref('')
 const messagesContainer = ref<HTMLElement | null>(null)
 const inputRef = ref<HTMLInputElement | null>(null)
@@ -162,9 +166,11 @@ async function sendQuickQuestion(question: string) {
   await handleSubmit()
 }
 
-function clearMessages() {
-  if (confirm('确定要清空所有对话记录吗？')) {
+async function clearMessages() {
+  const confirmed = await confirmClear('对话记录')
+  if (confirmed) {
     chatStore.clearMessages()
+    success('对话记录已清空', { timeout: 2000 })
   }
 }
 

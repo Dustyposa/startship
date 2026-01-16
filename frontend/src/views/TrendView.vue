@@ -93,6 +93,7 @@ import {
 import { CanvasRenderer } from 'echarts/renderers'
 import type { EChartsOption } from 'echarts/core'
 import { useExport } from '../composables/useExport'
+import { useToast } from '@/composables/useToast'
 
 // Register ECharts components
 echarts.use([
@@ -107,6 +108,7 @@ echarts.use([
 ])
 
 const { exportToJSON } = useExport()
+const { success, error: showError } = useToast()
 
 interface TimelinePoint {
   month: string
@@ -249,17 +251,22 @@ function initCharts() {
 }
 
 function exportData() {
-  const data = {
-    timeline: timeline.value,
-    languageTrends: languageTrends.value,
-    categoryEvolution: categoryEvolution.value,
-    stats: {
-      totalStars: totalStars.value,
-      totalLanguages: totalLanguages.value,
-      totalCategories: totalCategories.value
+  try {
+    const data = {
+      timeline: timeline.value,
+      languageTrends: languageTrends.value,
+      categoryEvolution: categoryEvolution.value,
+      stats: {
+        totalStars: totalStars.value,
+        totalLanguages: totalLanguages.value,
+        totalCategories: totalCategories.value
+      }
     }
+    exportToJSON([data], `trends-${new Date().toISOString().slice(0, 10)}`)
+    success('趋势数据导出成功', { timeout: 2000 })
+  } catch (err) {
+    showError('导出失败，请稍后重试')
   }
-  exportToJSON([data], `trends-${new Date().toISOString().slice(0, 10)}`)
 }
 
 onMounted(async () => {

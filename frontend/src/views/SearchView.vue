@@ -46,8 +46,14 @@
       </div>
     </div>
 
-    <!-- Search Header with Export -->
-    <div class="flex flex-col gap-4">
+    <!-- Repo Count -->
+    <div v-if="repos.length > 0" class="text-sm text-gray-600 dark:text-gray-400">
+      找到 <span class="font-semibold text-gray-900 dark:text-white">{{ repos.length }}</span> 个仓库
+    </div>
+
+    <!-- Search and Filters -->
+    <div class="space-y-4">
+      <!-- Search Bar -->
       <div class="flex gap-4">
         <input
           v-model="searchQuery"
@@ -64,72 +70,86 @@
         </button>
       </div>
 
-      <!-- Export Buttons (shown when has results) -->
-      <div v-if="repos.length > 0" class="flex gap-2 items-center">
-        <span class="text-sm text-gray-600 dark:text-gray-400">{{ repos.length }}</span>
-        <button
-          @click="exportToCSV"
-          class="p-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition"
-          title="导出为 CSV"
-        >
-          <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M9 19l3 3m0 0l3-3m-3 3V10" />
-          </svg>
-        </button>
-        <button
-          @click="exportToJSON"
-          class="p-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition"
-          title="导出为 JSON"
-        >
-          <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
-          </svg>
-        </button>
+      <!-- Filters Row -->
+      <div class="flex gap-4 flex-wrap items-center">
+        <!-- Language Filter -->
+        <select v-model="selectedLanguage" class="px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg dark:bg-gray-800 dark:text-white">
+          <option value="">所有语言</option>
+          <option value="Python">Python</option>
+          <option value="JavaScript">JavaScript</option>
+          <option value="TypeScript">TypeScript</option>
+          <option value="Go">Go</option>
+          <option value="Rust">Rust</option>
+          <option value="Java">Java</option>
+          <option value="C++">C++</option>
+        </select>
+
+        <!-- Owner Type Filter -->
+        <select v-model="selectedOwnerType" class="px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg dark:bg-gray-800 dark:text-white">
+          <option value="">所有类型</option>
+          <option value="Organization">🏢 组织</option>
+          <option value="User">👤 个人</option>
+        </select>
+
+        <!-- Derived Tag Filters -->
+        <label class="flex items-center gap-2 px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg dark:bg-gray-800 dark:text-white cursor-pointer">
+          <input type="checkbox" v-model="isActive" class="rounded">
+          <span>🟢 活跃维护</span>
+        </label>
+
+        <label class="flex items-center gap-2 px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg dark:bg-gray-800 dark:text-white cursor-pointer">
+          <input type="checkbox" v-model="isNew" class="rounded">
+          <span>🆕 新项目</span>
+        </label>
+
+        <label class="flex items-center gap-2 px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg dark:bg-gray-800 dark:text-white cursor-pointer">
+          <input type="checkbox" v-model="excludeArchived" class="rounded">
+          <span>排除归档</span>
+        </label>
+
+        <!-- Spacer -->
+        <div class="flex-1"></div>
+
+        <!-- Export Dropdown Button -->
+        <div class="relative" v-if="repos.length > 0">
+          <button
+            @click="showExportMenu = !showExportMenu"
+            class="flex items-center gap-2 px-4 py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-700 transition"
+            title="导出数据"
+          >
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+            </svg>
+            <span>导出</span>
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" />
+            </svg>
+          </button>
+          <div
+            v-if="showExportMenu"
+            class="absolute right-0 mt-2 w-48 bg-white dark:bg-gray-800 rounded-lg shadow-lg border border-gray-200 dark:border-gray-700 z-10"
+          >
+            <button
+              @click="exportToCSV"
+              class="w-full px-4 py-2 text-left text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 transition flex items-center gap-2"
+            >
+              <svg class="w-4 h-4 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M9 19l3 3m0 0l3-3m-3 3V10" />
+              </svg>
+              导出为 CSV
+            </button>
+            <button
+              @click="exportToJSON"
+              class="w-full px-4 py-2 text-left text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 transition flex items-center gap-2"
+            >
+              <svg class="w-4 h-4 text-purple-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+              </svg>
+              导出为 JSON
+            </button>
+          </div>
+        </div>
       </div>
-    </div>
-
-    <!-- Filters -->
-    <div class="flex gap-4 flex-wrap">
-      <!-- Language Filter -->
-      <select v-model="selectedLanguage" class="px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg dark:bg-gray-800 dark:text-white">
-        <option value="">所有语言</option>
-        <option value="Python">Python</option>
-        <option value="JavaScript">JavaScript</option>
-        <option value="TypeScript">TypeScript</option>
-        <option value="Go">Go</option>
-        <option value="Rust">Rust</option>
-        <option value="Java">Java</option>
-        <option value="C++">C++</option>
-      </select>
-
-      <!-- Owner Type Filter -->
-      <select v-model="selectedOwnerType" class="px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg dark:bg-gray-800 dark:text-white">
-        <option value="">所有类型</option>
-        <option value="Organization">🏢 组织</option>
-        <option value="User">👤 个人</option>
-      </select>
-
-      <!-- Derived Tag Filters -->
-      <label class="flex items-center gap-2 px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg dark:bg-gray-800 dark:text-white cursor-pointer" title="活跃维护">
-        <input type="checkbox" v-model="isActive" class="rounded">
-        <svg class="w-4 h-4 text-green-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
-        </svg>
-      </label>
-
-      <label class="flex items-center gap-2 px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg dark:bg-gray-800 dark:text-white cursor-pointer" title="新项目">
-        <input type="checkbox" v-model="isNew" class="rounded">
-        <svg class="w-4 h-4 text-blue-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z" />
-        </svg>
-      </label>
-
-      <label class="flex items-center gap-2 px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg dark:bg-gray-800 dark:text-white cursor-pointer" title="排除归档">
-        <input type="checkbox" v-model="excludeArchived" class="rounded">
-        <svg class="w-4 h-4 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 8h14M5 8a2 2 0 110-4h14a2 2 0 110 4M5 8v10a2 2 0 002 2h10a2 2 0 002-2V8m-9 4h4"/>
-        </svg>
-      </label>
     </div>
 
     <!-- Loading State -->
@@ -304,6 +324,8 @@ const modals = ref({
   collection: { show: false, repoId: null as string | null }
 })
 
+const showExportMenu = ref(false)
+
 // Cache for repo data (collections, tags, notes)
 const repoCollections = ref<Record<string, Collection>>({})
 const repoTags = ref<Record<string, Tag[]>>({})
@@ -332,6 +354,15 @@ function handleEscape(e: KeyboardEvent) {
     if (modals.value.quickNote) closeModal('quickNote')
     if (modals.value.quickTag) closeModal('quickTag')
     if (modals.value.collection.show) closeModal('collection')
+    showExportMenu.value = false
+  }
+}
+
+function handleClickOutside(e: MouseEvent) {
+  const target = e.target as HTMLElement
+  const exportButton = target.closest('.relative')
+  if (!exportButton && showExportMenu.value) {
+    showExportMenu.value = false
   }
 }
 
@@ -339,10 +370,12 @@ onMounted(async () => {
   await handleSearch()
   await loadCollectionCounts()
   window.addEventListener('keydown', handleEscape)
+  window.addEventListener('click', handleClickOutside)
 })
 
 onUnmounted(() => {
   window.removeEventListener('keydown', handleEscape)
+  window.removeEventListener('click', handleClickOutside)
 })
 
 async function loadRepoMetadata() {
@@ -429,6 +462,7 @@ function getExportFilename() {
 const exportToJSON = () => {
   try {
     exportJSON(repos.value, getExportFilename())
+    showExportMenu.value = false
     success('导出成功', { timeout: 2000 })
   } catch (err) {
     showError('导出失败，请稍后重试')
@@ -438,6 +472,7 @@ const exportToJSON = () => {
 const exportToCSV = () => {
   try {
     exportCSV(repos.value, getExportFilename())
+    showExportMenu.value = false
     success('导出成功', { timeout: 2000 })
   } catch (err) {
     showError('导出失败，请稍后重试')

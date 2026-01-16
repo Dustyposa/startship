@@ -24,8 +24,6 @@ CREATE TABLE IF NOT EXISTS graph_status (
     repo_id INTEGER PRIMARY KEY,
     edges_computed_at TEXT,
     dependencies_parsed_at TEXT,
-    created_at TEXT DEFAULT (datetime('now')),
-    updated_at TEXT DEFAULT (datetime('now')),
     FOREIGN KEY (repo_id) REFERENCES repositories(id) ON DELETE CASCADE
 );
 
@@ -35,9 +33,6 @@ CREATE TABLE IF NOT EXISTS graph_status (
 CREATE INDEX IF NOT EXISTS idx_edges_source ON graph_edges(source_repo, weight DESC);
 CREATE INDEX IF NOT EXISTS idx_edges_target ON graph_edges(target_repo, weight DESC);
 CREATE INDEX IF NOT EXISTS idx_edges_type ON graph_edges(edge_type, weight DESC);
-
-CREATE INDEX IF NOT EXISTS idx_status_edges_computed ON graph_status(edges_computed_at);
-CREATE INDEX IF NOT EXISTS idx_status_dependencies_parsed ON graph_status(dependencies_parsed_at);
 
 -- ============================================
 -- Triggers to update timestamps
@@ -50,11 +45,4 @@ BEGIN
     WHERE source_repo = NEW.source_repo
       AND target_repo = NEW.target_repo
       AND edge_type = NEW.edge_type;
-END;
-
-CREATE TRIGGER IF NOT EXISTS update_status_timestamp
-AFTER UPDATE ON graph_status
-FOR EACH ROW
-BEGIN
-    UPDATE graph_status SET updated_at = datetime('now') WHERE repo_id = NEW.repo_id;
 END;

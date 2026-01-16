@@ -142,7 +142,7 @@
       <div
         v-for="repo in repos"
         :key="repo.name_with_owner"
-        class="repo-card bg-white dark:bg-gray-800 p-4 rounded-lg shadow-sm hover:shadow-md cursor-pointer transition border relative"
+        class="repo-card bg-white dark:bg-gray-800 p-4 rounded-lg shadow-sm hover:shadow-md cursor-pointer transition border relative flex flex-col"
         :class="repoCollections[repo.name_with_owner] ? 'border-yellow-400 dark:border-yellow-500' : 'border-gray-200 dark:border-gray-700'"
       >
         <!-- Quick Actions (Top Right) -->
@@ -179,11 +179,11 @@
           </button>
         </div>
 
-        <div @click="goToRepo(repo.name_with_owner)">
-          <h3 class="font-bold text-gray-900 dark:text-white">{{ repo.name_with_owner }}</h3>
-          <p class="text-sm text-gray-600 dark:text-gray-400 line-clamp-2">{{ repo.description || repo.summary }}</p>
+        <div @click="goToRepo(repo.name_with_owner)" class="flex-1 flex flex-col">
+          <h3 class="font-bold text-gray-900 dark:text-white mb-2">{{ repo.name_with_owner }}</h3>
+          <p class="text-sm text-gray-600 dark:text-gray-400 line-clamp-2 mb-3 flex-1">{{ repo.description || repo.summary }}</p>
 
-          <div class="flex gap-2 mt-2 flex-wrap">
+          <div class="flex gap-2 flex-wrap">
             <span v-if="repo.primary_language" class="text-xs px-2 py-1 bg-blue-100 dark:bg-blue-900 text-blue-800 dark:text-blue-200 rounded">
               {{ repo.primary_language }}
             </span>

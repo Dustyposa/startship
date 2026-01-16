@@ -253,3 +253,68 @@ class EdgeDiscoveryService:
 
         logger.info(f"Discovered {len(edges)} ecosystem edges from {len(repos)} repositories")
         return edges
+
+    async def discover_collection_edges(
+        self,
+        db: Any
+    ) -> List[Dict[str, Any]]:
+        """
+        Discover edges based on repos in the same collection.
+
+        Groups repositories by collection and creates edges between repositories
+        that are in the same collection. Only creates edges when a collection has
+        multiple repositories.
+
+        Args:
+            db: Database connection with fetch_all method for executing queries
+
+        Returns:
+            List of edge dictionaries with format:
+            {
+                "source": "repo_id_1",
+                "target": "repo_id_2",
+                "type": "collection",
+                "weight": 0.5,
+                "metadata": {"collection": "collection_name"}
+            }
+
+        Raises:
+            Exception: If database query fails
+
+        Example:
+            >>> edges = await service.discover_collection_edges(db)
+            >>> len(edges) > 0
+            True
+        """
+        try:
+            query = """
+                SELECT c1.repo_id as source_repo, c2.repo_id as target_repo, col.name as collection_name
+                FROM repo_collections c1
+                JOIN repo_collections c2 ON c1.collection_id = c2.collection_id
+                JOIN collections col ON col.id = c1.collection_id
+                WHERE c1.repo_id < c2.repo_id
+            """
+
+            rows = await db.fetch_all(query)
+
+        except Exception as e:
+            logger.error(f"Failed to query collection edges: {e}")
+            raise
+
+        edges = []
+        for row in rows:
+            # Validate row has required fields
+            if not row.get('source_repo') or not row.get('target_repo'):
+                logger.warning(f"Skipping row with missing repo IDs: {row}")
+                continue
+
+            edges.append({
+                "source": row['source_repo'],
+                "target": row['target_repo'],
+                "type": "collection",
+                "weight": 0.5,
+                "metadata": {"collection": row["collection_name"]}
+            })
+
+        logger.info(f"Discovered {len(edges)} collection edges")
+        return edges

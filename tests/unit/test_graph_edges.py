@@ -3,6 +3,253 @@ import pytest
 from src.services.graph.edges import EdgeDiscoveryService
 
 
+class MockDatabase:
+    """Mock database for testing."""
+
+    def __init__(self, rows=None):
+        self.rows = rows or []
+
+    async def fetch_all(self, query, params=()):
+        return self.rows
+
+
+class TestDiscoverCollectionEdges:
+    """Test suite for EdgeDiscoveryService.discover_collection_edges method."""
+
+    @pytest.mark.asyncio
+    async def test_discover_collection_edges_basic(self):
+        """Test basic edge discovery with repos in same collection."""
+        service = EdgeDiscoveryService()
+
+        rows = [
+            {"source_repo": "owner/repo1", "target_repo": "owner/repo2", "collection_name": "Web Frameworks"},
+            {"source_repo": "owner/repo1", "target_repo": "owner/repo3", "collection_name": "Web Frameworks"},
+        ]
+        db = MockDatabase(rows)
+
+        edges = await service.discover_collection_edges(db)
+
+        assert len(edges) == 2
+        assert edges[0]["source"] == "owner/repo1"
+        assert edges[0]["target"] == "owner/repo2"
+        assert edges[0]["type"] == "collection"
+        assert edges[0]["weight"] == 0.5
+        assert isinstance(edges[0]["metadata"], dict)
+        assert edges[0]["metadata"]["collection"] == "Web Frameworks"
+
+    @pytest.mark.asyncio
+    async def test_empty_database_result(self):
+        """Test with empty database result (no collections)."""
+        service = EdgeDiscoveryService()
+        db = MockDatabase([])
+
+        edges = await service.discover_collection_edges(db)
+
+        assert edges == []
+
+    @pytest.mark.asyncio
+    async def test_single_repo_in_collection(self):
+        """Test with single repo in collection (no edges possible)."""
+        service = EdgeDiscoveryService()
+
+        # Query with WHERE c1.repo_id < c2.repo_id won't return any rows
+        # if there's only one repo in a collection
+        db = MockDatabase([])
+
+        edges = await service.discover_collection_edges(db)
+
+        assert edges == []
+
+    @pytest.mark.asyncio
+    async def test_multiple_collections(self):
+        """Test with repos in multiple collections."""
+        service = EdgeDiscoveryService()
+
+        rows = [
+            {"source_repo": "owner/repo1", "target_repo": "owner/repo2", "collection_name": "Web Frameworks"},
+            {"source_repo": "owner/repo3", "target_repo": "owner/repo4", "collection_name": "Databases"},
+        ]
+        db = MockDatabase(rows)
+
+        edges = await service.discover_collection_edges(db)
+
+        assert len(edges) == 2
+
+        # Check first collection edge
+        web_edges = [e for e in edges if e["metadata"]["collection"] == "Web Frameworks"]
+        assert len(web_edges) == 1
+        assert web_edges[0]["source"] == "owner/repo1"
+        assert web_edges[0]["target"] == "owner/repo2"
+
+        # Check second collection edge
+        db_edges = [e for e in edges if e["metadata"]["collection"] == "Databases"]
+        assert len(db_edges) == 1
+        assert db_edges[0]["source"] == "owner/repo3"
+        assert db_edges[0]["target"] == "owner/repo4"
+
+    @pytest.mark.asyncio
+    async def test_metadata_format_is_dict(self):
+        """Test that metadata is returned as a dictionary, not a string."""
+        service = EdgeDiscoveryService()
+
+        rows = [
+            {"source_repo": "owner/repo1", "target_repo": "owner/repo2", "collection_name": "My Collection"},
+        ]
+        db = MockDatabase(rows)
+
+        edges = await service.discover_collection_edges(db)
+
+        assert isinstance(edges[0]["metadata"], dict)
+        assert "collection" in edges[0]["metadata"]
+        assert edges[0]["metadata"]["collection"] == "My Collection"
+        # Ensure it's not a JSON string
+        assert not isinstance(edges[0]["metadata"], str)
+
+    @pytest.mark.asyncio
+    async def test_three_repos_same_collection(self):
+        """Test with three repos in same collection (should create 3 edges)."""
+        service = EdgeDiscoveryService()
+
+        rows = [
+            {"source_repo": "owner/repo1", "target_repo": "owner/repo2", "collection_name": "Python"},
+            {"source_repo": "owner/repo1", "target_repo": "owner/repo3", "collection_name": "Python"},
+            {"source_repo": "owner/repo2", "target_repo": "owner/repo3", "collection_name": "Python"},
+        ]
+        db = MockDatabase(rows)
+
+        edges = await service.discover_collection_edges(db)
+
+        # Should create 3 edges: (repo1, repo2), (repo1, repo3), (repo2, repo3)
+        assert len(edges) == 3
+
+        edge_pairs = {(e["source"], e["target"]) for e in edges}
+        expected_pairs = {
+            ("owner/repo1", "owner/repo2"),
+            ("owner/repo1", "owner/repo3"),
+            ("owner/repo2", "owner/repo3")
+        }
+        assert edge_pairs == expected_pairs
+
+    @pytest.mark.asyncio
+    async def test_missing_source_repo(self):
+        """Test with rows missing source_repo field."""
+        service = EdgeDiscoveryService()
+
+        rows = [
+            {"source_repo": "", "target_repo": "owner/repo2", "collection_name": "Web Frameworks"},
+            {"source_repo": "owner/repo3", "target_repo": "owner/repo4", "collection_name": "Databases"},
+        ]
+        db = MockDatabase(rows)
+
+        edges = await service.discover_collection_edges(db)
+
+        # Should skip the row with empty source_repo
+        assert len(edges) == 1
+        assert edges[0]["source"] == "owner/repo3"
+        assert edges[0]["target"] == "owner/repo4"
+
+    @pytest.mark.asyncio
+    async def test_missing_target_repo(self):
+        """Test with rows missing target_repo field."""
+        service = EdgeDiscoveryService()
+
+        rows = [
+            {"source_repo": "owner/repo1", "target_repo": None, "collection_name": "Web Frameworks"},
+            {"source_repo": "owner/repo3", "target_repo": "owner/repo4", "collection_name": "Databases"},
+        ]
+        db = MockDatabase(rows)
+
+        edges = await service.discover_collection_edges(db)
+
+        # Should skip the row with None target_repo
+        assert len(edges) == 1
+        assert edges[0]["source"] == "owner/repo3"
+        assert edges[0]["target"] == "owner/repo4"
+
+    @pytest.mark.asyncio
+    async def test_database_query_error(self):
+        """Test that database query errors are handled properly."""
+        service = EdgeDiscoveryService()
+
+        class FailingDatabase:
+            async def fetch_all(self, query, params=()):
+                raise Exception("Database connection failed")
+
+        db = FailingDatabase()
+
+        with pytest.raises(Exception, match="Database connection failed"):
+            await service.discover_collection_edges(db)
+
+    @pytest.mark.asyncio
+    async def test_edge_weight_is_constant(self):
+        """Test that all collection edges have weight 0.5."""
+        service = EdgeDiscoveryService()
+
+        rows = [
+            {"source_repo": "owner/repo1", "target_repo": "owner/repo2", "collection_name": "Collection 1"},
+            {"source_repo": "owner/repo3", "target_repo": "owner/repo4", "collection_name": "Collection 2"},
+            {"source_repo": "owner/repo5", "target_repo": "owner/repo6", "collection_name": "Collection 3"},
+        ]
+        db = MockDatabase(rows)
+
+        edges = await service.discover_collection_edges(db)
+
+        assert len(edges) == 3
+        for edge in edges:
+            assert edge["weight"] == 0.5
+
+    @pytest.mark.asyncio
+    async def test_edge_type_is_collection(self):
+        """Test that all edges have type 'collection'."""
+        service = EdgeDiscoveryService()
+
+        rows = [
+            {"source_repo": "owner/repo1", "target_repo": "owner/repo2", "collection_name": "Test"},
+        ]
+        db = MockDatabase(rows)
+
+        edges = await service.discover_collection_edges(db)
+
+        assert len(edges) == 1
+        assert edges[0]["type"] == "collection"
+
+    @pytest.mark.asyncio
+    async def test_collection_name_with_special_characters(self):
+        """Test handling of collection names with special characters."""
+        service = EdgeDiscoveryService()
+
+        rows = [
+            {"source_repo": "owner/repo1", "target_repo": "owner/repo2", "collection_name": "Web & APIs"},
+            {"source_repo": "owner/repo3", "target_repo": "owner/repo4", "collection_name": "Data/ML"},
+        ]
+        db = MockDatabase(rows)
+
+        edges = await service.discover_collection_edges(db)
+
+        assert len(edges) == 2
+        assert edges[0]["metadata"]["collection"] == "Web & APIs"
+        assert edges[1]["metadata"]["collection"] == "Data/ML"
+
+    @pytest.mark.asyncio
+    async def test_no_duplicate_edges(self):
+        """Test that no duplicate edges are created."""
+        service = EdgeDiscoveryService()
+
+        # The SQL query uses WHERE c1.repo_id < c2.repo_id to prevent duplicates
+        rows = [
+            {"source_repo": "owner/repo1", "target_repo": "owner/repo2", "collection_name": "Test"},
+        ]
+        db = MockDatabase(rows)
+
+        edges = await service.discover_collection_edges(db)
+
+        assert len(edges) == 1
+        # Ensure we don't have the reverse edge
+        edge_pairs = {(e["source"], e["target"]) for e in edges}
+        assert ("owner/repo2", "owner/repo1") not in edge_pairs
+        assert ("owner/repo1", "owner/repo2") in edge_pairs
+
+
 class TestDiscoverAuthorEdges:
     """Test suite for EdgeDiscoveryService.discover_author_edges method."""
 

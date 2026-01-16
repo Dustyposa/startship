@@ -1,8 +1,8 @@
 <script setup lang="ts">
 import { ref, onMounted } from 'vue'
 import { useApiStore } from '../stores/api'
-import type { NetworkNode, NetworkEdge } from '../types/network'
-import { getRepoEdges, rebuildGraph, getGraphStatus, type GraphEdge } from '../api/graph'
+import type { NetworkNode } from '../types/network'
+import { rebuildGraph, getGraphStatus, type GraphStatusResponse } from '../api/graph'
 import VChart from 'vue-echarts'
 import * as echarts from 'echarts/core'
 import { GraphChart } from 'echarts/charts'
@@ -29,22 +29,7 @@ const loading = ref(true)
 const error = ref<string | null>(null)
 const selectedNode = ref<NetworkNode | null>(null)
 const rebuilding = ref(false)
-const graphStatus = ref<any>(null)
-
-// Edge type filters
-const edgeTypes = ref({
-  author: true,
-  ecosystem: true,
-  collection: true
-})
-
-// Get active edge types as comma-separated string
-function getActiveEdgeTypes(): string {
-  const active = Object.entries(edgeTypes.value)
-    .filter(([_, active]) => active)
-    .map(([type, _]) => type)
-  return active.join(',')
-}
+const graphStatus = ref<GraphStatusResponse | null>(null)
 
 async function loadNetwork() {
   loading.value = true
@@ -182,11 +167,6 @@ async function loadGraphStatus() {
   }
 }
 
-function handleEdgeTypeChange() {
-  // Reload network when edge types change
-  loadNetwork()
-}
-
 function handleClick(params: any) {
   if (params.dataType === 'node') {
     selectedNode.value = params.data as NetworkNode
@@ -220,47 +200,12 @@ onMounted(() => {
       <div v-if="graphStatus" class="mb-4 p-3 bg-gray-50 dark:bg-gray-800 rounded border border-gray-200 dark:border-gray-700">
         <div class="text-sm text-gray-700 dark:text-gray-300">
           <span class="font-medium">Graph Status:</span>
-          {{ graphStatus.status || 'Unknown' }}
-          <span v-if="graphStatus.edges_count !== undefined" class="ml-3">
-            | Edges: {{ graphStatus.edges_count }}
+          <span v-if="graphStatus.data && graphStatus.data.length > 0">
+            {{ graphStatus.data.length }} repositories with computed edges
           </span>
-        </div>
-      </div>
-
-      <!-- Edge Type Filters -->
-      <div class="mb-4 p-4 bg-white dark:bg-gray-800 rounded border border-gray-200 dark:border-gray-700">
-        <h3 class="text-sm font-medium text-gray-900 dark:text-white mb-3">Filter by Edge Type</h3>
-        <div class="flex flex-wrap gap-4">
-          <label class="flex items-center gap-2 cursor-pointer">
-            <input
-              type="checkbox"
-              v-model="edgeTypes.author"
-              @change="handleEdgeTypeChange"
-              class="w-4 h-4 text-blue-600 rounded focus:ring-blue-500"
-            />
-            <span class="text-sm text-gray-700 dark:text-gray-300">Author Connections</span>
-          </label>
-          <label class="flex items-center gap-2 cursor-pointer">
-            <input
-              type="checkbox"
-              v-model="edgeTypes.ecosystem"
-              @change="handleEdgeTypeChange"
-              class="w-4 h-4 text-blue-600 rounded focus:ring-blue-500"
-            />
-            <span class="text-sm text-gray-700 dark:text-gray-300">Ecosystem Dependencies</span>
-          </label>
-          <label class="flex items-center gap-2 cursor-pointer">
-            <input
-              type="checkbox"
-              v-model="edgeTypes.collection"
-              @change="handleEdgeTypeChange"
-              class="w-4 h-4 text-blue-600 rounded focus:ring-blue-500"
-            />
-            <span class="text-sm text-gray-700 dark:text-gray-300">Collection Membership</span>
-          </label>
-        </div>
-        <div class="mt-2 text-xs text-gray-500 dark:text-gray-400">
-          Active filters: {{ getActiveEdgeTypes() || 'None' }}
+          <span v-else>
+            No edge data computed yet
+          </span>
         </div>
       </div>
 

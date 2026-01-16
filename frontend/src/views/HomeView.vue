@@ -91,34 +91,58 @@
 
     <!-- Hero Section -->
     <transition name="fade">
-      <section v-if="stats.total_repositories > 0" class="text-center py-8 bg-gradient-to-r from-blue-50 to-purple-50 dark:from-gray-800 dark:to-gray-800 rounded-xl">
-        <h1 class="text-4xl font-bold text-gray-900 dark:text-white mb-4">
-          ⭐ GitHub Star Helper
-        </h1>
-        <p class="text-lg text-gray-600 dark:text-gray-300 mb-6">
-          智能分析你的 GitHub 星标仓库，发现技术宝藏
-        </p>
-        <div class="flex gap-3 justify-center flex-wrap">
-          <router-link
-            to="/search"
-            class="px-5 py-2.5 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition"
+      <section v-if="stats.total_repositories > 0" class="relative text-center py-8 bg-gradient-to-r from-blue-50 to-purple-50 dark:from-gray-800 dark:to-gray-800 rounded-xl">
+        <!-- Animated Repos -->
+        <template v-for="(item, index) in animatedRepos" :key="`${item.repo.name_with_owner}-${index}`">
+          <div
+            class="absolute hidden lg:block transition-all duration-500 ease-out"
+            :class="item.side === 'left' ? 'left-12' : 'right-12'"
+            :style="{ top: `${item.position}%` }"
           >
-            🔍 搜索仓库
-          </router-link>
-          <router-link
-            to="/chat"
-            class="px-5 py-2.5 border border-blue-600 text-blue-600 rounded-lg hover:bg-blue-50 transition flex items-center gap-2"
-          >
-            💬 智能对话
-            <span class="px-2 py-0.5 bg-yellow-100 text-yellow-800 text-xs font-medium rounded">Beta</span>
-          </router-link>
-          <router-link
-            to="/network"
-            class="px-5 py-2.5 border border-purple-600 text-purple-600 rounded-lg hover:bg-purple-50 transition flex items-center gap-2"
-          >
-            🕸️ 关系网络
-            <span class="px-2 py-0.5 bg-yellow-100 text-yellow-800 text-xs font-medium rounded">Beta</span>
-          </router-link>
+            <router-link
+              v-if="showAnimation"
+              :to="`/repo/${encodeURIComponent(item.repo.name_with_owner)}`"
+              class="block repo-animate floating-left text-sm font-medium transition-colors"
+              :class="item.side === 'left'
+                ? 'text-blue-600 dark:text-blue-400 hover:text-blue-700 dark:hover:text-blue-300'
+                : 'text-purple-600 dark:text-purple-400 hover:text-purple-700 dark:hover:text-purple-300'"
+              :style="{ animationDelay: `${index * 0.15}s` }"
+            >
+              {{ item.repo.name_with_owner }}
+            </router-link>
+          </div>
+        </template>
+
+        <!-- Center Content -->
+        <div class="relative z-10">
+          <h1 class="text-4xl font-bold text-gray-900 dark:text-white mb-4">
+            ⭐ GitHub Star Helper
+          </h1>
+          <p class="text-lg text-gray-600 dark:text-gray-300 mb-6">
+            智能分析你的 GitHub 星标仓库，发现技术宝藏
+          </p>
+          <div class="flex gap-3 justify-center flex-wrap">
+            <router-link
+              to="/search"
+              class="px-5 py-2.5 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition"
+            >
+              🔍 搜索仓库
+            </router-link>
+            <router-link
+              to="/chat"
+              class="px-5 py-2.5 border border-blue-600 text-blue-600 rounded-lg hover:bg-blue-50 transition flex items-center gap-2"
+            >
+              💬 智能对话
+              <span class="px-2 py-0.5 bg-yellow-100 text-yellow-800 text-xs font-medium rounded">Beta</span>
+            </router-link>
+            <router-link
+              to="/network"
+              class="px-5 py-2.5 border border-purple-600 text-purple-600 rounded-lg hover:bg-purple-50 transition flex items-center gap-2"
+            >
+              🕸️ 关系网络
+              <span class="px-2 py-0.5 bg-yellow-100 text-yellow-800 text-xs font-medium rounded">Beta</span>
+            </router-link>
+          </div>
         </div>
       </section>
     </transition>
@@ -263,7 +287,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted, computed } from 'vue'
+import { ref, onMounted, onUnmounted, computed } from 'vue'
 import SyncStatus from '../components/SyncStatus.vue'
 import Sparkline from '../components/Sparkline.vue'
 import TrendIndicator from '../components/TrendIndicator.vue'
@@ -280,6 +304,13 @@ interface TimelinePoint {
   count: number
 }
 
+interface Repo {
+  name_with_owner: string
+  description: string | null
+  stargazer_count: number
+  starred_at: string
+}
+
 const stats = ref<Stats>({
   total_repositories: 0,
   total_conversations: 0,
@@ -290,6 +321,19 @@ const stats = ref<Stats>({
 const showOnboarding = ref(false)
 const timelineData = ref<TimelinePoint[]>([])
 const languageTrendData = ref<Record<string, TimelinePoint[]>>({})
+
+// Animated repos state
+const recentRepos = ref<Repo[]>([])
+
+interface AnimatedRepo {
+  repo: Repo
+  position: number
+  side: 'left' | 'right'
+}
+
+const animatedRepos = ref<AnimatedRepo[]>([])
+const showAnimation = ref(false)
+let animationInterval: ReturnType<typeof setInterval> | null = null
 
 const sparklineData = computed(() => {
   // Last 6 months of repository counts
@@ -378,12 +422,106 @@ onMounted(async () => {
     if (stats.value.total_repositories > 0) {
       // Has data - mark onboarding as seen automatically
       localStorage.setItem('hasSeenOnboarding', 'true')
+      // Fetch recent repos for animation
+      await fetchRecentRepos()
+      // Show animation after data is loaded
+      showAnimation.value = true
+      startAnimation()
     } else if (!hasSeenOnboarding()) {
       // No data and first visit - show onboarding
       showOnboarding.value = true
     }
   } catch (error) {
     console.error('Failed to load stats:', error)
+  }
+})
+
+// Fetch top 40 most recently starred repos
+async function fetchRecentRepos() {
+  try {
+    const response = await fetch('/api/search?limit=40&sort=starred_at&sort_order=DESC')
+    const data = await response.json()
+    recentRepos.value = data.results || []
+    pickRandomRepos()
+  } catch (error) {
+    console.error('Failed to fetch recent repos:', error)
+  }
+}
+
+// Pick unique random indices from recent repos
+function pickUniqueIndices(count: number, max: number): number[] {
+  const indices = new Set<number>()
+  while (indices.size < count) {
+    indices.add(Math.floor(Math.random() * max))
+  }
+  return Array.from(indices)
+}
+
+// Calculate non-overlapping vertical positions
+function calculatePositions(count: number): number[] {
+  const positions: number[] = []
+  const range = 60
+  const start = 20
+
+  if (count === 2) {
+    positions.push(start + Math.random() * (range / 2 - 10))
+    positions.push(start + range / 2 + 10 + Math.random() * (range / 2 - 10))
+  } else if (count === 3) {
+    const sectionSize = range / 3
+    for (let i = 0; i < 3; i++) {
+      positions.push(start + i * sectionSize + Math.random() * (sectionSize - 10))
+    }
+  }
+
+  return positions
+}
+
+// Pick 2-3 random repos for each side
+function pickRandomRepos() {
+  if (recentRepos.value.length < 4) return
+
+  const maxIndex = Math.min(40, recentRepos.value.length)
+  const leftCount = Math.random() > 0.5 ? 3 : 2
+  const rightCount = Math.random() > 0.5 ? 3 : 2
+
+  const leftIndices = pickUniqueIndices(leftCount, maxIndex)
+  const rightIndices = pickUniqueIndices(rightCount, maxIndex)
+  const leftPositions = calculatePositions(leftCount)
+  const rightPositions = calculatePositions(rightCount)
+
+  const results: AnimatedRepo[] = []
+
+  for (let i = 0; i < leftIndices.length; i++) {
+    results.push({
+      repo: recentRepos.value[leftIndices[i]],
+      position: leftPositions[i],
+      side: 'left'
+    })
+  }
+
+  for (let i = 0; i < rightIndices.length; i++) {
+    results.push({
+      repo: recentRepos.value[rightIndices[i]],
+      position: rightPositions[i],
+      side: 'right'
+    })
+  }
+
+  animatedRepos.value = results
+}
+
+// Start animation interval (every 3 seconds)
+function startAnimation() {
+  if (animationInterval) clearInterval(animationInterval)
+  animationInterval = setInterval(() => {
+    pickRandomRepos()
+  }, 3000)
+}
+
+onUnmounted(() => {
+  if (animationInterval) {
+    clearInterval(animationInterval)
+    animationInterval = null
   }
 })
 </script>
@@ -444,5 +582,36 @@ onMounted(async () => {
 
 .tag-move {
   transition: transform 0.2s ease;
+}
+
+/* Repo entrance animation */
+@keyframes repo-entrance {
+  0% {
+    opacity: 0;
+    transform: translateY(10px) scale(0.9);
+  }
+  100% {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+.repo-animate {
+  animation: repo-entrance 0.6s ease-out forwards;
+}
+
+/* Floating animation (same for both sides) */
+@keyframes float {
+  0%, 100% {
+    transform: translateY(0px);
+  }
+  50% {
+    transform: translateY(-6px);
+  }
+}
+
+.floating-left,
+.floating-right {
+  animation: repo-entrance 0.6s ease-out forwards, float 3s ease-in-out 0.6s infinite;
 }
 </style>

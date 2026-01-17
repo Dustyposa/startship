@@ -1012,28 +1012,37 @@ class SQLiteDatabase(Database):
 
     async def update_graph_status(
         self,
-        repo: str,
+        repo: int,
         edges_computed: bool = False,
         dependencies_parsed: bool = False
     ) -> None:
-        """Update graph computation status for a repo."""
-        updates = []
-        params = []
+        """Update graph computation status for a repo.
 
-        if edges_computed:
-            updates.append("edges_computed_at = ?")
-            params.append(datetime.now().isoformat())
-
-        if dependencies_parsed:
-            updates.append("dependencies_parsed_at = ?")
-            params.append(datetime.now().isoformat())
-
-        if not updates:
+        Args:
+            repo: Repository ID (integer)
+            edges_computed: Whether to update edges_computed_at timestamp
+            dependencies_parsed: Whether to update dependencies_parsed_at timestamp
+        """
+        if not (edges_computed or dependencies_parsed):
             return
 
-        params.append(repo)
+        timestamp = datetime.now().isoformat()
+        updates = ["repo_id"]
+        params = [repo]
+
+        if edges_computed:
+            updates.append("edges_computed_at")
+            params.append(timestamp)
+
+        if dependencies_parsed:
+            updates.append("dependencies_parsed_at")
+            params.append(timestamp)
+
+        placeholders = ", ".join("?" for _ in params)
+        columns = ", ".join(updates)
+
         await self.execute(
-            f"""INSERT OR REPLACE INTO graph_status (repo_id, {', '.join(updates)})
-               VALUES (?, {', '.join(['?'] * len(updates))})""",
+            f"""INSERT OR REPLACE INTO graph_status ({columns})
+               VALUES ({placeholders})""",
             tuple(params)
         )

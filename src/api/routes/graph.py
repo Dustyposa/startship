@@ -132,27 +132,18 @@ async def rebuild_graph(db = Depends(get_db)):
         repos = await db.search_repositories(limit=1000, is_deleted=False)
 
         # Discover all edge types
-        all_edges = []
+        author_edges = await service.discover_author_edges(repos)
+        ecosystem_edges = await service.discover_ecosystem_edges(repos)
+        collection_edges = await service.discover_collection_edges(db)
 
-        # Author edges (same owner)
-        all_edges.extend(await service.discover_author_edges(repos))
-
-        # Ecosystem edges (same language or topics)
-        all_edges.extend(await service.discover_ecosystem_edges(repos))
-
-        # Collection edges (repos in same collection)
-        all_edges.extend(await service.discover_collection_edges(db))
+        all_edges = author_edges + ecosystem_edges + collection_edges
 
         # Clear existing edges
         await db.execute("DELETE FROM graph_edges")
 
         # Insert new edges
-        # Convert metadata dict to JSON string for storage
         for edge in all_edges:
-            metadata_str = None
-            if edge.get('metadata'):
-                metadata_str = json.dumps(edge['metadata'])
-
+            metadata_str = json.dumps(edge['metadata']) if edge.get('metadata') else None
             await db.add_graph_edge(
                 source_repo=edge['source'],
                 target_repo=edge['target'],
@@ -160,6 +151,11 @@ async def rebuild_graph(db = Depends(get_db)):
                 weight=edge['weight'],
                 metadata=metadata_str
             )
+
+        # Update graph_status for all repositories
+        for repo in repos:
+            if repo.get('id'):
+                await db.update_graph_status(repo['id'], edges_computed=True)
 
         return RebuildResponse(
             status="success",

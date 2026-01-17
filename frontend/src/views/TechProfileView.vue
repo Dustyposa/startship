@@ -26,15 +26,6 @@
       </section>
 
       <section class="bg-white dark:bg-gray-800 p-6 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700">
-        <h2 class="text-xl font-semibold mb-4 text-gray-900 dark:text-white">技术栈</h2>
-        <div class="flex flex-wrap gap-2">
-          <span v-for="tech in profile.tech_stack" :key="tech" class="px-3 py-1 bg-blue-100 dark:bg-blue-900 text-blue-800 dark:text-blue-200 rounded-full text-sm font-medium">
-            {{ tech }}
-          </span>
-        </div>
-      </section>
-
-      <section class="bg-white dark:bg-gray-800 p-6 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700">
         <h2 class="text-xl font-semibold mb-4 text-gray-900 dark:text-white">关注领域</h2>
         <div class="flex flex-wrap gap-2">
           <span v-for="domain in profile.domains" :key="domain" class="px-3 py-1 bg-green-100 dark:bg-green-900 text-green-800 dark:text-green-200 rounded-full text-sm font-medium">
@@ -82,21 +73,21 @@ const { profile, isLoading, error, generate } = useProfile()
 const reposStore = useReposStore()
 
 const stageText = computed(() => {
-  if (!profile.value) return ''
-  switch (profile.value.learning_stage) {
-    case 'beginner': return '初学者'
-    case 'intermediate': return '进阶者'
-    case 'advanced': return '高级开发者'
-  }
+  const stageMap = {
+    beginner: '初学者',
+    intermediate: '进阶者',
+    advanced: '高级开发者'
+  } as const
+  return profile.value ? stageMap[profile.value.learning_stage] : ''
 })
 
 const stageColor = computed(() => {
-  if (!profile.value) return ''
-  switch (profile.value.learning_stage) {
-    case 'beginner': return 'text-green-600'
-    case 'intermediate': return 'text-blue-600'
-    case 'advanced': return 'text-purple-600'
-  }
+  const colorMap = {
+    beginner: 'text-green-600',
+    intermediate: 'text-blue-600',
+    advanced: 'text-purple-600'
+  } as const
+  return profile.value ? colorMap[profile.value.learning_stage] : ''
 })
 
 async function regenerate() {

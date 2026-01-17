@@ -49,7 +49,6 @@ class TestGraphWorkflow:
                 "summary": "FastAPI framework",
                 "categories": ["web"],
                 "features": ["async"],
-                "tech_stack": ["Python"],
                 "use_cases": []
             },
             {
@@ -73,7 +72,6 @@ class TestGraphWorkflow:
                 "summary": "Typer CLI framework",
                 "categories": ["cli"],
                 "features": [],
-                "tech_stack": ["Python"],
                 "use_cases": []
             },
             {
@@ -97,7 +95,6 @@ class TestGraphWorkflow:
                 "summary": "Starlette framework",
                 "categories": ["web"],
                 "features": ["async"],
-                "tech_stack": ["Python"],
                 "use_cases": []
             },
             {
@@ -121,7 +118,6 @@ class TestGraphWorkflow:
                 "summary": "HTTPX HTTP client",
                 "categories": ["web"],
                 "features": ["async"],
-                "tech_stack": ["Python"],
                 "use_cases": []
             },
         ]
@@ -219,7 +215,6 @@ class TestGraphRebuild:
             "summary": "Test repo 1",
             "categories": [],
             "features": [],
-            "tech_stack": ["Python"],
             "use_cases": []
         })
 
@@ -244,7 +239,6 @@ class TestGraphRebuild:
             "summary": "Test repo 2",
             "categories": [],
             "features": [],
-            "tech_stack": ["Python"],
             "use_cases": []
         })
 
@@ -290,7 +284,6 @@ class TestGraphQueries:
             "summary": "Test repo",
             "categories": [],
             "features": [],
-            "tech_stack": ["Python"],
             "use_cases": []
         })
 
@@ -327,7 +320,6 @@ class TestGraphQueries:
             "summary": "Test repo 1",
             "categories": [],
             "features": [],
-            "tech_stack": ["Python"],
             "use_cases": []
         })
 
@@ -352,7 +344,6 @@ class TestGraphQueries:
             "summary": "Test repo 2",
             "categories": [],
             "features": [],
-            "tech_stack": ["Python"],
             "use_cases": []
         })
 
@@ -397,7 +388,6 @@ class TestGraphQueries:
             "summary": "Main repository",
             "categories": [],
             "features": [],
-            "tech_stack": ["Python"],
             "use_cases": []
         })
 
@@ -422,7 +412,6 @@ class TestGraphQueries:
             "summary": "Related repository",
             "categories": [],
             "features": [],
-            "tech_stack": ["Python"],
             "use_cases": []
         })
 

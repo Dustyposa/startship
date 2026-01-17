@@ -30,7 +30,6 @@ async def test_search_with_data(db):
         "primary_language": "Python",
         "stargazer_count": 100,
         "categories": ["工具"],
-        "tech_stack": ["Python"]
     })
 
     results = await service.search(categories=["工具"])
@@ -51,7 +50,6 @@ async def test_get_repository(db):
         "primary_language": "Python",
         "stargazer_count": 100,
         "categories": ["工具"],
-        "tech_stack": ["Python"]
     })
 
     result = await service.get_repository("owner/repo1")
@@ -81,7 +79,6 @@ async def test_get_similar_repositories(db):
         "primary_language": "Python",
         "stargazer_count": 100,
         "categories": ["工具", "后端"],
-        "tech_stack": ["Python"]
     })
 
     await db.add_repository({
@@ -91,7 +88,6 @@ async def test_get_similar_repositories(db):
         "primary_language": "Python",
         "stargazer_count": 50,
         "categories": ["工具"],
-        "tech_stack": ["Python"]
     })
 
     similar = await service.get_similar_repositories("owner/repo1")
@@ -121,7 +117,6 @@ async def test_get_categories(db):
         "primary_language": "Python",
         "stargazer_count": 100,
         "categories": ["工具", "后端"],
-        "tech_stack": ["Python"]
     })
 
     categories = await service.get_categories()

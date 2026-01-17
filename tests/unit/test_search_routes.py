@@ -40,7 +40,6 @@ async def test_search_endpoint(search_client, db):
         "primary_language": "Python",
         "stargazer_count": 100,
         "categories": ["工具"],
-        "tech_stack": ["Python"]
     })
 
     response = await search_client.get("/api/search?categories=工具")
@@ -70,7 +69,6 @@ async def test_get_repo_endpoint(search_client, db):
         "primary_language": "Python",
         "stargazer_count": 100,
         "categories": ["工具"],
-        "tech_stack": ["Python"]
     })
 
     response = await search_client.get("/api/repo/test/repo")

@@ -119,7 +119,6 @@ class RepositoryAnalysis(BaseModel):
     summary: str = Field(..., description="One-line summary of the repository")
     categories: List[str] = Field(default_factory=list, description="Category tags like '工具', '前端'")
     features: List[str] = Field(default_factory=list, description="Key features identified")
-    tech_stack: List[str] = Field(default_factory=list, description="Technologies used")
     use_cases: List[str] = Field(default_factory=list, description="Common use cases")
     readme_summary: Optional[str] = None
 

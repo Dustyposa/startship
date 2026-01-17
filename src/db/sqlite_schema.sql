@@ -28,7 +28,6 @@ CREATE TABLE IF NOT EXISTS repositories (
     summary TEXT,                        -- One-line summary
     categories TEXT,                     -- JSON array: ["工具", "前端"]
     features TEXT,                       -- JSON array of features
-    tech_stack TEXT,                     -- JSON array of technologies
     use_cases TEXT,                      -- JSON array of use cases
     readme_summary TEXT,                 -- Summary of README
 
@@ -52,16 +51,6 @@ CREATE TABLE IF NOT EXISTS repo_categories (
     repo_id INTEGER NOT NULL,
     category TEXT NOT NULL,
     PRIMARY KEY (repo_id, category),
-    FOREIGN KEY (repo_id) REFERENCES repositories(id) ON DELETE CASCADE
-);
-
--- ============================================
--- Repository tech stack (many-to-many)
--- ============================================
-CREATE TABLE IF NOT EXISTS repo_tech_stack (
-    repo_id INTEGER NOT NULL,
-    tech TEXT NOT NULL,
-    PRIMARY KEY (repo_id, tech),
     FOREIGN KEY (repo_id) REFERENCES repositories(id) ON DELETE CASCADE
 );
 
@@ -97,9 +86,6 @@ CREATE INDEX IF NOT EXISTS idx_repos_indexed_at ON repositories(indexed_at);
 
 CREATE INDEX IF NOT EXISTS idx_categories_category ON repo_categories(category);
 CREATE INDEX IF NOT EXISTS idx_categories_repo ON repo_categories(repo_id);
-
-CREATE INDEX IF NOT EXISTS idx_tech_stack_tech ON repo_tech_stack(tech);
-CREATE INDEX IF NOT EXISTS idx_tech_stack_repo ON repo_tech_stack(repo_id);
 
 CREATE INDEX IF NOT EXISTS idx_conversations_session ON conversations(session_id);
 CREATE INDEX IF NOT EXISTS idx_messages_conversation ON messages(conversation_id);

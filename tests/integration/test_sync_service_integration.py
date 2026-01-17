@@ -133,7 +133,6 @@ class TestFullSyncIntegration:
             "summary": "Old summary",
             "categories": [],
             "features": [],
-            "tech_stack": [],
             "use_cases": []
         })
 
@@ -187,7 +186,6 @@ class TestFullSyncIntegration:
             "summary": "Old repo",
             "categories": [],
             "features": [],
-            "tech_stack": [],
             "use_cases": []
         })
 
@@ -334,7 +332,6 @@ class TestChangeDetectionIntegration:
             "summary": "Popular repo",
             "categories": [],
             "features": [],
-            "tech_stack": [],
             "use_cases": []
         })
 
@@ -383,7 +380,6 @@ class TestChangeDetectionIntegration:
             "summary": "Changed repo",
             "categories": [],
             "features": [],
-            "tech_stack": [],
             "use_cases": []
         })
 
@@ -440,7 +436,6 @@ class TestSoftDeleteRestoreIntegration:
             "summary": "Temp repo",
             "categories": [],
             "features": [],
-            "tech_stack": [],
             "use_cases": []
         })
 
@@ -491,7 +486,6 @@ class TestSoftDeleteRestoreIntegration:
             "summary": "Deleted repo",
             "categories": [],
             "features": [],
-            "tech_stack": [],
             "use_cases": []
         })
         await integration_db.update_repository("user/deleted-repo", {"is_deleted": 1})

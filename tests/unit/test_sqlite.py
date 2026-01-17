@@ -23,7 +23,6 @@ async def test_initialize_creates_tables(db):
 
     assert "repositories" in tables
     assert "repo_categories" in tables
-    assert "repo_tech_stack" in tables
     assert "conversations" in tables
     assert "messages" in tables
 
@@ -41,7 +40,6 @@ async def test_add_repository(db):
         "fork_count": 10,
         "url": "https://github.com/test/repo",
         "categories": ["工具", "测试"],
-        "tech_stack": ["Python", "FastAPI"],
         "summary": "A test repository"
     }
 
@@ -67,7 +65,6 @@ async def test_search_repositories(db):
             "primary_language": "Python",
             "stargazer_count": 100,
             "categories": ["工具"],
-            "tech_stack": ["Python"]
         },
         {
             "name_with_owner": "owner2/repo2",
@@ -76,7 +73,6 @@ async def test_search_repositories(db):
             "primary_language": "JavaScript",
             "stargazer_count": 200,
             "categories": ["前端"],
-            "tech_stack": ["JavaScript"]
         },
         {
             "name_with_owner": "owner3/repo3",
@@ -85,7 +81,6 @@ async def test_search_repositories(db):
             "primary_language": "Python",
             "stargazer_count": 300,
             "categories": ["工具"],
-            "tech_stack": ["Python"]
         }
     ]
 
@@ -140,7 +135,6 @@ async def test_get_statistics(db):
         "name": "repo1",
         "owner": "test",
         "categories": ["工具"],
-        "tech_stack": ["Python"]
     })
 
     stats = await db.get_statistics()

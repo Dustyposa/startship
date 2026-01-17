@@ -6,7 +6,6 @@ export interface Repository {
   primary_language: string | null
   languages?: LanguageInfo[]  // All languages with percentages
   categories: string[]  // Deprecated - kept for backward compatibility
-  tech_stack: string[]
   stargazer_count: number
   summary: string | null
   starred_at?: string | null

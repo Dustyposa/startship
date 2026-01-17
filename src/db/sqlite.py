@@ -186,9 +186,25 @@ class SQLiteDatabase(Database):
                 (migration_name,)
             )
             if not await result.fetchone():
-                # Run migration with error handling and rollback
+                # Run migration with error handling
                 try:
                     sql = migration_file.read_text()
+
+                    # Special handling for tech_stack column removal (migration 007)
+                    if "tech_stack" in migration_name:
+                        # Check if tech_stack column exists before trying to drop it
+                        cursor = await self._connection.execute(
+                            "PRAGMA table_info(repositories)"
+                        )
+                        columns = await cursor.fetchall()
+                        column_names = [col[1] for col in columns]
+                        if "tech_stack" not in column_names:
+                            # Column doesn't exist, skip the ALTER TABLE part
+                            sql = "\n".join(
+                                line for line in sql.split("\n")
+                                if "ALTER TABLE" not in line and "DROP COLUMN" not in line
+                            )
+
                     await self._connection.executescript(sql)
                     await self._connection.execute(
                         "INSERT INTO _migrations (name) VALUES (?)",
@@ -210,10 +226,10 @@ class SQLiteDatabase(Database):
                     name_with_owner, name, owner, description,
                     primary_language, languages, topics, stargazer_count, fork_count,
                     url, homepage_url, summary, categories, features,
-                    tech_stack, use_cases, readme_summary, readme_path,
+                    use_cases, readme_summary, readme_path,
                     readme_content, search_text, starred_at,
                     pushed_at, archived, visibility, owner_type, organization
-                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                 """,
                 (
                     repo_data.get("name_with_owner"),
@@ -230,7 +246,6 @@ class SQLiteDatabase(Database):
                     repo_data.get("summary"),
                     json.dumps(repo_data.get("categories", []), ensure_ascii=False),
                     json.dumps(repo_data.get("features", []), ensure_ascii=False),
-                    json.dumps(repo_data.get("tech_stack", []), ensure_ascii=False),
                     json.dumps(repo_data.get("use_cases", []), ensure_ascii=False),
                     repo_data.get("readme_summary"),
                     repo_data.get("readme_path"),
@@ -250,7 +265,6 @@ class SQLiteDatabase(Database):
             # Insert categories
             repo_id = cursor.lastrowid
             await self._insert_categories(repo_id, repo_data.get("categories", []))
-            await self._insert_tech_stack(repo_id, repo_data.get("tech_stack", []))
 
             return True
         except Exception as e:
@@ -407,7 +421,7 @@ class SQLiteDatabase(Database):
             params = []
 
             for key, value in updates.items():
-                if key in ["categories", "features", "tech_stack", "use_cases", "topics", "languages"]:
+                if key in ["categories", "features", "use_cases", "topics", "languages"]:
                     set_clauses.append(f"{key} = ?")
                     params.append(json.dumps(value, ensure_ascii=False))
                 else:
@@ -925,15 +939,6 @@ class SQLiteDatabase(Database):
             )
         await self._connection.commit()
 
-    async def _insert_tech_stack(self, repo_id: int, tech_stack: List[str]):
-        """Insert tech stack for a repository"""
-        for tech in tech_stack:
-            await self._connection.execute(
-                "INSERT OR IGNORE INTO repo_tech_stack (repo_id, tech) VALUES (?, ?)",
-                (repo_id, tech)
-            )
-        await self._connection.commit()
-
     def _build_search_text(self, repo_data: Dict[str, Any]) -> str:
         """Build combined search text from repository data"""
         parts = [
@@ -948,7 +953,7 @@ class SQLiteDatabase(Database):
         """Convert database row to dictionary"""
         d = dict(row)
         # Parse JSON fields
-        for key in ["categories", "features", "tech_stack", "use_cases", "topics", "languages"]:
+        for key in ["categories", "features", "use_cases", "topics", "languages"]:
             if key in d and d[key]:
                 try:
                     d[key] = json.loads(d[key])

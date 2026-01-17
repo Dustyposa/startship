@@ -98,6 +98,6 @@ class LLM(ABC):
             topics: Repository topics
 
         Returns:
-            Analysis result with categories, features, tech_stack, etc.
+            Analysis result with categories, features, use_cases, etc.
         """
         pass

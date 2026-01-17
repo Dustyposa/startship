@@ -239,7 +239,6 @@ async def add_test_repos(db, count: int = 3) -> list:
             "summary": f"Test repo {i}",
             "categories": [],
             "features": [],
-            "tech_stack": ["Python"],
             "use_cases": []
         })
 

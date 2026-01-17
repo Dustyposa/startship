@@ -73,7 +73,6 @@ class TestSyncStatus:
                 "summary": f"Test repo {i}",
                 "categories": [],
                 "features": [],
-                "tech_stack": ["Python"],
                 "use_cases": []
             })
 
@@ -99,7 +98,6 @@ class TestSyncStatus:
             "summary": "Deleted",
             "categories": [],
             "features": [],
-            "tech_stack": ["Python"],
             "use_cases": []
         })
         # Mark as deleted using update
@@ -295,7 +293,6 @@ class TestDeletedRepos:
             "summary": "Deleted",
             "categories": [],
             "features": [],
-            "tech_stack": ["Python"],
             "use_cases": []
         })
         await db.update_repository("owner/deleted-repo", {"is_deleted": 1})
@@ -322,7 +319,6 @@ class TestDeletedRepos:
             "summary": "Active",
             "categories": [],
             "features": [],
-            "tech_stack": ["Python"],
             "use_cases": []
         })
 
@@ -367,7 +363,6 @@ class TestRestoreRepo:
             "summary": "Deleted",
             "categories": [],
             "features": [],
-            "tech_stack": ["Python"],
             "use_cases": []
         })
         await db.update_repository("owner/deleted-repo", {"is_deleted": 1})
@@ -423,7 +418,6 @@ class TestReanalyzeRepo:
             "summary": "Old summary",
             "categories": ["old-category"],
             "features": [],
-            "tech_stack": [],
             "use_cases": []
         })
 

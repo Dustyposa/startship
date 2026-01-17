@@ -120,7 +120,6 @@ Your response must be valid JSON with this exact structure:
     "summary": "One-line summary",
     "categories": ["category1", "category2"],
     "features": ["feature1", "feature2"],
-    "tech_stack": ["tech1", "tech2"],
     "use_cases": ["use case1"]
 }
 
@@ -165,7 +164,6 @@ Provide analysis in JSON format as specified."""
                 "summary": description or f"{repo_name}",
                 "categories": [],
                 "features": [],
-                "tech_stack": [language] if language else [],
                 "use_cases": [],
                 "readme_summary": readme[:500] if readme else None,
                 "error": f"JSON parsing failed: {e}"

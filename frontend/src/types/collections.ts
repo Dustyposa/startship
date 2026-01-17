@@ -40,7 +40,6 @@ export interface Note {
 
 // Tech Profile
 export interface TechProfile {
-  tech_stack: string[]
   domains: string[]
   trends: Array<{
     period: string

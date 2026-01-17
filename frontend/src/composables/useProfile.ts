@@ -26,64 +26,74 @@ export function useProfile() {
     error.value = null
 
     try {
+      // Count languages
       const langCounts = new Map<string, number>()
-      repos.forEach(repo => {
+      for (const repo of repos) {
         if (repo.primary_language) {
           langCounts.set(repo.primary_language, (langCounts.get(repo.primary_language) || 0) + 1)
         }
-      })
+      }
 
       const techStack = Array.from(langCounts.entries())
         .sort((a, b) => b[1] - a[1])
         .slice(0, 5)
         .map(([lang]) => lang)
 
+      // Count categories (domains)
       const domainCounts = new Map<string, number>()
-      repos.forEach(repo => {
-        repo.categories?.forEach(cat => {
+      for (const repo of repos) {
+        for (const cat of repo.categories ?? []) {
           domainCounts.set(cat, (domainCounts.get(cat) || 0) + 1)
-        })
-      })
+        }
+      }
 
       const domains = Array.from(domainCounts.entries())
         .sort((a, b) => b[1] - a[1])
         .slice(0, 5)
         .map(([domain]) => domain)
 
+      // Build trends from monthly data
       const trends: TechProfile['trends'] = []
       if (repos.some(r => r.starred_at)) {
         const monthlyData = new Map<string, Map<string, number>>()
-        repos.forEach(repo => {
+        for (const repo of repos) {
           if (repo.starred_at && repo.primary_language) {
             const month = repo.starred_at.slice(0, 7)
-            if (!monthlyData.has(month)) monthlyData.set(month, new Map())
-            monthlyData.get(month)!.set(repo.primary_language, (monthlyData.get(month)!.get(repo.primary_language) || 0) + 1)
+            let langData = monthlyData.get(month)
+            if (!langData) {
+              langData = new Map()
+              monthlyData.set(month, langData)
+            }
+            const count = langData.get(repo.primary_language) ?? 0
+            langData.set(repo.primary_language, count + 1)
           }
-        })
-        monthlyData.forEach((langData, period) => {
-          const topLang = Array.from(langData.entries()).sort((a, b) => b[1] - a[1])[0]
-          if (topLang) trends.push({ period, top_language: topLang[0], new_domains: [] })
-        })
-        trends.slice(-6)
+        }
+        for (const [period, langData] of monthlyData) {
+          const [topLang] = Array.from(langData.entries()).sort((a, b) => b[1] - a[1])
+          if (topLang) {
+            trends.push({ period, top_language: topLang[0], new_domains: [] })
+          }
+        }
       }
 
+      // Calculate learning stage from average stars
       const avgStars = repos.reduce((sum, r) => sum + r.stargazer_count, 0) / repos.length
-      let learningStage: 'beginner' | 'intermediate' | 'advanced'
-      if (avgStars < 1000) learningStage = 'beginner'
-      else if (avgStars < 10000) learningStage = 'intermediate'
-      else learningStage = 'advanced'
+      const learningStage: 'beginner' | 'intermediate' | 'advanced' =
+        avgStars < 1000 ? 'beginner' : avgStars < 10000 ? 'intermediate' : 'advanced'
 
+      // Build insights
       const insights: string[] = []
       if (techStack.length > 0) insights.push(`主要技术栈: ${techStack.slice(0, 3).join(', ')}`)
       if (domains.length > 0) insights.push(`关注领域: ${domains.join(', ')}`)
       if (trends.length >= 2) {
         const recent = trends[trends.length - 1]
         const old = trends[0]
-        if (recent.top_language !== old.top_language) insights.push(`近期兴趣从 ${old.top_language} 转向 ${recent.top_language}`)
+        if (recent.top_language !== old.top_language) {
+          insights.push(`近期兴趣从 ${old.top_language} 转向 ${recent.top_language}`)
+        }
       }
 
       profile.value = {
-        tech_stack: techStack,
         domains,
         trends,
         learning_stage: learningStage,

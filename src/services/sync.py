@@ -112,7 +112,7 @@ class SyncService:
             "updated": 0,
             "deleted": 0,
             "failed": 0,
-            "errors": []
+            "errors": [],
         }
 
     async def _handle_sync_error(self, stats: dict, error: Exception, sync_name: str) -> dict:
@@ -169,11 +169,19 @@ class SyncService:
             github_repo = github_repo_map[name]
             local_repo = local_repo_map[name]
 
-            needs_update = self._needs_update(local_repo, github_repo)
-            if needs_update:
-                await self._update_repository(github_repo, skip_llm)
-                return True
-            return False
+            change_type, changed_fields, needs_llm = self._detect_changes(local_repo, github_repo)
+            if change_type == "none":
+                return False
+
+            await self._update_repository(
+                name_with_owner=github_repo.name_with_owner,
+                github_repo=github_repo,
+                change_type=change_type,
+                changed_fields=changed_fields,
+                needs_llm=needs_llm or not skip_llm,
+                skip_llm=skip_llm
+            )
+            return True
         except Exception as e:
             stats["failed"] += 1
             stats["errors"].append(f"{name}: {str(e)}")
@@ -196,38 +204,52 @@ class SyncService:
                 stats["errors"].append(f"{name}: {str(e)}")
                 log_error(f"Failed to delete {name}: {e}")
 
-    def _needs_update(
+    def _detect_changes(
         self,
         local_repo: dict[str, Any],
         github_repo: GitHubRepository
-    ) -> bool:
-        """Check if a repository needs to be updated."""
-        # Check if languages data is missing or empty
-        local_languages = local_repo.get("languages")
-        if not local_languages or len(local_languages) == 0:
-            return True
+    ) -> tuple[str, dict[str, Any], bool]:
+        """
+        Detect what changed between local and GitHub repository.
 
-        # Fields that commonly change
+        Returns:
+            Tuple of (change_type, changed_fields, needs_llm):
+            - change_type: "none", "light", "heavy"
+            - changed_fields: Dict of field names to new values
+            - needs_llm: Whether LLM re-analysis is needed
+        """
+        # Priority 1: Check if pushed_at changed (content refresh needed)
         if local_repo.get("pushed_at") != (github_repo.pushed_at.isoformat() if github_repo.pushed_at else None):
-            return True
-        if local_repo.get("stargazer_count") != github_repo.stargazer_count:
-            return True
-        if local_repo.get("fork_count") != github_repo.fork_count:
-            return True
+            return "heavy", {}, True
 
-        # Metadata fields
-        if local_repo.get("primary_language") != github_repo.primary_language:
-            return True
-        if local_repo.get("description") != github_repo.description:
-            return True
-        if local_repo.get("archived", 0) != (1 if github_repo.archived else 0):
-            return True
-        if local_repo.get("visibility") != github_repo.visibility:
-            return True
-        if local_repo.get("owner_type") != github_repo.owner_type:
-            return True
+        # Data completeness check
+        if not local_repo.get("languages"):
+            return "heavy", {}, True
 
-        return False
+        # Priority 2: Check all other fields for light updates
+        field_map = {
+            "stargazer_count": github_repo.stargazer_count,
+            "fork_count": github_repo.fork_count,
+            "description": github_repo.description,
+            "primary_language": github_repo.primary_language,
+            "archived": 1 if github_repo.archived else 0,
+            "visibility": github_repo.visibility,
+            "owner_type": github_repo.owner_type,
+        }
+
+        changed_fields = {
+            field: value
+            for field, value in field_map.items()
+            if local_repo.get(field) != value
+        }
+
+        if not changed_fields:
+            return "none", {}, False
+
+        # LLM re-analysis needed for description or primary_language changes
+        needs_llm = any(field in changed_fields for field in ("description", "primary_language"))
+
+        return "light", changed_fields, needs_llm
 
     def _build_repo_data(self, github_repo: GitHubRepository, existing: dict[str, Any] | None = None) -> dict[str, Any]:
         """Build repository data dict from GitHub repo."""
@@ -256,7 +278,6 @@ class SyncService:
                 "summary": existing.get("summary"),
                 "categories": existing.get("categories", []),
                 "features": existing.get("features", []),
-                "tech_stack": existing.get("tech_stack", []),
                 "use_cases": existing.get("use_cases", [])
             })
         else:
@@ -269,7 +290,6 @@ class SyncService:
                 "summary": github_repo.description or github_repo.name_with_owner,
                 "categories": [],
                 "features": [],
-                "tech_stack": [github_repo.primary_language] if github_repo.primary_language else [],
                 "use_cases": []
             })
 
@@ -286,16 +306,56 @@ class SyncService:
 
     async def _update_repository(
         self,
+        name_with_owner: str,
         github_repo: GitHubRepository,
+        change_type: str,
+        changed_fields: dict[str, Any],
+        needs_llm: bool,
         skip_llm: bool = True
     ) -> None:
-        """Update an existing repository in the database."""
-        existing = await self.db.get_repository(github_repo.name_with_owner)
-        if not existing:
-            return await self._add_repository(github_repo, skip_llm)
+        """
+        Update an existing repository in the database.
 
-        update_data = self._build_repo_data(github_repo, existing)
-        await self.db.update_repository(github_repo.name_with_owner, update_data)
+        Args:
+            name_with_owner: Repository name
+            github_repo: GitHub repository object
+            change_type: "light" | "heavy"
+            changed_fields: Dict of changed fields
+            needs_llm: Whether LLM re-analysis is needed
+            skip_llm: Skip LLM analysis
+        """
+        if change_type == "light":
+            # Light update: Only update changed fields
+            existing = await self.db.get_repository(name_with_owner)
+            if not existing:
+                return await self._add_repository(github_repo, skip_llm)
+
+            if needs_llm and not skip_llm:
+                # Re-analyze with LLM
+                update_data = self._build_repo_data(github_repo, existing)
+                # This triggers LLM analysis (in init service)
+                await self.db.update_repository(name_with_owner, update_data)
+                log_debug(f"Light update with LLM: {name_with_owner} (fields: {list(changed_fields.keys())})")
+            else:
+                # Only update changed fields, preserve analysis
+                update_data = changed_fields
+                update_data.update({
+                    "summary": existing.get("summary"),
+                    "categories": existing.get("categories", []),
+                    "features": existing.get("features", []),
+                    "use_cases": existing.get("use_cases", [])
+                })
+                await self.db.update_repository(name_with_owner, update_data)
+                log_debug(f"Light update without LLM: {name_with_owner} (fields: {list(changed_fields.keys())})")
+        else:  # heavy
+            # Heavy update: Full refresh including content
+            existing = await self.db.get_repository(name_with_owner)
+            if not existing:
+                return await self._add_repository(github_repo, skip_llm)
+
+            update_data = self._build_repo_data(github_repo, existing)
+            await self.db.update_repository(name_with_owner, update_data)
+            log_debug(f"Heavy update: {name_with_owner}")
 
     async def _record_sync_history(self, stats: dict[str, Any]) -> None:
         """Record sync operation to history table."""

@@ -18,7 +18,6 @@ def _default_analysis(repo: GitHubRepository) -> dict[str, Any]:
         "summary": repo.description or repo.name_with_owner,
         "categories": [],
         "features": [],
-        "tech_stack": [repo.primary_language] if repo.primary_language else [],
         "use_cases": []
     }
 
@@ -69,12 +68,17 @@ async def _process_repos(
     readme_getter
 ) -> dict[str, int]:
     """Process repository list and save to database."""
-    stats = {"added": 0, "updated": 0, "failed": 0, "errors": []}
+    stats = {
+        "added": 0,
+        "updated": 0,
+        "failed": 0,
+        "errors": [],
+    }
 
     with Bar("Processing", max=len(repos)) as bar:
         for repo in repos:
             try:
-                starred_at = getattr(repo, 'starred_at', None)
+                starred_at = getattr(repo, "starred_at", None)
                 existing = await db.get_repository(repo.name_with_owner)
                 readme = await readme_getter(repo)
 

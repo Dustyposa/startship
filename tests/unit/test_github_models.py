@@ -55,7 +55,6 @@ def test_repository_analysis_model():
         summary="A test repository",
         categories=["工具", "测试"],
         features=["Feature 1", "Feature 2"],
-        tech_stack=["Python", "FastAPI"],
         use_cases=["Testing", "Development"]
     )
     assert analysis.name_with_owner == "owner/repo"

@@ -14,7 +14,6 @@ async def test_fts_search(db):
         "primary_language": "Python",
         "stargazer_count": 100,
         "categories": ["工具"],
-        "tech_stack": ["Python"]
     })
 
     # Search for "Python"

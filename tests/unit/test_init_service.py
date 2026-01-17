@@ -54,7 +54,6 @@ async def test_initialize_with_data(db, mocker):
                 "summary": "Test summary",
                 "categories": ["工具"],
                 "features": [],
-                "tech_stack": ["Python"],
                 "use_cases": []
             }
 

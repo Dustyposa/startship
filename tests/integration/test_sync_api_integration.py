@@ -125,7 +125,6 @@ class TestSyncStatusAPI:
             "summary": "Test repo",
             "categories": [],
             "features": [],
-            "tech_stack": [],
             "use_cases": []
         })
 
@@ -217,7 +216,6 @@ class TestDeletedReposAPI:
             "summary": "Deleted",
             "categories": [],
             "features": [],
-            "tech_stack": [],
             "use_cases": []
         })
         await integration_db.update_repository("user/deleted-repo", {"is_deleted": 1})
@@ -263,7 +261,6 @@ class TestRestoreRepoAPI:
             "summary": "Deleted",
             "categories": [],
             "features": [],
-            "tech_stack": [],
             "use_cases": []
         })
         await integration_db.update_repository("user/deleted-repo", {"is_deleted": 1})

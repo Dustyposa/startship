@@ -375,7 +375,6 @@ class TestSoftDeleteRepo:
             "summary": "Test",
             "categories": [],
             "features": [],
-            "tech_stack": ["Python"],
             "use_cases": []
         })
 
@@ -426,7 +425,6 @@ class TestRestoreRepo:
             "summary": "Test",
             "categories": [],
             "features": [],
-            "tech_stack": ["Python"],
             "use_cases": []
         })
         # Soft delete it first
@@ -471,7 +469,6 @@ class TestRestoreRepo:
             "summary": "Test",
             "categories": [],
             "features": [],
-            "tech_stack": ["Python"],
             "use_cases": []
         })
 
@@ -566,7 +563,6 @@ class TestFullSync:
             "summary": "Old summary",
             "categories": [],
             "features": [],
-            "tech_stack": ["Python"],
             "use_cases": []
         })
 
@@ -641,7 +637,6 @@ class TestFullSync:
             "summary": "Test",
             "categories": [],
             "features": [],
-            "tech_stack": ["Python"],
             "use_cases": []
         })
 
@@ -767,7 +762,6 @@ class TestIncrementalSync:
             "summary": "Old summary",
             "categories": [],
             "features": [],
-            "tech_stack": ["Python"],
             "use_cases": []
         })
 
@@ -794,7 +788,6 @@ class TestIncrementalSync:
             "summary": "Test",
             "categories": [],
             "features": [],
-            "tech_stack": ["Python"],
             "use_cases": []
         })
 

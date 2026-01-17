@@ -177,7 +177,6 @@ async def _reanalyze_task(name_with_owner: str, db: Database):
             "summary": analysis.get("summary", repo.get("description")),
             "categories": analysis.get("categories", []),
             "features": analysis.get("features", []),
-            "tech_stack": analysis.get("tech_stack", []),
             "use_cases": analysis.get("use_cases", []),
             "last_analyzed_at": datetime.now().isoformat()
         }

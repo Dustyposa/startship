@@ -53,24 +53,131 @@
    ↓
 4. 执行操作:
    - 新增: 插入新仓库记录
-   - 更新: 更新变化的字段
+   - 更新: 根据变更类型更新
    - 删除: 标记为已删除
    ↓
 5. 记录同步历史
 ```
 
 **变更检测逻辑**:
+
+系统采用两条主线策略，根据变化的性质选择更新方式。
+
+### 字段来源说明
+
+```
+[GitHub] - 从 GitHub API 获取的字段
+[LLM]    - 本地 LLM 分析生成的字段
+[本地]   - 系统本地生成的字段
+```
+
+---
+
+#### 重度更新 (Heavy)
+
+**触发条件**：
 ```python
-# 检测字段:
-- pushed_at          # 最后推送时间
-- stargazer_count    # 星标数量
-- fork_count         # Fork 数量
-- primary_language   # 主语言
-- description        # 描述
-- archived           # 是否归档
-- visibility         # 可见性
-- owner_type         # 所有者类型
-- languages          # 语言分布 (数组)
+- pushed_at 变化    # 仓库有新提交
+- languages 为空    # 数据不完整
+```
+
+**原因**：`pushed_at` 变化说明仓库有新代码提交，需要完全刷新内容。
+
+**更新内容**：
+```python
+需要从 GitHub API 获取:
+[GitHub] readme_content    # README 内容
+[GitHub] topics            # 主题标签
+[GitHub] languages         # 语言分布
+[GitHub] homepage_url      # 主页链接
+[GitHub] description       # 描述
+[GitHub] primary_language  # 主语言
+[GitHub] stargazer_count    # 星标数
+[GitHub] fork_count        # Fork 数
+[GitHub] url               # 仓库链接
+[GitHub] pushed_at         # 最后推送时间
+[GitHub] created_at        # 创建时间
+[GitHub] archived          # 归档状态
+[GitHub] visibility        # 可见性
+[GitHub] owner_type        # 所有者类型
+[GitHub] organization      # 组织名
+[GitHub] license_key        # 开源协议
+
+本地生成:
+[本地] last_synced_at    # 最后同步时间
+
+需要 LLM 重新分析:
+[LLM] summary           # 摘要
+[LLM] categories         # 分类
+[LLM] features          # 特性
+[LLM] use_cases         # 使用案例
+```
+
+**性能**：~10 秒/仓库
+
+---
+
+#### 轻度更新 (Light)
+
+**触发条件**：除 `pushed_at` 外的所有字段变化
+
+**字段分类**：
+
+```python
+# A 类：不需要 LLM 重新分析
+[GitHub] stargazer_count   # 星标数
+[GitHub] fork_count        # Fork 数
+[GitHub] archived          # 归档状态
+[GitHub] visibility        # 可见性
+[GitHub] owner_type        # 所有者类型
+
+# B 类：需要 LLM 重新分析
+[GitHub] description       # 描述变化 → [LLM] summary 基于描述
+```
+
+**更新策略**：
+
+```python
+if 变化字段 in A 类:
+    # 只更新变化的字段
+    # 保留 LLM 分析结果
+    update_data = changed_fields
+    update_data.update({
+        [LLM] "summary": existing.summary,
+        [LLM] "categories": existing.categories,
+        [LLM] "features": existing.features,
+        [LLM] "use_cases": existing.use_cases
+    })
+
+elif 变化字段 in B 类:
+    # 获取最新 GitHub 数据
+    update_data = _build_repo_data(github_repo, existing)
+    # 触发 LLM 重新分析
+    # update_data 包含 [GitHub] 字段和 [LLM] 生成字段
+```
+
+**性能**：
+- A 类更新：~0.1 秒/仓库
+- B 类更新：~1 秒/仓库
+
+---
+
+**性能优化对比**：
+
+```
+假设 1000 个仓库，每天同步一次：
+
+实际变化分布：
+- 850 个：只有星标数变化 (A 类)
+- 100 个：元数据变化 (A 类 + B 类)
+- 50 个：有新提交 (Heavy)
+
+旧逻辑（全量更新）:
+1000 × 10 秒 = 10000 秒 (2.8 小时)
+
+新逻辑:
+850 × 0.1 + 100 × 1 + 50 × 10 = 735 秒 (12 分钟)
+性能提升: 13 倍
 ```
 
 **引用**:
@@ -107,7 +214,7 @@
 
 **全文搜索**:
 - 使用 SQLite FTS5 全文搜索
-- 搜索字段: name_with_owner, description, summary, categories, tech_stack
+- 搜索字段: name_with_owner, description, summary, categories
 - BM25 算法排序
 
 **关联推荐** (当 `include_related=true`):

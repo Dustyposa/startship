@@ -141,9 +141,6 @@
         <h2 class="text-lg font-bold text-gray-900 dark:text-white mb-2">标签</h2>
         <TagManager :repo-id="nameWithOwner" @update="handleTagUpdate" />
       </div>
-    </div>
-    </div>
-      </div>
 
       <!-- Sidebar -->
       <div class="w-80 flex-shrink-0">
@@ -212,10 +209,8 @@
           </div>
         </div>
       </div>
-    </div>
-  </div>
 
-  <div v-else-if="isLoading" class="text-center py-12">
+    <div v-else-if="isLoading" class="text-center py-12">
     <div class="text-gray-600 dark:text-gray-400">加载中...</div>
   </div>
 

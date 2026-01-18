@@ -91,7 +91,7 @@
 
     <!-- Hero Section -->
     <transition name="fade">
-      <section v-if="stats.total_repositories > 0" class="relative text-center py-8 bg-gradient-to-r from-blue-50 to-purple-50 dark:from-gray-800 dark:to-gray-800 rounded-xl">
+      <section v-if="stats.total_repositories > 0" class="relative text-center py-12 bg-gradient-to-r from-blue-50 to-purple-50 dark:from-gray-800 dark:to-gray-800 rounded-xl">
         <!-- Animated Repos -->
         <template v-for="(item, index) in animatedRepos" :key="`${item.repo.name_with_owner}-${index}`">
           <div
@@ -114,34 +114,47 @@
         </template>
 
         <!-- Center Content -->
-        <div class="relative z-10">
+        <div class="relative z-10 max-w-3xl mx-auto px-4">
           <h1 class="text-4xl font-bold text-gray-900 dark:text-white mb-4">
             ⭐ GitHub Star Helper
           </h1>
-          <p class="text-lg text-gray-600 dark:text-gray-300 mb-6">
+          <p class="text-lg text-gray-600 dark:text-gray-300 mb-8">
             智能分析你的 GitHub 星标仓库，发现技术宝藏
           </p>
-          <div class="flex gap-3 justify-center flex-wrap">
-            <router-link
-              to="/search"
-              class="px-5 py-2.5 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition"
-            >
-              🔍 搜索仓库
-            </router-link>
-            <router-link
-              to="/chat"
-              class="px-5 py-2.5 border border-blue-600 text-blue-600 rounded-lg hover:bg-blue-50 transition flex items-center gap-2"
-            >
-              💬 智能对话
-              <span class="px-2 py-0.5 bg-yellow-100 text-yellow-800 text-xs font-medium rounded">Beta</span>
-            </router-link>
-            <router-link
-              to="/network"
-              class="px-5 py-2.5 border border-purple-600 text-purple-600 rounded-lg hover:bg-purple-50 transition flex items-center gap-2"
-            >
-              🕸️ 关系网络
-              <span class="px-2 py-0.5 bg-yellow-100 text-yellow-800 text-xs font-medium rounded">Beta</span>
-            </router-link>
+
+          <!-- Search Box -->
+          <div class="mb-6">
+            <div class="flex flex-col sm:flex-row gap-3 max-w-2xl mx-auto">
+              <input
+                v-model="searchQuery"
+                type="text"
+                placeholder="搜索仓库或向 AI 提问..."
+                class="flex-1 px-4 py-3 text-lg border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-700 dark:text-white shadow-lg"
+                @keyup.enter="handleQuickAction"
+              />
+              <div class="flex gap-2">
+                <button
+                  @click="handleSearch"
+                  class="px-4 py-2 bg-blue-600 text-white text-sm font-medium rounded-lg hover:bg-blue-700 transition shadow-lg flex items-center gap-1.5"
+                  title="搜索仓库"
+                >
+                  <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                  </svg>
+                  搜索
+                </button>
+                <button
+                  @click="handleChat"
+                  class="px-4 py-2 bg-purple-600 text-white text-sm font-medium rounded-lg hover:bg-purple-700 transition shadow-lg flex items-center gap-1.5"
+                  title="AI 对话"
+                >
+                  <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 10h.01M12 10h.01M16 10h.01M9 16H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-5l-5 5v-5z" />
+                  </svg>
+                  AI对话
+                </button>
+              </div>
+            </div>
           </div>
         </div>
       </section>
@@ -189,6 +202,39 @@
             </div>
           </div>
         </div>
+      </section>
+    </transition>
+
+    <!-- Top Languages -->
+    <transition name="fade">
+      <section v-if="topLanguages.length > 0">
+        <h2 class="text-xl font-bold text-gray-900 dark:text-white mb-4">🔥 热门语言</h2>
+        <transition-group name="tag" tag="div" class="flex flex-wrap gap-2">
+          <router-link
+            v-for="count in topLanguages"
+            :key="count[0]"
+            :to="`/search?languages=${encodeURIComponent(count[0])}`"
+            class="px-4 py-2 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg hover:border-blue-500 hover:text-blue-600 transition-all duration-200 hover:scale-105 text-gray-900 dark:text-white flex items-center gap-2"
+          >
+            <img
+              v-if="getLanguageIcon(count[0])"
+              :src="getLanguageIcon(count[0])"
+              :alt="count[0]"
+              class="w-5 h-5"
+              loading="lazy"
+              @error="(e) => { e.target.style.display = 'none'; e.target.nextElementSibling.style.display = 'inline-block' }"
+            />
+            <span
+              v-show="!getLanguageIcon(count[0])"
+              class="text-lg"
+              style="display: none;"
+            >
+              {{ getLanguageEmoji(count[0]) }}
+            </span>
+            <span class="font-medium">{{ count[0] }}</span>
+            <span class="text-gray-500 dark:text-gray-400 text-sm">({{ count[1] }})</span>
+          </router-link>
+        </transition-group>
       </section>
     </transition>
 
@@ -266,31 +312,20 @@
         </transition-group>
       </section>
     </transition>
-
-    <!-- Top Languages -->
-    <transition name="fade">
-      <section v-if="topLanguages.length > 0">
-        <h2 class="text-xl font-bold text-gray-900 dark:text-white mb-4">🔥 热门语言</h2>
-        <transition-group name="tag" tag="div" class="flex flex-wrap gap-2">
-          <router-link
-            v-for="count in topLanguages"
-            :key="count[0]"
-            :to="`/search?languages=${encodeURIComponent(count[0])}`"
-            class="px-4 py-2 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg hover:border-blue-500 hover:text-blue-600 transition-all duration-200 hover:scale-105 text-gray-900 dark:text-white"
-          >
-            {{ count[0] }} <span class="text-gray-500 dark:text-gray-400">({{ count[1] }})</span>
-          </router-link>
-        </transition-group>
-      </section>
-    </transition>
   </div>
 </template>
 
 <script setup lang="ts">
 import { ref, onMounted, onUnmounted, computed } from 'vue'
+import { useRouter } from 'vue-router'
 import SyncStatus from '../components/SyncStatus.vue'
 import Sparkline from '../components/Sparkline.vue'
 import TrendIndicator from '../components/TrendIndicator.vue'
+
+const router = useRouter()
+
+// Search query state
+const searchQuery = ref('')
 
 interface Stats {
   total_repositories: number
@@ -516,6 +551,161 @@ function startAnimation() {
   animationInterval = setInterval(() => {
     pickRandomRepos()
   }, 3000)
+}
+
+// Handle search from hero section
+function handleSearch() {
+  if (searchQuery.value.trim()) {
+    router.push({
+      path: '/search',
+      query: { q: searchQuery.value.trim() }
+    })
+  } else {
+    router.push('/search')
+  }
+}
+
+// Handle AI chat from hero section
+function handleChat() {
+  if (searchQuery.value.trim()) {
+    router.push({
+      path: '/chat',
+      query: { q: searchQuery.value.trim() }
+    })
+  } else {
+    router.push('/chat')
+  }
+}
+
+// Handle Enter key in search box
+function handleQuickAction() {
+  if (searchQuery.value.trim()) {
+    // Default to search on Enter
+    handleSearch()
+  }
+}
+
+// Language icon mapping - returns Devicon URL with fallback to emoji
+function getLanguageIcon(language: string | null): string {
+  if (!language) return ''
+
+  // Map common languages to their Devicon names
+  // Format: https://cdn.jsdelivr.net/gh/devicons/devicon-icons/{name}/{name}-{type}.svg
+  // Available types: original, plain, wordmark, line
+  const iconMap: Record<string, string> = {
+    // Programming languages
+    'Python': 'python',
+    'JavaScript': 'javascript',
+    'TypeScript': 'typescript',
+    'Java': 'java',
+    'Go': 'go',
+    'Rust': 'rust',
+    'C++': 'cplusplus',
+    'C#': 'csharp',
+    'Ruby': 'ruby',
+    'PHP': 'php',
+    'Swift': 'swift',
+    'Kotlin': 'kotlin',
+    'Dart': 'dart',
+    'Scala': 'scala',
+    'R': 'r',
+    'MATLAB': 'matlab',
+    'Shell': 'bash',
+    // Markup & Data
+    'HTML': 'html5',
+    'CSS': 'css3',
+    'Markdown': 'markdown',
+    'MDX': 'md',
+    'Jupyter Notebook': 'jupyter',
+    'Notebook': 'jupyter',
+    // Frameworks & Tools
+    'Vue': 'vuejs',
+    'React': 'react',
+    'Angular': 'angular',
+    'Svelte': 'svelte',
+    'Next.js': 'nextjs',
+    'Nuxt': 'nuxtjs',
+    'Django': 'django',
+    'Flask': 'flask',
+    'FastAPI': 'python',  // FastAPI uses Python icon
+    'Spring': 'spring',
+    'Node.js': 'nodejs',
+    'Docker': 'docker',
+    'Dockerfile': 'docker',
+    // Build tools
+    'C': 'c',
+    'Makefile': 'gnu',
+    'CMake': 'cmake',
+  }
+
+  // Case-insensitive lookup
+  const deviconName = iconMap[language] || iconMap[Object.keys(iconMap).find(
+    key => key.toLowerCase() === language.toLowerCase()
+  ) || '']
+
+  // If no Devicon found, return empty string to trigger emoji fallback
+  if (!deviconName) return ''
+
+  // Return Devicon URL (using 'original' type for colored logos)
+  return `https://cdn.jsdelivr.net/gh/devicons/devicon/icons/${deviconName}/${deviconName}-original.svg`
+}
+
+// Emoji fallback for languages without Devicon
+function getLanguageEmoji(language: string | null): string {
+  if (!language) return '🌐'
+
+  const emojiMap: Record<string, string> = {
+    // Programming languages
+    'Python': '🐍',
+    'JavaScript': '🌐',
+    'TypeScript': '🔷',
+    'Java': '☕',
+    'Go': '🦀',
+    'Rust': '⚡',
+    'C++': '⚙️',
+    'C#': '🔷',
+    'Ruby': '💎',
+    'PHP': '🐘',
+    'Swift': '🍎',
+    'Kotlin': '🤖',
+    'Dart': '🎯',
+    'Scala': '🔷',
+    'R': '📊',
+    'MATLAB': '📈',
+    'Shell': '🐚',
+    // Markup & Data
+    'HTML': '🌐',
+    'CSS': '🎨',
+    'Markdown': '📝',
+    'MDX': '📝',
+    'Jupyter Notebook': '📓',
+    'Notebook': '📓',
+    // Frameworks & Tools
+    'Vue': '💚',
+    'React': '⚛️',
+    'Angular': '🅰',
+    'Svelte': '🔥',
+    'Next.js': '▲',
+    'Nuxt': '🟢',
+    'Django': '🎸',
+    'Flask': '🌶',
+    'FastAPI': '⚡',
+    'Spring': '🍃',
+    'Node.js': '💚',
+    'Docker': '🐳',
+    // Build tools
+    'C': '⚙️',
+    'Makefile': '🛠️',
+    'CMake': '🔧',
+  }
+
+  for (const [key, value] of Object.entries(emojiMap)) {
+    if (key.toLowerCase() === language.toLowerCase()) {
+      return value
+    }
+  }
+
+  return '🌐'
 }
 
 onUnmounted(() => {

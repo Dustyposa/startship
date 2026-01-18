@@ -47,7 +47,7 @@ class SQLiteDatabase(Database):
         else:
             raise FileNotFoundError(f"Schema file not found: {schema_path}")
 
-        # Add FTS5 full-text search table
+        # Add FTS5 full-text search table with unicode61 tokenizer
         await self.execute("""
             CREATE VIRTUAL TABLE IF NOT EXISTS repositories_fts USING fts5(
                 name_with_owner,
@@ -55,7 +55,8 @@ class SQLiteDatabase(Database):
                 description,
                 summary,
                 content='repositories',
-                content_rowid='rowid'
+                content_rowid='rowid',
+                tokenize='unicode61 remove_diacritics 1'
             )
         """)
 

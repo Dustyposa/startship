@@ -3,11 +3,33 @@
 ![Python](https://img.shields.io/badge/Python-3.13+-blue.svg)
 ![Vue](https://img.shields.io/badge/Vue-3.0+-green.svg)
 ![License](https://img.shields.io/badge/License-MIT-yellow.svg)
-![Version](https://img.shields.io/badge/version-v1.0.2-orange.svg)
+![Version](https://img.shields.io/badge/version-v1.0.3-orange.svg)
 
 **智能的 GitHub 星标仓库管理和分析助手。**
 
 让你的 GitHub stars 不再沉睡。通过语义搜索、AI 对话和趋势分析，将星标仓库转化为个人技术知识库——发现隐藏的宝藏，分析技术趋势，生成学习路径，让收藏的项目真正为你所用。
+
+---
+
+## 最近更新
+
+**v1.0.3** (2025-01-18)
+- 📝 文档结构优化：拆分搜索章节，添加 FTS5/Jaccard 原理解释
+- 🎨 UI 视觉改进：搜索结果添加标题，明确区分搜索和推荐
+
+**v1.0.2** (2025-01-16)
+- 🎯 知识图谱系统：关联推荐、关系发现、图谱可视化
+- 📊 语言分布可视化：搜索页展示仓库编程语言分布
+
+**v1.0.1** (2025-01-10)
+- 🔄 智能数据同步：增量同步、README 抓取、软删除保护
+- 📝 笔记标签系统：个人笔记、自定义标签、收藏夹管理
+
+📖 **完整更新日志** → [CHANGELOG.md](CHANGELOG.md)
+
+---
+
+## 核心使用场景
 
 ## 界面预览
 
@@ -277,40 +299,6 @@ startship/
 ├── pyproject.toml                # Python 项目配置
 └── README.md                     # 项目说明
 ```
-
----
-
-## 核心使用场景
-
-### 📊 年度技术总结
-> "生成我的 2024 年度 GitHub 总结"
-
-分析你的 star 历史，生成技术栈分布、项目亮点、成长趋势的可视化报告。
-
-### 🎯 技术栈深度研究
-> "我想深入了解 Rust 生态，推荐一些优质项目"
-
-基于你的收藏，提供 Rust 核心库、工具链、应用案例的分类推荐和学习路径。
-
-### 💎 发现被遗忘的宝藏
-> "帮我找找那些被遗忘的宝藏项目"
-
-根据项目质量、更新活跃度等维度，挖掘你收藏中的隐藏宝石。
-
-### 📈 技术趋势分析
-> "分析一下前端框架的技术趋势"
-
-对比 React、Vue、Angular 等框架的发展趋势、社区活跃度，辅助选型决策。
-
-### 🛤️ 学习路径规划
-> "我会 Python 和 Django，想学习云原生技术"
-
-基于你的技能基础，推荐 Docker → Kubernetes → 微服务的渐进式学习路径。
-
-### ⚖️ 技术选型对比
-> "对比一下 FastAPI 和 Flask 的优缺点"
-
-从性能、生态、学习曲线等维度对比，根据项目需求给出建议。
 
 ---
 

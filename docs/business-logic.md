@@ -10,6 +10,8 @@
 2. [核心功能详解](#核心功能详解)
    - [2.1 GitHub 同步 (Sync)](#21-github-同步-sync)
    - [2.2 仓库搜索 (Search)](#22-仓库搜索-search)
+     - [2.2.1 全文搜索 (FTS5)](#221-全文搜索-fts5)
+     - [2.2.2 推荐系统](#222-推荐系统)
    - [2.3 图谱知识 (Graph Knowledge)](#23-图谱知识-graph-knowledge)
    - [2.4 趋势分析 (Trend Analysis)](#24-趋势分析-trend-analysis)
    - [2.5 用户数据管理 (User Data)](#25-用户数据管理-user-data)
@@ -127,13 +129,18 @@
 # A 类：不需要 LLM 重新分析
 [GitHub] stargazer_count   # 星标数
 [GitHub] fork_count        # Fork 数
-[GitHub] archived          # 归档状态
+[GitHub] archived          # 归档状态 (0/1)
 [GitHub] visibility        # 可见性
 [GitHub] owner_type        # 所有者类型
 
 # B 类：需要 LLM 重新分析
-[GitHub] description       # 描述变化 → [LLM] summary 基于描述
+[GitHub] description       # 描述变化 → [LLM] summary 基于描述更新
+[GitHub] primary_language  # 主语言变化 → [LLM] 完整重新分析所有字段
 ```
+
+**说明**：
+- `description` 变化：只更新 summary，其他分析结果保留
+- `primary_language` 变化：触发完整重新分析，因为技术栈变化影响所有分析维度
 
 **更新策略**：
 
@@ -190,6 +197,10 @@ elif 变化字段 in B 类:
 
 **功能定位**: 提供全文搜索和多维度筛选仓库的能力
 
+---
+
+#### 2.2.1 全文搜索 (FTS5)
+
 **业务流程**:
 ```
 用户输入搜索条件
@@ -209,22 +220,107 @@ elif 变化字段 in B 类:
 排序:
    - 默认按 starred_at DESC (最新星标优先)
    ↓
-返回结果
+返回结果: { results: [...] }
 ```
 
-**全文搜索**:
+**技术实现**:
 - 使用 SQLite FTS5 全文搜索
 - 搜索字段: name_with_owner, description, summary, categories
 - BM25 算法排序
 
-**关联推荐** (当 `include_related=true`):
+<details>
+<summary><b>📖 FTS5 是什么？(第一性原理)</b></summary>
+
+**FTS5 = Full-Text Search version 5**
+
+SQLite 的全文搜索扩展，专门用于快速搜索大量文本。
+
+**核心原理 - 倒排索引 (Inverted Index)**:
+
+传统搜索（顺序扫描）:
 ```
-1. 获取搜索结果前 5 个仓库
+搜索 "web framework"
+↓
+遍历所有文档，检查是否包含 "web" 和 "framework"
+↓
+1000 个文档 × 平均 500 字 = 50 万字比较
+```
+
+FTS5 倒排索引:
+```
+预处理阶段（建立索引）:
+"web"     → [doc1, doc5, doc23, doc67, ...]
+"framework"→ [doc1, doc3, doc5, doc8, ...]
+...
+
+搜索 "web framework":
+↓
+1. 找 "web"     → [doc1, doc5, doc23, doc67, ...]
+2. 找 "framework"→ [doc1, doc3, doc5, doc8, ...]
+3. 求交集      → [doc1, doc5]  ← 瞬间完成
+```
+
+**为什么快？**
+- 空间换时间：预先建立词→文档的映射
+- O(n) → O(log n)：从遍历所有文档变成查表
+
+**BM25 排序算法**:
+```
+相关性分数 = Σ (IDF × TF × 字段权重)
+
+IDF (逆文档频率) = log(总文档数 / 包含该词的文档数)
+  → 稀有词权重高（"grpc" > "web"）
+
+TF (词频) = 词在文档中的出现次数
+  → 出现多次权重高
+
+结果: 稀有且多次出现的词得分最高
+```
+
+**FTS5 vs LIKE 查询**:
+
+| 特性 | LIKE | FTS5 |
+|------|------|------|
+| 速度 | O(n) 遍历所有行 | O(log n) 索引查询 |
+| 中英文支持 | 只能前缀匹配 | 分词 + 全文匹配 |
+| 排序 | 无法按相关性排 | BM25 自动排序 |
+| 搜索语法 | `WHERE col LIKE '%keyword%'` | `WHERE fts MATCH 'keyword'` |
+
+</details>
+
+**API**:
+- `GET /api/search` - 主搜索接口
+- `GET /api/search/fulltext` - 纯 FTS5 搜索
+
+---
+
+#### 2.2.2 推荐系统
+
+**说明**: 搜索结果可附加推荐，基于图谱知识系统实现 (详见 [2.3 图谱知识](#23-图谱知识-graph-knowledge))
+
+**触发方式**: `include_related=true` (默认启用)
+
+**业务流程**:
+```
+1. 获取搜索结果的前 5 个仓库
 2. 查询每个仓库的图谱边 (limit=3)
 3. 收集目标仓库，去重
 4. 排除已在搜索结果中的仓库
 5. 返回前 5 个相关仓库
 ```
+
+**返回格式**:
+```json
+{
+  "results": [...],   // 直接搜索结果
+  "related": [...]    // 推荐结果
+}
+```
+
+**UI 展示要求**:
+- 明确区分两个区块
+- 标注推荐来源: "基于知识图谱"
+- 使用不同的视觉样式
 
 **引用**:
 - 服务: `src/services/search.py` → `SearchService`
@@ -235,7 +331,12 @@ elif 变化字段 in B 类:
 
 ### 2.3 图谱知识 (Graph Knowledge)
 
-**功能定位**: 发现仓库间的关系，实现智能关联推荐
+**功能定位**: 发现仓库间的关系，为推荐系统提供底层支持
+
+**应用场景**:
+1. ✅ 搜索结果的关联推荐 (见 [2.2.2 推荐系统](#222-推荐系统))
+2. ✅ 单个仓库的相关推荐: `GET /api/graph/nodes/{repo}/related`
+3. ✅ 网络可视化: `GET /api/network/graph`
 
 **三种边发现算法**:
 
@@ -271,7 +372,83 @@ metadata: {"author": "anthropics"}
 5. 边权重 = 0.6 (固定)
 ```
 
-**主题匹配** (Jaccard 相似度):
+**主题匹配** (Jaccard 相似度)
+
+<details>
+<summary><b>📖 Jaccard 相似度是什么？(第一性原理)</b></summary>
+
+**Jaccard 相似度** - 衡量两个集合相似程度的指标
+
+**公式**:
+```
+J(A, B) = |A ∩ B| / |A ∪ B|
+        = 交集大小 / 并集大小
+        = 0 ~ 1 之间
+```
+
+**直观理解**:
+
+假设两个圆代表两个仓库的主题集合：
+```
+    A ⊕───┐
+      ╱   ╲
+     ╱  共同 ╲     ← 交集 A∩B (共同的兴趣)
+    ╱     ╲ ╲
+   └───────┘─┘
+   ↑      ↑
+   A      B
+```
+
+Jaccard = 重叠部分 / 整体面积
+
+**示例计算**:
+
+```
+仓库 A topics: ["web", "api", "python", "async"]
+仓库 B topics: ["web", "api", "python", "database"]
+
+交集 A ∩ B = ["web", "api", "python"]     → 3 个
+并集 A ∪ B = ["web", "api", "python", "async", "database"] → 5 个
+
+Jaccard = 3/5 = 0.6
+```
+
+**为什么不用简单计数？**
+
+| 方法 | A=["web","api"] B=["web","api","python","async"] | A=["web"] B=["web","api","python"] |
+|------|--------------------------------------------------|-----------------------------------|
+| 简单计数 | 共同 2 个 | 共同 1 个 |
+| Jaccard | 2/4 = 0.5 | 1/3 = 0.33 |
+
+简单计数的问题：不考虑集合大小，不公平
+
+**Jaccard 的优势**:
+- 归一化：结果总是在 0-1 之间
+- 阈值稳定：0.3 在任何规模的数据集都有相同含义
+- 惩罚规模差异：小集合重合多 → 分数更高
+
+**在图谱中的应用**:
+
+```
+规则: 至少 2 个共同主题 AND Jaccard > 0.3
+
+为什么两个条件？
+1. "至少 2 个": 避免偶然匹配（1 个太容易）
+2. "Jaccard > 0.3": 确保质量，不是 A 有 100 个 topics，B 只占其中 3 个
+```
+
+**边权重设计**:
+```
+weight = Jaccard 值
+
+好处:
+- 相似度越高 → 边越强 → 推荐优先级越高
+- 动态权重：反映实际相似程度，而非固定值
+```
+
+</details>
+
+**业务流程**:
 ```
 1. 计算两个仓库的主题交集
 2. Jaccard = |A∩B| / |A∪B|

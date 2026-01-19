@@ -1,43 +1,73 @@
-"""Tests for Ollama embedder."""
+"""Unit tests for Ollama Embeddings client."""
+
 import pytest
-from unittest.mock import MagicMock, AsyncMock, patch
-from src.vector.embeddings import OllamaEmbedder
+from unittest.mock import Mock, patch
+from requests.exceptions import Timeout
+
+from src.vector.embeddings import OllamaEmbeddings
 
 
-@pytest.mark.asyncio
-async def test_ollama_embedder():
-    with patch('httpx.AsyncClient') as mock_client_class:
-        mock_response = MagicMock()
-        mock_response.raise_for_status = MagicMock()
-        mock_response.json.return_value = {"embedding": [0.1, 0.2, 0.3]}
+class TestOllamaEmbeddings:
+    """Test suite for OllamaEmbeddings client."""
 
-        mock_client = MagicMock()
-        mock_client.__aenter__.return_value.post = AsyncMock(return_value=mock_response)
-        mock_client.__aexit__.return_value = None
-        mock_client_class.return_value = mock_client
+    @pytest.fixture
+    def client(self):
+        """Create OllamaEmbeddings client instance."""
+        return OllamaEmbeddings(
+            base_url="http://localhost:11434",
+            model="nomic-embed-text",
+            timeout=30
+        )
 
-        embedder = OllamaEmbedder()
-        result = await embedder.embed("test text")
+    def test_embed_text_success(self, client):
+        """Test successful text embedding generation."""
+        # Mock successful API response
+        mock_response = Mock()
+        mock_response.status_code = 200
+        mock_response.json.return_value = {
+            "embedding": [0.1, 0.2, 0.3, 0.4, 0.5]
+        }
 
-        assert isinstance(result, list)
-        assert all(isinstance(x, float) for x in result)
-        assert result == [0.1, 0.2, 0.3]
+        with patch("src.vector.embeddings.requests.post", return_value=mock_response):
+            result = client.embed_text("test text")
 
+            # Verify embedding is returned
+            assert isinstance(result, list)
+            assert len(result) == 5
+            assert result == [0.1, 0.2, 0.3, 0.4, 0.5]
 
-@pytest.mark.asyncio
-async def test_ollama_embedder_batch():
-    with patch('httpx.AsyncClient') as mock_client_class:
-        mock_response = MagicMock()
-        mock_response.raise_for_status = MagicMock()
-        mock_response.json.return_value = {"embedding": [0.1, 0.2]}
+            # Verify API was called correctly
+            mock_response.json.assert_called_once()
 
-        mock_client = MagicMock()
-        mock_client.__aenter__.return_value.post = AsyncMock(return_value=mock_response)
-        mock_client.__aexit__.return_value = None
-        mock_client_class.return_value = mock_client
+    def test_embed_text_timeout(self, client):
+        """Test text embedding with timeout error."""
+        # Mock timeout exception
+        with patch("src.vector.embeddings.requests.post", side_effect=Timeout()):
+            result = client.embed_text("test text")
 
-        embedder = OllamaEmbedder()
-        results = await embedder.embed_batch(["text 1", "text 2"])
+            # Verify empty list is returned on timeout
+            assert result == []
 
-        assert len(results) == 2
-        assert all(isinstance(r, list) for r in results)
+    def test_embed_batch(self, client):
+        """Test batch embedding generation."""
+        # Mock successful API responses
+        mock_response = Mock()
+        mock_response.status_code = 200
+        mock_response.json.return_value = {
+            "embedding": [0.1, 0.2, 0.3]
+        }
+
+        texts = ["text1", "text2", "text3"]
+
+        with patch("src.vector.embeddings.requests.post", return_value=mock_response):
+            results = client.embed_batch(texts)
+
+            # Verify all embeddings are returned
+            assert len(results) == 3
+            assert all(isinstance(embedding, list) for embedding in results)
+            assert results[0] == [0.1, 0.2, 0.3]
+            assert results[1] == [0.1, 0.2, 0.3]
+            assert results[2] == [0.1, 0.2, 0.3]
+
+            # Verify API was called 3 times
+            assert mock_response.json.call_count == 3

@@ -46,3 +46,17 @@ def test_extract_summary_limits_length():
     readme = "A" * 1000
     result = extract_readme_summary(readme, max_length=100)
     assert len(result) <= 100
+
+def test_section_title_with_skip_word_as_substring():
+    """Should NOT skip "Getting Started Guide" (it contains "getting started" but isn't it)"""
+    readme = "# Getting Started Guide\nContent here"
+    result = extract_readme_summary(readme, max_length=500)
+    assert "Getting Started Guide" in result
+    assert "Content here" in result
+
+def test_exact_section_title_match():
+    """Should skip exact match "Getting Started\""""
+    readme = "## Getting Started\nnpm start"
+    result = extract_readme_summary(readme, max_length=500)
+    assert "Getting Started" not in result
+    assert "npm start" not in result

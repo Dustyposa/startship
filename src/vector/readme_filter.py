@@ -1,5 +1,4 @@
 import re
-from typing import List
 
 # 需要跳过的章节（中英文）
 SKIP_SECTIONS = {
@@ -44,6 +43,7 @@ def extract_readme_summary(readme_content: str, max_length: int = 500) -> str:
     summary_lines = []
     current_section = None
     skipping = False
+    current_length = 0
 
     for line in lines:
         # 检测章节标题
@@ -51,8 +51,8 @@ def extract_readme_summary(readme_content: str, max_length: int = 500) -> str:
         if section_match:
             section_title = section_match.group(1).strip().lower()
 
-            # 检查是否在黑名单中
-            if any(skip_word in section_title for skip_word in SKIP_SECTIONS):
+            # 检查是否在黑名单中（精确匹配）
+            if section_title in SKIP_SECTIONS:
                 skipping = True
                 continue
             else:
@@ -61,10 +61,10 @@ def extract_readme_summary(readme_content: str, max_length: int = 500) -> str:
         # 如果不在跳过状态，添加到摘要
         if not skipping and line.strip():
             summary_lines.append(line)
+            current_length += len(line) + 1  # +1 for newline
 
-        # 检查长度限制
-        summary = '\n'.join(summary_lines)
-        if len(summary) >= max_length:
-            return summary[:max_length]
+            # 检查长度限制
+            if current_length >= max_length:
+                return '\n'.join(summary_lines)[:max_length]
 
     return '\n'.join(summary_lines).strip()

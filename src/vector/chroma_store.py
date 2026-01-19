@@ -1,7 +1,7 @@
 """ChromaDB vector store for repository embeddings."""
 
 import logging
-from typing import List, Dict, Optional
+from typing import List, Dict, Optional, Any
 import chromadb
 from chromadb.config import Settings
 
@@ -48,7 +48,7 @@ class ChromaDBStore:
         repo_id: str,
         text: str,
         embedding: List[float],
-        metadata: Dict[str, any]
+        metadata: Dict[str, Any]
     ) -> None:
         """
         Add repository vector.
@@ -75,7 +75,7 @@ class ChromaDBStore:
         repo_ids: List[str],
         texts: List[str],
         embeddings: List[List[float]],
-        metadata_list: List[Dict[str, any]]
+        metadata_list: List[Dict[str, Any]]
     ) -> int:
         """
         Batch add repository vectors.

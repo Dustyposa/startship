@@ -71,3 +71,36 @@ class TestOllamaEmbeddings:
 
             # Verify API was called 3 times
             assert mock_response.json.call_count == 3
+
+    def test_check_health_success(self, client):
+        """Test successful health check."""
+        # Mock successful health check response
+        mock_response = Mock()
+        mock_response.status_code = 200
+
+        with patch("src.vector.embeddings.requests.get", return_value=mock_response):
+            result = client.check_health()
+
+            # Verify health check returns True
+            assert result is True
+
+    def test_check_health_failure(self, client):
+        """Test health check with service unavailable."""
+        # Mock failed health check response
+        mock_response = Mock()
+        mock_response.status_code = 503
+
+        with patch("src.vector.embeddings.requests.get", return_value=mock_response):
+            result = client.check_health()
+
+            # Verify health check returns False
+            assert result is False
+
+    def test_check_health_exception(self, client):
+        """Test health check with connection exception."""
+        # Mock connection exception
+        with patch("src.vector.embeddings.requests.get", side_effect=Exception("Connection error")):
+            result = client.check_health()
+
+            # Verify health check returns False on exception
+            assert result is False

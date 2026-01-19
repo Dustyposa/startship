@@ -141,8 +141,6 @@ class OllamaEmbeddings:
         # 分批处理，避免过载
         for i in range(0, len(texts), self._batch_size):
             batch = texts[i:i + self._batch_size]
-
-            # 并行处理当前批次
             batch_results = [self.embed_text(text) for text in batch]
             results.extend(batch_results)
 

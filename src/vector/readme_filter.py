@@ -36,12 +36,8 @@ def extract_readme_summary(readme_content: str, max_length: int = 500) -> str:
     # 移除 Badge 徽章
     cleaned = re.sub(BADGE_PATTERN, '', readme_content)
 
-    # 移除代码块（可选，根据需求）
-    # cleaned = re.sub(r'```.*?```', '', cleaned, flags=re.DOTALL)
-
     lines = cleaned.split('\n')
     summary_lines = []
-    current_section = None
     skipping = False
     current_length = 0
 

@@ -31,6 +31,11 @@ class VectorizationService:
         """
         准备用于 embedding 的文本
 
+        优化策略：
+        1. 优先使用过滤后的 README（去除噪音）
+        2. 如果过滤后太短，使用更多原始内容
+        3. 增加 description 权重以提高区分度
+
         Args:
             repo: 仓库数据
 
@@ -44,12 +49,28 @@ class VectorizationService:
         # 提取 README 摘要
         readme_summary = extract_readme_summary(readme, max_length=500)
 
-        # 拼接文本
+        # 如果过滤后太短，使用更多原始 README 内容
+        # 阈值设为 300 字符（提高到 300）
+        if len(readme_summary) < 300 and len(readme) > 0:
+            # 使用原始 README 的前 2000 字符（提高到 2000）
+            import re
+            badge_pattern = r'\[!\[.*?\]\(.*?\)\]\(.*?\)|\!\[.*?\]\(.*?\)'
+            readme_cleaned = re.sub(badge_pattern, '', readme)
+            # 取前 2000 字符
+            readme_summary = readme_cleaned[:2000] if len(readme_cleaned) > 2000 else readme_cleaned
+
+        # 拼接文本：description 重复 4 次以最大化权重
         parts = []
         if name:
             parts.append(name)
         if description:
-            parts.append(f"- {description}")
+            # 重复 4 次
+            for _ in range(4):
+                parts.append(f"- {description}")
+        # 添加语言标签作为区分特征
+        language = repo.get("primary_language", "")
+        if language:
+            parts.append(f"\n编程语言: {language}")
         if readme_summary:
             parts.append(f"\n\n{readme_summary}")
 

@@ -38,7 +38,7 @@ class Settings(BaseSettings):
 
     # Ollama Configuration (for semantic search)
     ollama_base_url: str = "http://localhost:11434"
-    ollama_embedding_model: str = "nomic-embed-text"
+    ollama_embedding_model: str = "bge-m3"
     ollama_timeout: int = 30
 
     # Storage

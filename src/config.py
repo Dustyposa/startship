@@ -36,6 +36,11 @@ class Settings(BaseSettings):
     # GitHub Configuration
     github_token: Optional[str] = None
 
+    # Ollama Configuration (for semantic search)
+    ollama_base_url: str = "http://localhost:11434"
+    ollama_embedding_model: str = "nomic-embed-text"
+    ollama_timeout: int = 30
+
     # Storage
     readme_storage_path: str = "data/readmes"
 
@@ -46,6 +51,9 @@ class Settings(BaseSettings):
     # Pagination
     default_page_size: int = 20
     max_page_size: int = 100
+
+    # ChromaDB Configuration (for semantic search)
+    chromadb_path: str = "data/chromadb"
 
     model_config = SettingsConfigDict(
         env_file=".env",

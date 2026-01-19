@@ -1,6 +1,7 @@
 """
 FastAPI application for GitHub Star RAG Service.
 """
+import logging
 from contextlib import asynccontextmanager
 from pathlib import Path
 from fastapi import FastAPI, HTTPException
@@ -12,16 +13,20 @@ from src.db import create_database
 from src.api.routes import chat, search, init, recommendation, trends, network, user_data, sync, graph
 
 
+logger = logging.getLogger(__name__)
+
+
 # Global database instance
 db = None
 search_service = None
 scheduler = None
+hybrid_search = None
 
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     """Application lifespan manager"""
-    global db, search_service, scheduler
+    global db, search_service, scheduler, hybrid_search
 
     # Startup
     print(f"Starting {settings.api_title} v{settings.api_version}")
@@ -38,6 +43,44 @@ async def lifespan(app: FastAPI):
     from src.services.search import SearchService
     search_service = SearchService(db)
     print("Search service initialized")
+
+    # Initialize semantic search (optional)
+    try:
+        from src.vector.embeddings import OllamaEmbeddings
+        from src.vector.semantic import SemanticSearch
+
+        embeddings = OllamaEmbeddings(
+            base_url=settings.ollama_base_url,
+            model=settings.ollama_embedding_model,
+            timeout=settings.ollama_timeout
+        )
+
+        if embeddings.check_health():
+            semantic_search = SemanticSearch(
+                ollama_base_url=settings.ollama_base_url,
+                model=settings.ollama_embedding_model,
+                persist_path=settings.chromadb_path
+            )
+
+            # Initialize HybridSearch with semantic search enabled
+            from src.services.hybrid_search import HybridSearch
+            hybrid_search = HybridSearch(
+                db=db,
+                semantic=semantic_search,
+                fts_weight=0.3,
+                semantic_weight=0.7
+            )
+            logger.info("Semantic search enabled in HybridSearch")
+            print("Semantic search enabled")
+        else:
+            logger.warning("Ollama not available, semantic search disabled")
+            print("Ollama not available - semantic search disabled")
+    except ImportError as e:
+        logger.warning(f"ChromaDB not installed: {e}. Semantic search disabled.")
+        print("ChromaDB not installed - semantic search disabled")
+    except Exception as e:
+        logger.error(f"Failed to initialize semantic search: {e}")
+        print(f"Failed to initialize semantic search: {e}")
 
     # Initialize scheduler if GitHub token is configured
     if settings.github_token:

@@ -1,12 +1,16 @@
 """Vectorization service for repository embeddings."""
 
 import logging
+import re
 from typing import List, Dict, Any
 from src.vector.embeddings import OllamaEmbeddings
 from src.vector.chroma_store import ChromaDBStore
 from src.vector.readme_filter import extract_readme_summary
 
 logger = logging.getLogger(__name__)
+
+# Badge pattern to remove from README (same as in readme_filter.py)
+BADGE_PATTERN = r'\[!\[.*?\]\(.*?\)\]\(.*?\)|\!\[.*?\]\(.*?\)'
 
 
 class VectorizationService:
@@ -53,9 +57,7 @@ class VectorizationService:
         # 阈值设为 300 字符（提高到 300）
         if len(readme_summary) < 300 and len(readme) > 0:
             # 使用原始 README 的前 2000 字符（提高到 2000）
-            import re
-            badge_pattern = r'\[!\[.*?\]\(.*?\)\]\(.*?\)|\!\[.*?\]\(.*?\)'
-            readme_cleaned = re.sub(badge_pattern, '', readme)
+            readme_cleaned = re.sub(BADGE_PATTERN, '', readme)
             # 取前 2000 字符
             readme_summary = readme_cleaned[:2000] if len(readme_cleaned) > 2000 else readme_cleaned
 

@@ -1,7 +1,7 @@
 """
 Service for searching repositories.
 """
-from typing import List, Dict, Any, Optional, Union
+from typing import List, Dict, Any, Optional
 from src.db import Database
 
 
@@ -26,14 +26,13 @@ class SearchService:
         max_stars: Optional[int] = None,
         limit: int = 1000,
         offset: int = 0,
-        # New filter dimensions
-        is_active: Optional[bool] = None,  # Filter by active maintenance (pushed within 7 days)
-        is_new: Optional[bool] = None,  # Filter by new projects (created within 6 months)
-        owner_type: Optional[str] = None,  # Filter by owner type ("Organization" or "User")
-        exclude_archived: bool = True,  # Exclude archived repos by default
-        sort_by: str = "starred_at",  # Default sort by starred_at (newest stars first)
+        is_active: Optional[bool] = None,
+        is_new: Optional[bool] = None,
+        owner_type: Optional[str] = None,
+        exclude_archived: bool = True,
+        sort_by: str = "starred_at",
         return_count: bool = False
-    ) -> Union[List[Dict[str, Any]], Dict[str, Any]]:
+    ) -> List[Dict[str, Any]] | Dict[str, Any]:
         """
         Search repositories with filters.
 
@@ -49,44 +48,35 @@ class SearchService:
             is_new: Filter by new projects (created within 6 months)
             owner_type: Filter by owner type ("Organization" or "User")
             exclude_archived: Exclude archived repos
+            sort_by: Sort field
             return_count: Whether to return total count with results
 
         Returns:
             If return_count is True: {"results": [...], "total": int}
             Otherwise: List of matching repositories
         """
-        # Use full-text search if query is provided and non-empty
         if query and query.strip():
-            search_result = await self.db.search_repositories_fulltext(
+            return await self.db.search_repositories_fulltext(
                 query=query,
                 limit=limit,
                 offset=offset,
                 return_count=return_count
             )
-            # FTS now returns dict with count if requested
-            if return_count:
-                if isinstance(search_result, dict):
-                    return search_result
-                else:
-                    return {"results": search_result, "total": len(search_result)}
-            return search_result
-        else:
-            # Use database search for filters only
-            result = await self.db.search_repositories(
-                categories=categories,
-                languages=languages,
-                min_stars=min_stars,
-                max_stars=max_stars,
-                limit=limit,
-                offset=offset,
-                is_active=is_active,
-                is_new=is_new,
-                owner_type=owner_type,
-                exclude_archived=exclude_archived,
-                sort_by=sort_by,
-                return_count=return_count
-            )
-            return result
+
+        return await self.db.search_repositories(
+            categories=categories,
+            languages=languages,
+            min_stars=min_stars,
+            max_stars=max_stars,
+            limit=limit,
+            offset=offset,
+            is_active=is_active,
+            is_new=is_new,
+            owner_type=owner_type,
+            exclude_archived=exclude_archived,
+            sort_by=sort_by,
+            return_count=return_count
+        )
 
     async def search_fulltext(
         self,
@@ -207,7 +197,6 @@ class SearchService:
         Returns:
             Dictionary with "results", "related", and "total" keys
         """
-        # Get direct matches with count
         search_result = await self.search(
             query=query,
             categories=categories,
@@ -224,38 +213,48 @@ class SearchService:
             return_count=True
         )
 
-        # Extract results and total from search result
-        if isinstance(search_result, dict):
-            results = search_result.get("results", [])
-            total = search_result.get("total", len(results))
-        else:
-            results = search_result
-            total = len(results)
+        results = search_result.get("results", [])
+        total = search_result.get("total", len(results))
 
         related = []
         if include_related and results:
-            # Get related repos for top results
-            related_repos = set()
-            for repo in results[:5]:  # Top 5 results
-                edges = await self.db.get_graph_edges(
-                    repo['name_with_owner'],
-                    limit=3
-                )
-                for edge in edges:
-                    related_repos.add(edge['target_repo'])
-
-            # Remove already shown repos
-            result_names = {r['name_with_owner'] for r in results}
-            related_repos = related_repos - result_names
-
-            # Fetch full repo data for related
-            for repo_name in list(related_repos)[:5]:  # Top 5 related
-                repo_data = await self.db.get_repository(repo_name)
-                if repo_data:
-                    related.append(repo_data)
+            related = await self._get_related_repositories(results)
 
         return {
             "results": results,
             "related": related,
             "total": total
         }
+
+    async def _get_related_repositories(self, results: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+        """Get related repositories based on graph edges.
+
+        Args:
+            results: Search results to find related repos for
+
+        Returns:
+            List of related repository data
+        """
+        related_repos = set()
+
+        # Collect related repos from top 5 results
+        for repo in results[:5]:
+            edges = await self.db.get_graph_edges(
+                repo['name_with_owner'],
+                limit=3
+            )
+            for edge in edges:
+                related_repos.add(edge['target_repo'])
+
+        # Remove already shown repos
+        result_names = {r['name_with_owner'] for r in results}
+        related_repos = related_repos - result_names
+
+        # Fetch full repo data for top 5 related
+        related = []
+        for repo_name in list(related_repos)[:5]:
+            repo_data = await self.db.get_repository(repo_name)
+            if repo_data:
+                related.append(repo_data)
+
+        return related

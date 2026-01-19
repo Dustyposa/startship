@@ -12,6 +12,12 @@ logger = logging.getLogger(__name__)
 # Badge pattern to remove from README (same as in readme_filter.py)
 BADGE_PATTERN = r'\[!\[.*?\]\(.*?\)\]\(.*?\)|\!\[.*?\]\(.*?\)'
 
+# Constants for text processing
+MIN_README_SUMMARY_LENGTH = 300
+MAX_README_CONTENT_LENGTH = 2000
+DESCRIPTION_REPEAT_COUNT = 4
+MIN_TEXT_LENGTH = 10
+
 
 class VectorizationService:
     """仓库向量化服务"""
@@ -54,20 +60,17 @@ class VectorizationService:
         readme_summary = extract_readme_summary(readme, max_length=500)
 
         # 如果过滤后太短，使用更多原始 README 内容
-        # 阈值设为 300 字符（提高到 300）
-        if len(readme_summary) < 300 and len(readme) > 0:
-            # 使用原始 README 的前 2000 字符（提高到 2000）
+        if len(readme_summary) < MIN_README_SUMMARY_LENGTH and len(readme) > 0:
             readme_cleaned = re.sub(BADGE_PATTERN, '', readme)
-            # 取前 2000 字符
-            readme_summary = readme_cleaned[:2000] if len(readme_cleaned) > 2000 else readme_cleaned
+            readme_summary = readme_cleaned[:MAX_README_CONTENT_LENGTH] if len(readme_cleaned) > MAX_README_CONTENT_LENGTH else readme_cleaned
 
-        # 拼接文本：description 重复 4 次以最大化权重
+        # 拼接文本：description 重复多次以最大化权重
         parts = []
         if name:
             parts.append(name)
         if description:
-            # 重复 4 次
-            for _ in range(4):
+            # 重复 description 以增加其在 embedding 中的权重
+            for _ in range(DESCRIPTION_REPEAT_COUNT):
                 parts.append(f"- {description}")
         # 添加语言标签作为区分特征
         language = repo.get("primary_language", "")
@@ -106,36 +109,30 @@ class VectorizationService:
         Returns:
             是否成功
         """
-        try:
-            repo_id = repo.get("name_with_owner")
-            if not repo_id:
-                logger.warning("Repository missing name_with_owner")
-                return False
-
-            # 准备文本
-            text = self._prepare_text(repo)
-            if not text or len(text.strip()) < 10:
-                logger.warning(f"Insufficient text for {repo_id}")
-                return False
-
-            # 生成 embedding
-            embedding = self.embeddings.embed_text(text)
-            if not embedding:
-                logger.error(f"Failed to generate embedding for {repo_id}")
-                return False
-
-            # 准备元数据
-            metadata = self._prepare_metadata(repo)
-
-            # 存储向量
-            self.store.add(repo_id, text, embedding, metadata)
-
-            logger.debug(f"Indexed {repo_id}")
-            return True
-
-        except Exception as e:
-            logger.error(f"Failed to index repository: {e}")
+        repo_id = repo.get("name_with_owner")
+        if not repo_id:
+            logger.warning("Repository missing name_with_owner")
             return False
+
+        # 准备文本
+        text = self._prepare_text(repo)
+        if not text or len(text.strip()) < MIN_TEXT_LENGTH:
+            logger.warning(f"Insufficient text for {repo_id}")
+            return False
+
+        # 生成 embedding
+        embedding = self.embeddings.embed_text(text)
+        if not embedding:
+            logger.error(f"Failed to generate embedding for {repo_id}")
+            return False
+
+        # 准备元数据
+        metadata = self._prepare_metadata(repo)
+
+        # 存储向量
+        self.store.add(repo_id, text, embedding, metadata)
+        logger.debug(f"Indexed {repo_id}")
+        return True
 
     async def index_batch(self, repos: List[Dict[str, Any]]) -> int:
         """
@@ -155,40 +152,33 @@ class VectorizationService:
         embeddings = []
         metadata_list = []
 
-        success_count = 0
-
         for repo in repos:
-            try:
-                repo_id = repo.get("name_with_owner")
-                if not repo_id:
-                    continue
+            repo_id = repo.get("name_with_owner")
+            if not repo_id:
+                continue
 
-                # 准备文本
-                text = self._prepare_text(repo)
-                if not text or len(text.strip()) < 10:
-                    continue
+            # 准备文本
+            text = self._prepare_text(repo)
+            if not text or len(text.strip()) < MIN_TEXT_LENGTH:
+                continue
 
-                # 生成 embedding
-                embedding = self.embeddings.embed_text(text)
-                if not embedding:
-                    logger.warning(f"Skipping {repo_id}: no embedding generated")
-                    continue
+            # 生成 embedding
+            embedding = self.embeddings.embed_text(text)
+            if not embedding:
+                logger.warning(f"Skipping {repo_id}: no embedding generated")
+                continue
 
-                # 准备元数据
-                metadata = self._prepare_metadata(repo)
+            # 准备元数据
+            metadata = self._prepare_metadata(repo)
 
-                repo_ids.append(repo_id)
-                texts.append(text)
-                embeddings.append(embedding)
-                metadata_list.append(metadata)
-                success_count += 1
-
-            except Exception as e:
-                logger.error(f"Failed to prepare {repo.get('name_with_owner')}: {e}")
+            repo_ids.append(repo_id)
+            texts.append(text)
+            embeddings.append(embedding)
+            metadata_list.append(metadata)
 
         # 批量添加到存储
         if repo_ids:
             self.store.add_batch(repo_ids, texts, embeddings, metadata_list)
-            logger.info(f"Batch indexed {success_count}/{len(repos)} repositories")
+            logger.info(f"Batch indexed {len(repo_ids)}/{len(repos)} repositories")
 
-        return success_count
+        return len(repo_ids)

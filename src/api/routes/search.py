@@ -18,8 +18,17 @@ async def get_search_service():
 
 
 def parse_list_param(value: Optional[str]) -> Optional[List[str]]:
-    """Parse comma-separated string into list"""
-    return value.split(",") if value else None
+    """Parse comma-separated string into list.
+
+    Args:
+        value: Comma-separated string or None
+
+    Returns:
+        List of strings or None
+    """
+    if not value:
+        return None
+    return [item.strip() for item in value.split(",") if item.strip()]
 
 
 @router.get("/search")
@@ -39,12 +48,14 @@ async def search_repositories(
     search_service = Depends(get_search_service)
 ):
     """Search repositories with filters and optional related recommendations"""
-    # Use search_with_relations if related repos are requested
+    parsed_categories = parse_list_param(categories)
+    parsed_languages = parse_list_param(languages)
+
     if include_related:
         result = await search_service.search_with_relations(
             query=q,
-            categories=parse_list_param(categories),
-            languages=parse_list_param(languages),
+            categories=parsed_categories,
+            languages=parsed_languages,
             min_stars=min_stars,
             max_stars=max_stars,
             limit=limit,
@@ -55,13 +66,13 @@ async def search_repositories(
             exclude_archived=exclude_archived,
             include_related=True
         )
-        return build_response(result["results"], count=result.get("total"), related=result["related"])
+        return build_response(result["results"], count=result["total"], related=result["related"])
 
-    # Use regular search if related repos are not requested
+    # Regular search without related repos
     result = await search_service.search(
         query=q,
-        categories=parse_list_param(categories),
-        languages=parse_list_param(languages),
+        categories=parsed_categories,
+        languages=parsed_languages,
         min_stars=min_stars,
         max_stars=max_stars,
         limit=limit,
@@ -72,10 +83,7 @@ async def search_repositories(
         exclude_archived=exclude_archived,
         return_count=True
     )
-    # Extract results and count
-    if isinstance(result, dict):
-        return build_response(result["results"], count=result.get("total"))
-    return build_response(result)
+    return build_response(result["results"], count=result.get("total"))
 
 
 @router.get("/search/fulltext")

@@ -4,7 +4,7 @@ SQLite database implementation.
 import json
 import aiosqlite
 from pathlib import Path
-from typing import List, Dict, Any, Optional, Tuple
+from typing import List, Dict, Any, Optional, Tuple, Union
 from datetime import datetime, timedelta
 from .base import Database
 
@@ -307,9 +307,16 @@ class SQLiteDatabase(Database):
         is_deleted: Optional[bool] = False,
         # Sorting
         sort_by: Optional[str] = None,
-        sort_order: str = "DESC"
-    ) -> List[Dict[str, Any]]:
-        """Search repositories with filters"""
+        sort_order: str = "DESC",
+        # Return total count
+        return_count: bool = False
+    ) -> Union[List[Dict[str, Any]], Dict[str, Any]]:
+        """Search repositories with filters
+
+        Returns:
+            If return_count is True: {"results": [...], "total": int}
+            Otherwise: List of matching repositories
+        """
         from datetime import datetime, timedelta
 
         query = "SELECT DISTINCT r.* FROM repositories r"
@@ -381,35 +388,77 @@ class SQLiteDatabase(Database):
 
         async with self._connection.execute(query, params) as cursor:
             rows = await cursor.fetchall()
-            return [self._row_to_dict(row) for row in rows]
+            results = [self._row_to_dict(row) for row in rows]
+
+        # Return total count if requested
+        if return_count:
+            # Build COUNT query with same conditions
+            count_query = "SELECT COUNT(DISTINCT r.id) as total FROM repositories r"
+            if categories:
+                count_query += " JOIN repo_categories rc ON r.id = rc.repo_id"
+
+            if conditions:
+                count_query += " WHERE " + " AND ".join(conditions)
+
+            async with self._connection.execute(count_query, params[:-2]) as cursor:  # Exclude LIMIT and OFFSET params
+                count_row = await cursor.fetchone()
+                total = count_row[0] if count_row else 0
+
+            return {"results": results, "total": total}
+
+        return results
 
     async def search_repositories_fulltext(
         self,
         query: str,
-        limit: int = 20
-    ) -> List[Dict[str, Any]]:
+        limit: int = 20,
+        offset: int = 0,
+        return_count: bool = False
+    ) -> Union[List[Dict[str, Any]], Dict[str, Any]]:
         """Full-text search using FTS5
 
         Args:
             query: Search query string
             limit: Maximum number of results
+            offset: Number of results to skip
+            return_count: Whether to return total count with results
 
         Returns:
-            List of matching repositories
+            If return_count is True: {"results": [...], "total": int}
+            Otherwise: List of matching repositories
         """
         if not query:
+            if return_count:
+                return {"results": [], "total": 0}
             return []
 
+        # First get total count if requested
+        total = None
+        if return_count:
+            async with self._connection.execute(
+                """SELECT COUNT(*) FROM repositories r
+                   INNER JOIN repositories_fts fts ON r.rowid = fts.rowid
+                   WHERE repositories_fts MATCH ?""",
+                (query,)
+            ) as cursor:
+                count_row = await cursor.fetchone()
+                total = count_row[0] if count_row else 0
+
+        # Get paginated results
         async with self._connection.execute(
             """SELECT r.* FROM repositories r
                INNER JOIN repositories_fts fts ON r.rowid = fts.rowid
                WHERE repositories_fts MATCH ?
                ORDER BY rank
-               LIMIT ?""",
-            (query, limit)
+               LIMIT ? OFFSET ?""",
+            (query, limit, offset)
         ) as cursor:
             rows = await cursor.fetchall()
-            return [self._row_to_dict(row) for row in rows]
+            results = [self._row_to_dict(row) for row in rows]
+
+        if return_count:
+            return {"results": results, "total": total}
+        return results
 
     async def update_repository(
         self,

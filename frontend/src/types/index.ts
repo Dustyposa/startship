@@ -20,6 +20,8 @@ export interface Repository {
   visibility?: string
   owner_type?: string | null
   organization?: string | null
+  last_analyzed_at?: string | null
+  last_synced_at?: string | null
 }
 
 export interface LanguageInfo {

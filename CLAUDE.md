@@ -7,6 +7,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 ### Development Setup
 ```bash
 # Python backend (uses uv)
+# Note: Project is configured to use Tsinghua mirror for faster downloads in China
 uv pip install -e .
 uvicorn src.api.app:app --reload --host 0.0.0.0 --port 8889
 
@@ -47,6 +48,10 @@ ruff check src/ --fix
 cd frontend
 npm run lint
 npm run format
+
+# Frontend testing
+cd frontend
+npm run test       # Run tests
 ```
 
 ## High-Level Architecture
@@ -84,13 +89,15 @@ npm run format
 
 3. **Intent Recognition System**
    - Chat requests are routed through intent detection in `src/services/intent.py`
-   - Supports multiple intent types: search, statistics, recommendation, etc.
-   - RAG integration with vector search for enhanced responses
+   - Supports three intent types: `chat` (conversational), `stats` (statistics/analysis), `search` (repository search)
+   - Intent classifier uses LLM with Chinese-language system prompt
+   - Automatically extracts search keywords for search-based queries
 
 4. **Dual Search Architecture**
    - **Full-text search**: SQLite FTS5 on name, description, summary
    - **Semantic search**: ChromaDB with Ollama embeddings (when enabled)
    - Hybrid search with configurable weights in `src/services/hybrid_search.py`
+   - Query expansion via `src/services/query_expander.py` enhances search recall
 
 ## Important Conventions
 
@@ -132,9 +139,10 @@ The chat system maintains conversation context automatically through:
 
 ### 3. Hybrid Search Weights
 Search results combine FTS5 and semantic search with configurable weights:
-- `fts_weight`: 0.7 (default) - Full-text search importance
-- `semantic_weight`: 0.3 (default) - Semantic search importance
-- Weights can be adjusted in `src/services/hybrid_search.py`
+- `fts_weight`: 0.3 (default) - Full-text search importance
+- `semantic_weight`: 0.7 (default) - Semantic search importance
+- Weights can be adjusted in `src/services/hybrid_search.py` constructor
+- Parallel execution of both search types for optimal performance
 
 ### 4. Data Migration System
 - Automatic migration execution on startup
@@ -144,19 +152,26 @@ Search results combine FTS5 and semantic search with configurable weights:
 
 ### 5. Streaming Response Protocol
 Chat endpoints use Server-Sent Events (SSE) with event types:
-- `intent`: Detected user intent
+- `intent`: Detected user intent (chat/stats/search)
 - `content`: Response content chunks
 - `search_results`: Relevant repositories for context
 - `done`: Signal completion
 
-### 6. Soft Delete Protection
+### 6. Knowledge Graph System
+- Edge discovery service in `src/services/graph/edges.py` finds relationships between repositories
+- Three edge types: `author` (same owner), `ecosystem` (same language), `collection` (same collection)
+- Relationship weights computed based on connection strength
+- Related repository recommendations based on graph traversal
+- Manual rebuild via `/api/graph/rebuild`, incremental updates on sync/user actions
+
+### 7. Soft Delete Protection
 When repositories are un-starred:
 - Main repository record marked as `is_deleted = 1`
 - User data (notes, tags, collections) preserved
 - Restore functionality available through API endpoints
 - Prevents accidental data loss during sync operations
 
-### 7. Development Server URLs
+### 8. Development Server URLs
 - Backend: http://localhost:8889 (not 8000 as configured)
 - Frontend: http://localhost:3001 (not 3000 as default)
 - API docs: http://localhost:8889/docs
@@ -184,3 +199,9 @@ SQLITE_PATH=data/github_stars.db
 3. Initialize data via `/api/init/start` endpoint
 4. Use browser dev tools for API debugging
 5. Check `/health` and `/api/stats` for service status
+
+### Language and Localization
+- **Chinese Language System**: The application's UI and LLM prompts use Chinese as the primary language
+- Intent classifier uses Chinese-language system prompts for better accuracy with Chinese queries
+- UI text, error messages, and documentation are in Chinese
+- When modifying LLM prompts or adding new features, maintain consistency with Chinese language patterns

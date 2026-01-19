@@ -129,13 +129,13 @@
                 v-model="searchQuery"
                 type="text"
                 placeholder="搜索仓库或向 AI 提问..."
-                class="flex-1 px-4 py-3 text-lg border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-700 dark:text-white shadow-lg"
+                class="flex-1 px-4 py-3 text-lg border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 focus:shadow-xl dark:bg-gray-700 dark:text-white shadow-lg hover:shadow-xl transition-all duration-200"
                 @keyup.enter="handleQuickAction"
               />
               <div class="flex gap-2">
                 <button
                   @click="handleSearch"
-                  class="px-4 py-2 bg-blue-600 text-white text-sm font-medium rounded-lg hover:bg-blue-700 transition shadow-lg flex items-center gap-1.5"
+                  class="px-4 py-2 bg-blue-600 text-white text-sm font-medium rounded-lg hover:bg-blue-700 hover:shadow-xl transition-all duration-200 shadow-lg flex items-center gap-1.5"
                   title="搜索仓库"
                 >
                   <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -145,7 +145,7 @@
                 </button>
                 <button
                   @click="handleChat"
-                  class="px-4 py-2 bg-purple-600 text-white text-sm font-medium rounded-lg hover:bg-purple-700 transition shadow-lg flex items-center gap-1.5"
+                  class="px-4 py-2 bg-purple-600 text-white text-sm font-medium rounded-lg hover:bg-purple-700 hover:shadow-xl transition-all duration-200 shadow-lg flex items-center gap-1.5"
                   title="AI 对话"
                 >
                   <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">

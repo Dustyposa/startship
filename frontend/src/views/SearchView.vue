@@ -1,153 +1,112 @@
 <template>
   <div class="space-y-6">
-    <!-- Repo Count -->
-    <div v-if="repos.length > 0" class="text-sm text-gray-600 dark:text-gray-400">
-      找到 <span class="font-semibold text-gray-900 dark:text-white">{{ repos.length }}</span> 个仓库
-    </div>
-
-    <!-- Language Distribution Chart -->
-    <div v-if="repos.length > 0 && languageDistribution.length > 0" class="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg p-4">
-      <h3 class="text-sm font-semibold text-gray-900 dark:text-white mb-3">当前结果语言分布</h3>
-      <div class="flex flex-col sm:flex-row items-center justify-center gap-6">
-        <PieChart
-          :data="languageDistribution"
-          :size="160"
-          :donut="true"
-          :donut-radius="50"
-          :is-dark="isDark"
-        />
-      </div>
-    </div>
-
-    <!-- Related Recommendations (Graph-based) -->
-    <div v-if="relatedRepos.length > 0" class="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg p-4">
-      <h3 class="text-sm font-semibold text-gray-900 dark:text-white mb-3 flex items-center gap-2">
-        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1" />
-        </svg>
-        关联推荐
-        <span class="text-xs font-normal text-gray-500 dark:text-gray-400">基于知识图谱</span>
-      </h3>
-      <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3">
-        <div
-          v-for="repo in relatedRepos"
-          :key="repo.name_with_owner"
-          @click="goToRepo(repo.name_with_owner)"
-          class="p-3 rounded-lg bg-gray-50 dark:bg-gray-700 hover:bg-gray-100 dark:hover:bg-gray-600 cursor-pointer transition border border-gray-200 dark:border-gray-600"
-        >
-          <h4 class="font-medium text-sm text-gray-900 dark:text-white mb-1 truncate" :title="repo.name_with_owner">{{ repo.name_with_owner }}</h4>
-          <p class="text-xs text-gray-600 dark:text-gray-400 line-clamp-2 mb-2">{{ repo.description || repo.summary }}</p>
-          <div class="flex items-center gap-2">
-            <span class="text-xs px-2 py-0.5 bg-gray-200 dark:bg-gray-600 text-gray-700 dark:text-gray-300 rounded">
-              ⭐ {{ formatStarCount(repo.stargazer_count) }}
-            </span>
-            <span v-if="repo.primary_language" class="text-xs px-2 py-0.5 bg-blue-100 dark:bg-blue-900 text-blue-700 dark:text-blue-300 rounded">
-              {{ repo.primary_language }}
-            </span>
-          </div>
-        </div>
-      </div>
-    </div>
-
     <!-- Search and Filters -->
-    <div class="space-y-4">
-      <!-- Search Bar -->
-      <div class="flex gap-4">
-        <input
-          v-model="searchQuery"
-          type="text"
-          placeholder="搜索仓库..."
-          class="flex-1 px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 dark:bg-gray-800 dark:text-white"
-          @keyup.enter="handleSearch"
-        />
-        <button
-          @click="handleSearch"
-          class="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition"
-        >
-          搜索
-        </button>
-      </div>
-
-      <!-- Filters Row -->
-      <div class="flex gap-4 flex-wrap items-center">
-        <!-- Language Filter -->
-        <select v-model="selectedLanguage" class="px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg dark:bg-gray-800 dark:text-white">
-          <option value="">所有语言</option>
-          <option value="Python">Python</option>
-          <option value="JavaScript">JavaScript</option>
-          <option value="TypeScript">TypeScript</option>
-          <option value="Go">Go</option>
-          <option value="Rust">Rust</option>
-          <option value="Java">Java</option>
-          <option value="C++">C++</option>
-        </select>
-
-        <!-- Owner Type Filter -->
-        <select v-model="selectedOwnerType" class="px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg dark:bg-gray-800 dark:text-white">
-          <option value="">所有类型</option>
-          <option value="Organization">🏢 组织</option>
-          <option value="User">👤 个人</option>
-        </select>
-
-        <!-- Derived Tag Filters -->
-        <label class="flex items-center gap-2 px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg dark:bg-gray-800 dark:text-white cursor-pointer">
-          <input type="checkbox" v-model="isActive" class="rounded">
-          <span>🟢 活跃维护</span>
-        </label>
-
-        <label class="flex items-center gap-2 px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg dark:bg-gray-800 dark:text-white cursor-pointer">
-          <input type="checkbox" v-model="isNew" class="rounded">
-          <span>🆕 新项目</span>
-        </label>
-
-        <label class="flex items-center gap-2 px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg dark:bg-gray-800 dark:text-white cursor-pointer">
-          <input type="checkbox" v-model="excludeArchived" class="rounded">
-          <span>排除归档</span>
-        </label>
-
-        <!-- Spacer -->
-        <div class="flex-1"></div>
-
-        <!-- Export Dropdown Button -->
-        <div class="relative" v-if="repos.length > 0">
+    <div class="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg p-4">
+      <div class="space-y-4">
+        <!-- Search Bar -->
+        <div class="flex gap-4">
+          <input
+            v-model="searchQuery"
+            type="text"
+            placeholder="搜索仓库..."
+            class="flex-1 px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:text-white"
+            @keyup.enter="handleSearch"
+          />
           <button
-            @click="showExportMenu = !showExportMenu"
-            class="flex items-center gap-2 px-4 py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-700 transition"
-            title="导出数据"
+            @click="handleSearch"
+            class="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition font-medium"
           >
-            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
-            </svg>
-            <span>导出</span>
-            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" />
-            </svg>
+            搜索
           </button>
-          <div
-            v-if="showExportMenu"
-            class="absolute right-0 mt-2 w-48 bg-white dark:bg-gray-800 rounded-lg shadow-lg border border-gray-200 dark:border-gray-700 z-10"
-          >
+        </div>
+
+        <!-- Filters Row -->
+        <div class="flex gap-3 flex-wrap items-center">
+          <!-- Language Filter -->
+          <select v-model="selectedLanguage" class="px-3 py-2 text-sm border border-gray-300 dark:border-gray-600 rounded-lg dark:bg-gray-700 dark:text-white">
+            <option value="">所有语言</option>
+            <option value="Python">Python</option>
+            <option value="JavaScript">JavaScript</option>
+            <option value="TypeScript">TypeScript</option>
+            <option value="Go">Go</option>
+            <option value="Rust">Rust</option>
+            <option value="Java">Java</option>
+            <option value="C++">C++</option>
+          </select>
+
+          <!-- Owner Type Filter -->
+          <select v-model="selectedOwnerType" class="px-3 py-2 text-sm border border-gray-300 dark:border-gray-600 rounded-lg dark:bg-gray-700 dark:text-white">
+            <option value="">所有类型</option>
+            <option value="Organization">🏢 组织</option>
+            <option value="User">👤 个人</option>
+          </select>
+
+          <!-- Derived Tag Filters -->
+          <label class="flex items-center gap-2 px-3 py-2 text-sm border border-gray-300 dark:border-gray-600 rounded-lg dark:bg-gray-700 dark:text-white cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-600 transition">
+            <input type="checkbox" v-model="isActive" class="rounded">
+            <span>🟢 活跃维护</span>
+          </label>
+
+          <label class="flex items-center gap-2 px-3 py-2 text-sm border border-gray-300 dark:border-gray-600 rounded-lg dark:bg-gray-700 dark:text-white cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-600 transition">
+            <input type="checkbox" v-model="isNew" class="rounded">
+            <span>🆕 新项目</span>
+          </label>
+
+          <label class="flex items-center gap-2 px-3 py-2 text-sm border border-gray-300 dark:border-gray-600 rounded-lg dark:bg-gray-700 dark:text-white cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-600 transition">
+            <input type="checkbox" v-model="excludeArchived" class="rounded">
+            <span>排除归档</span>
+          </label>
+
+          <!-- Spacer -->
+          <div class="flex-1"></div>
+
+          <!-- Export Dropdown Button -->
+          <div class="relative" v-if="repos.length > 0">
             <button
-              @click="exportToCSV"
-              class="w-full px-4 py-2 text-left text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 transition flex items-center gap-2"
+              @click="showExportMenu = !showExportMenu"
+              class="flex items-center gap-2 px-4 py-2 bg-gray-600 text-white text-sm rounded-lg hover:bg-gray-700 transition"
+              title="导出数据"
             >
-              <svg class="w-4 h-4 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M9 19l3 3m0 0l3-3m-3 3V10" />
-              </svg>
-              导出为 CSV
-            </button>
-            <button
-              @click="exportToJSON"
-              class="w-full px-4 py-2 text-left text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 transition flex items-center gap-2"
-            >
-              <svg class="w-4 h-4 text-purple-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
               </svg>
-              导出为 JSON
+              <span>导出</span>
+              <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" />
+              </svg>
             </button>
+            <div
+              v-if="showExportMenu"
+              class="absolute right-0 mt-2 w-48 bg-white dark:bg-gray-800 rounded-lg shadow-lg border border-gray-200 dark:border-gray-700 z-10"
+            >
+              <button
+                @click="exportToCSV"
+                class="w-full px-4 py-2 text-left text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 transition flex items-center gap-2"
+              >
+                <svg class="w-4 h-4 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M9 19l3 3m0 0l3-3m-3 3V10" />
+                </svg>
+                导出为 CSV
+              </button>
+              <button
+                @click="exportToJSON"
+                class="w-full px-4 py-2 text-left text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 transition flex items-center gap-2"
+              >
+                <svg class="w-4 h-4 text-purple-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+                </svg>
+                导出为 JSON
+              </button>
+            </div>
           </div>
         </div>
       </div>
+    </div>
+
+    <!-- Repo Count -->
+    <div v-if="repos.length > 0" class="text-sm text-gray-600 dark:text-gray-400">
+      找到 <span class="font-semibold text-gray-900 dark:text-white">{{ totalCount }}</span> 个仓库
+      <span v-if="totalCount > pageSize">，显示第 <span class="font-semibold text-gray-900 dark:text-white">{{ (currentPage - 1) * pageSize + 1 }}-{{ Math.min(currentPage * pageSize, totalCount) }}</span> 个</span>
     </div>
 
     <!-- Loading State -->
@@ -223,6 +182,36 @@
 
             <!-- Language Indicator -->
             <LanguageBarChart v-if="repo.languages && repo.languages.length > 0" :languages="repo.languages" :limit="3" />
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Related Recommendations (Graph-based) - Moved below search results -->
+    <div v-if="relatedRepos.length > 0" class="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg p-4">
+      <h3 class="text-lg font-bold text-gray-900 dark:text-white mb-3 flex items-center gap-2">
+        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1" />
+        </svg>
+        关联推荐
+        <span class="text-sm font-normal text-gray-500 dark:text-gray-400">基于知识图谱</span>
+      </h3>
+      <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3">
+        <div
+          v-for="repo in relatedRepos"
+          :key="repo.name_with_owner"
+          @click="goToRepo(repo.name_with_owner)"
+          class="flex flex-col p-3 rounded-lg bg-gray-50 dark:bg-gray-700 hover:bg-gray-100 dark:hover:bg-gray-600 cursor-pointer transition border border-gray-200 dark:border-gray-600"
+        >
+          <h4 class="font-medium text-sm text-gray-900 dark:text-white mb-1 truncate" :title="repo.name_with_owner">{{ repo.name_with_owner }}</h4>
+          <p class="text-xs text-gray-600 dark:text-gray-400 line-clamp-2 mb-2 flex-1">{{ repo.description || repo.summary }}</p>
+          <div class="flex items-center gap-2">
+            <span class="text-xs px-2 py-0.5 bg-gray-200 dark:bg-gray-600 text-gray-700 dark:text-gray-300 rounded">
+              ⭐ {{ formatStarCount(repo.stargazer_count) }}
+            </span>
+            <span v-if="repo.primary_language" class="text-xs px-2 py-0.5 bg-blue-100 dark:bg-blue-900 text-blue-700 dark:text-blue-300 rounded">
+              {{ repo.primary_language }}
+            </span>
           </div>
         </div>
       </div>
@@ -321,6 +310,42 @@
       </div>
     </BaseModal>
 
+    <!-- Language Distribution Chart (moved to bottom, collapsible) -->
+    <div v-if="repos.length > 0 && languageDistribution.length > 0" class="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg">
+      <button
+        @click="showLanguageDistribution = !showLanguageDistribution"
+        class="w-full px-4 py-3 flex items-center justify-between text-left hover:bg-gray-50 dark:hover:bg-gray-700 transition rounded-lg"
+      >
+        <h3 class="text-sm font-semibold text-gray-900 dark:text-white flex items-center gap-2">
+          <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 3.055A9.001 9.001 0 1020.945 13H11V3.055z" />
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20.488 9H15V3.512A9.025 9.025 0 0120.488 9z" />
+          </svg>
+          当前结果语言分布
+        </h3>
+        <svg
+          class="w-4 h-4 text-gray-500 dark:text-gray-400 transition-transform"
+          :class="{ 'rotate-180': showLanguageDistribution }"
+          fill="none"
+          stroke="currentColor"
+          viewBox="0 0 24 24"
+        >
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" />
+        </svg>
+      </button>
+      <div v-if="showLanguageDistribution" class="px-4 pb-4">
+        <div class="flex flex-col sm:flex-row items-center justify-center gap-6">
+          <PieChart
+            :data="languageDistribution"
+            :size="160"
+            :donut="true"
+            :donut-radius="50"
+            :is-dark="isDark"
+          />
+        </div>
+      </div>
+    </div>
+
     <!-- Empty State -->
     <EmptyState
       v-if="!isLoading && repos.length === 0"
@@ -375,9 +400,12 @@ const modals = ref({
 
 const showExportMenu = ref(false)
 
+// Collapsible sections
+const showLanguageDistribution = ref(true)
+
 // Pagination
 const currentPage = ref(1)
-const pageSize = 30
+const pageSize = 12
 const isLoadingPage = ref(false)
 
 // Cache for repo data (collections, tags, notes)
@@ -388,6 +416,9 @@ const collectionRepoCounts = ref<Record<string, number>>({})
 
 const repos = computed(() => reposStore.repos)
 const isLoading = computed(() => reposStore.isLoading)
+
+// Total count for pagination display
+const totalCount = ref(0)
 
 // Related repos from graph-based recommendations
 const relatedRepos = ref<any[]>([])
@@ -497,6 +528,9 @@ async function loadPage(page: number) {
     )
     const data = await response.json()
     const newRepos = data.results || []
+
+    // Update total count
+    totalCount.value = data.count || newRepos.length
 
     // Update store with new page data
     reposStore.repos = newRepos

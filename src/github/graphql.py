@@ -95,43 +95,46 @@ class GitHubGraphQLClient(GitHubBaseClient):
                 hasNextPage
                 endCursor
               }
-              nodes {
-                id
-                name
-                nameWithOwner
-                owner {
-                  login
-                }
-                description
-                url
-                createdAt
-                updatedAt
-                primaryLanguage {
+              edges {
+                node {
+                  id
                   name
-                }
-                languages(first: 5) {
-                  edges {
-                    size
-                    node {
-                      name
+                  nameWithOwner
+                  owner {
+                    login
+                  }
+                  description
+                  url
+                  createdAt
+                  updatedAt
+                  primaryLanguage {
+                    name
+                  }
+                  languages(first: 5) {
+                    edges {
+                      size
+                      node {
+                        name
+                      }
+                    }
+                    totalSize
+                  }
+                  stargazerCount
+                  forkCount
+                  repositoryTopics(first: 10) {
+                    nodes {
+                      topic {
+                        name
+                      }
                     }
                   }
-                  totalSize
-                }
-                stargazerCount
-                forkCount
-                repositoryTopics(first: 10) {
-                  nodes {
-                    topic {
-                      name
+                  readme: object(expression: "HEAD:README.md") {
+                    ... on Blob {
+                      text
                     }
                   }
                 }
-                readme: object(expression: "HEAD:README.md") {
-                  ... on Blob {
-                    text
-                  }
-                }
+                starredAt
               }
             }
           }
@@ -152,11 +155,14 @@ class GitHubGraphQLClient(GitHubBaseClient):
             data = await self._query(query, variables)
             page_data = data.get("user", {}).get("starredRepositories", {})
 
-            nodes = page_data.get("nodes", [])
-            if not nodes:
+            edges = page_data.get("edges", [])
+            if not edges:
                 break
 
-            for repo_data in nodes:
+            for edge in edges:
+                repo_data = edge.get("node", {})
+                starred_at = edge.get("starredAt")
+
                 # repo_data is now the Repository directly, not nested
                 topics_nodes = repo_data.get("repositoryTopics", {}).get("nodes", [])
                 topics = [t["topic"]["name"] for t in topics_nodes] if topics_nodes else []
@@ -194,7 +200,7 @@ class GitHubGraphQLClient(GitHubBaseClient):
                     stargazer_count=repo_data["stargazerCount"],
                     fork_count=repo_data["forkCount"],
                     topics=topics,
-                    starred_at=None,
+                    starred_at=starred_at,
                     languages=languages,
                     created_at=repo_data.get("createdAt"),
                     updated_at=repo_data.get("updatedAt"),

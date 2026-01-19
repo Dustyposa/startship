@@ -1,7 +1,7 @@
 """
 Service for searching repositories.
 """
-from typing import List, Dict, Any, Optional
+from typing import List, Dict, Any, Optional, Union
 from src.db import Database
 
 
@@ -31,8 +31,9 @@ class SearchService:
         is_new: Optional[bool] = None,  # Filter by new projects (created within 6 months)
         owner_type: Optional[str] = None,  # Filter by owner type ("Organization" or "User")
         exclude_archived: bool = True,  # Exclude archived repos by default
-        sort_by: str = "starred_at"  # Default sort by starred_at (newest stars first)
-    ) -> List[Dict[str, Any]]:
+        sort_by: str = "starred_at",  # Default sort by starred_at (newest stars first)
+        return_count: bool = False
+    ) -> Union[List[Dict[str, Any]], Dict[str, Any]]:
         """
         Search repositories with filters.
 
@@ -48,19 +49,30 @@ class SearchService:
             is_new: Filter by new projects (created within 6 months)
             owner_type: Filter by owner type ("Organization" or "User")
             exclude_archived: Exclude archived repos
+            return_count: Whether to return total count with results
 
         Returns:
-            List of matching repositories
+            If return_count is True: {"results": [...], "total": int}
+            Otherwise: List of matching repositories
         """
         # Use full-text search if query is provided and non-empty
         if query and query.strip():
-            results = await self.db.search_repositories_fulltext(
+            search_result = await self.db.search_repositories_fulltext(
                 query=query,
-                limit=limit
+                limit=limit,
+                offset=offset,
+                return_count=return_count
             )
+            # FTS now returns dict with count if requested
+            if return_count:
+                if isinstance(search_result, dict):
+                    return search_result
+                else:
+                    return {"results": search_result, "total": len(search_result)}
+            return search_result
         else:
             # Use database search for filters only
-            results = await self.db.search_repositories(
+            result = await self.db.search_repositories(
                 categories=categories,
                 languages=languages,
                 min_stars=min_stars,
@@ -71,10 +83,10 @@ class SearchService:
                 is_new=is_new,
                 owner_type=owner_type,
                 exclude_archived=exclude_archived,
-                sort_by=sort_by
+                sort_by=sort_by,
+                return_count=return_count
             )
-
-        return results
+            return result
 
     async def search_fulltext(
         self,
@@ -193,10 +205,10 @@ class SearchService:
             include_related: Whether to include related repo recommendations
 
         Returns:
-            Dictionary with "results" and "related" keys
+            Dictionary with "results", "related", and "total" keys
         """
-        # Get direct matches
-        results = await self.search(
+        # Get direct matches with count
+        search_result = await self.search(
             query=query,
             categories=categories,
             languages=languages,
@@ -208,8 +220,17 @@ class SearchService:
             is_new=is_new,
             owner_type=owner_type,
             exclude_archived=exclude_archived,
-            sort_by=sort_by
+            sort_by=sort_by,
+            return_count=True
         )
+
+        # Extract results and total from search result
+        if isinstance(search_result, dict):
+            results = search_result.get("results", [])
+            total = search_result.get("total", len(results))
+        else:
+            results = search_result
+            total = len(results)
 
         related = []
         if include_related and results:
@@ -235,5 +256,6 @@ class SearchService:
 
         return {
             "results": results,
-            "related": related
+            "related": related,
+            "total": total
         }

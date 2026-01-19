@@ -32,7 +32,8 @@ class SyncService:
 
     async def sync(
         self,
-        skip_llm: bool = True
+        skip_llm: bool = True,
+        force_update: bool = False
     ) -> dict[str, Any]:
         """
         Synchronize all starred repositories from GitHub.
@@ -46,6 +47,7 @@ class SyncService:
 
         Args:
             skip_llm: Skip LLM analysis (faster)
+            force_update: Force update all repos even if no changes detected
 
         Returns:
             Statistics about the sync operation
@@ -91,7 +93,7 @@ class SyncService:
                 common_names = github_names & local_names
 
                 await self._process_new_repos(github_repo_map, new_names, stats, skip_llm)
-                await self._process_updates(github_repo_map, local_repo_map, common_names, stats, skip_llm)
+                await self._process_updates(github_repo_map, local_repo_map, common_names, stats, skip_llm, force_update)
                 await self._process_deletions(deleted_names, stats)
 
             stats["completed_at"] = datetime.now().isoformat()
@@ -148,11 +150,12 @@ class SyncService:
         local_repo_map: dict[str, dict],
         common_names: set[str],
         stats: dict,
-        skip_llm: bool
+        skip_llm: bool,
+        force_update: bool = False
     ) -> None:
         """Process and update existing repositories."""
         for name in common_names:
-            if await self._should_update_repo(name, github_repo_map, local_repo_map, stats, skip_llm):
+            if await self._should_update_repo(name, github_repo_map, local_repo_map, stats, skip_llm, force_update):
                 stats["updated"] += 1
                 log_debug(f"Updated repo: {name}")
 
@@ -162,16 +165,23 @@ class SyncService:
         github_repo_map: dict[str, GitHubRepository],
         local_repo_map: dict[str, dict],
         stats: dict,
-        skip_llm: bool
+        skip_llm: bool,
+        force_update: bool = False
     ) -> bool:
         """Check if a repository should be updated and perform the update."""
         try:
             github_repo = github_repo_map[name]
             local_repo = local_repo_map[name]
 
-            change_type, changed_fields, needs_llm = self._detect_changes(local_repo, github_repo)
-            if change_type == "none":
-                return False
+            # Force update: skip change detection
+            if force_update:
+                change_type = "heavy"
+                changed_fields = {}
+                needs_llm = not skip_llm
+            else:
+                change_type, changed_fields, needs_llm = self._detect_changes(local_repo, github_repo)
+                if change_type == "none":
+                    return False
 
             await self._update_repository(
                 name_with_owner=github_repo.name_with_owner,
@@ -270,6 +280,7 @@ class SyncService:
             "owner_type": github_repo.owner_type,
             "organization": github_repo.organization,
             "last_synced_at": datetime.now().isoformat(),
+            "starred_at": github_repo.starred_at.isoformat() if github_repo.starred_at else None,
         }
 
         if existing:

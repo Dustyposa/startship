@@ -3,6 +3,7 @@ import { ref, onMounted } from 'vue'
 import { useApiStore } from '../stores/api'
 import type { NetworkNode } from '../types/network'
 import { rebuildGraph, getGraphStatus, type GraphStatusResponse } from '../api/graph'
+import { formatStarCount } from '@/utils/format'
 import VChart from 'vue-echarts'
 import * as echarts from 'echarts/core'
 import { GraphChart } from 'echarts/charts'
@@ -74,11 +75,14 @@ async function loadNetwork() {
         formatter: (params: any) => {
           if (params.dataType === 'node') {
             const node = params.data as any
+            const categories = (node.categories || []).join(', ')
             return `
-              <b>${node.name}</b><br/>
-              Stars: ${node.starCount || 'N/A'}<br/>
-              Language: ${node.language || 'N/A'}<br/>
-              Categories: ${(node.categories || []).join(', ')}
+              <div style="max-width: 300px; word-wrap: break-word; overflow-wrap: break-word;">
+                <b style="white-space: normal;">${node.name}</b><br/>
+                Stars: ${formatStarCount(node.starCount || 0)}<br/>
+                Language: ${node.language || 'N/A'}<br/>
+                <div style="word-break: break-all; white-space: normal;">Categories: ${categories}</div>
+              </div>
             `
           }
           if (params.dataType === 'edge') {
@@ -226,11 +230,11 @@ onMounted(() => {
         />
       </div>
 
-      <div v-if="selectedNode" class="mt-4 p-4 bg-blue-50 dark:bg-blue-900/20 rounded">
-        <h3 class="font-bold text-gray-900 dark:text-white">{{ selectedNode.name }}</h3>
-        <p class="text-gray-700 dark:text-gray-300">Stars: {{ selectedNode.starCount }}</p>
+      <div v-if="selectedNode" class="mt-4 p-4 bg-blue-50 dark:bg-blue-900/20 rounded max-w-full">
+        <h3 class="font-bold text-gray-900 dark:text-white truncate">{{ selectedNode.name }}</h3>
+        <p class="text-gray-700 dark:text-gray-300">Stars: {{ formatStarCount(selectedNode.starCount) }}</p>
         <p class="text-gray-700 dark:text-gray-300">Language: {{ selectedNode.language || 'N/A' }}</p>
-        <p class="text-gray-700 dark:text-gray-300">Categories: {{ selectedNode.categories.join(', ') }}</p>
+        <p class="text-gray-700 dark:text-gray-300 word-wrap-break">Categories: {{ selectedNode.categories.join(', ') }}</p>
       </div>
     </div>
   </div>
@@ -256,5 +260,11 @@ onMounted(() => {
 .dark .chart-container {
   background: #1f2937;
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.3);
+}
+
+.word-wrap-break {
+  overflow-wrap: break-word;
+  word-wrap: break-word;
+  word-break: break-all;
 }
 </style>

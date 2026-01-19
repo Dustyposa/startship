@@ -43,6 +43,7 @@ class SyncStatusResponse(BaseModel):
 class ManualSyncRequest(BaseModel):
     """Manual sync request."""
     reanalyze: bool = False
+    force_update: bool = False
 
 
 class SyncHistoryResponse(BaseModel):
@@ -100,7 +101,7 @@ async def manual_sync(
     sync_service = SyncService(db)
     background_tasks.add_task(
         run_async_task,
-        sync_service.sync(skip_llm=not request.reanalyze)
+        sync_service.sync(skip_llm=not request.reanalyze, force_update=request.force_update)
     )
 
     return {

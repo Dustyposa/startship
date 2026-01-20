@@ -22,6 +22,12 @@ def get_db() -> Database:
     return db
 
 
+def get_semantic_search():
+    """Dependency to get semantic search instance."""
+    from src.api.app import hybrid_search
+    return hybrid_search
+
+
 def run_async_task(coro):
     """Run an async task in a background thread with its own event loop."""
     loop = asyncio.new_event_loop()
@@ -44,6 +50,7 @@ class ManualSyncRequest(BaseModel):
     """Manual sync request."""
     reanalyze: bool = False
     force_update: bool = False
+    full_sync: bool = False  # Alias for force_update for backward compatibility
 
 
 class SyncHistoryResponse(BaseModel):
@@ -62,6 +69,7 @@ class SyncHistoryResponse(BaseModel):
 @router.get("/status", response_model=SyncStatusResponse)
 async def get_sync_status(db: Database = Depends(get_db)):
     """Get current synchronization status."""
+    # Get last sync record
     cursor = await db._connection.execute(
         """SELECT * FROM sync_history
            ORDER BY started_at DESC
@@ -70,11 +78,13 @@ async def get_sync_status(db: Database = Depends(get_db)):
     row = await cursor.fetchone()
     last_sync = dict(row) if row else None
 
+    # Get active repo count
     cursor = await db._connection.execute(
         """SELECT COUNT(*) FROM repositories WHERE is_deleted = 0"""
     )
     total_repos = (await cursor.fetchone())[0]
 
+    # Get repos needing update
     cursor = await db._connection.execute(
         """SELECT COUNT(*) FROM repositories
            WHERE is_deleted = 0
@@ -95,18 +105,25 @@ async def get_sync_status(db: Database = Depends(get_db)):
 async def manual_sync(
     request: ManualSyncRequest,
     background_tasks: BackgroundTasks,
-    db: Database = Depends(get_db)
+    db: Database = Depends(get_db),
+    semantic_search = Depends(get_semantic_search)
 ):
     """Trigger manual synchronization."""
-    sync_service = SyncService(db)
+    sync_service = SyncService(db, semantic_search)
+
+    # full_sync is an alias for force_update
+    force_update = request.force_update or request.full_sync
+    sync_type = "full" if force_update else "incremental"
+
     background_tasks.add_task(
         run_async_task,
-        sync_service.sync(skip_llm=not request.reanalyze, force_update=request.force_update)
+        sync_service.sync(skip_llm=not request.reanalyze, force_update=force_update)
     )
 
     return {
         "success": True,
-        "message": "Sync started in background"
+        "message": "Sync started in background",
+        "sync_type": sync_type
     }
 
 
@@ -147,21 +164,29 @@ async def reanalyze_repo(
 
 async def _reanalyze_task(name_with_owner: str, db: Database):
     """Async task for reanalyzing a repository."""
+    from src.utils import log_error, log_debug
+
+    # Validate and parse name_with_owner
+    parts = name_with_owner.split("/")
+    if len(parts) != 2:
+        log_debug(f"Invalid repo format for reanalysis: {name_with_owner}")
+        return
+
+    owner, repo_name = parts
+
+    # Check if repo exists
+    repo = await db.get_repository(name_with_owner)
+    if not repo:
+        log_debug(f"Repository not found for reanalysis: {name_with_owner}")
+        return
+
     try:
-        parts = name_with_owner.split("/")
-        if len(parts) != 2:
-            return
-
-        owner, repo_name = parts
-
-        repo = await db.get_repository(name_with_owner)
-        if not repo:
-            return
-
+        # Fetch README from GitHub
         from src.github.graphql import GitHubGraphQLClient
         async with GitHubGraphQLClient() as github:
             readme = await github.get_readme_content(owner, repo_name)
 
+        # Analyze with LLM
         from src.llm import create_llm
         llm = create_llm("openai")
 
@@ -173,16 +198,17 @@ async def _reanalyze_task(name_with_owner: str, db: Database):
             topics=repo.get("topics") or []
         )
 
+        # Update repository with analysis
         from datetime import datetime
-        update_data = {
+        await db.update_repository(name_with_owner, {
             "summary": analysis.get("summary", repo.get("description")),
             "categories": analysis.get("categories", []),
             "features": analysis.get("features", []),
             "use_cases": analysis.get("use_cases", []),
             "last_analyzed_at": datetime.now().isoformat()
-        }
+        })
 
-        await db.update_repository(name_with_owner, update_data)
+        log_debug(f"Successfully reanalyzed: {name_with_owner}")
 
     except Exception as e:
-        print(f"Error reanalyzing {name_with_owner}: {e}")
+        log_error(f"Error reanalyzing {name_with_owner}: {e}")

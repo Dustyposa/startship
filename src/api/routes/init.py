@@ -129,7 +129,12 @@ async def start_initialization(request: InitRequest):
     if request.enable_semantic:
         try:
             from src.vector.semantic import SemanticSearch
-            semantic = SemanticSearch()
+            from src.config import settings
+            semantic = SemanticSearch(
+                ollama_base_url=settings.ollama_base_url,
+                model=settings.ollama_embedding_model,
+                persist_path=settings.chromadb_path
+            )
         except ImportError as e:
             raise HTTPException(
                 status_code=400,

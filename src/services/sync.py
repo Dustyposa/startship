@@ -19,16 +19,19 @@ class SyncService:
     - Sync: Fetch all stars and compare with local
     - Change detection: Detect updates based on pushed_at, stargazer_count, etc.
     - Deletion: Remove repositories that are no longer starred
+    - Vectorization: Update ChromaDB embeddings when semantic fields change
     """
 
-    def __init__(self, db: Database):
+    def __init__(self, db: Database, semantic_search=None):
         """
         Initialize sync service.
 
         Args:
             db: Database instance
+            semantic_search: Optional SemanticSearch instance for vector updates
         """
         self.db = db
+        self.semantic_search = semantic_search
 
     async def sync(
         self,
@@ -209,6 +212,14 @@ class SyncService:
                 await self.db.delete_repository(name)
                 stats["deleted"] += 1
                 log_debug(f"Deleted repo: {name}")
+
+                # Delete from vector index
+                if self.semantic_search:
+                    try:
+                        await self.semantic_search.delete_repository(name)
+                        log_debug(f"Deleted from vector index: {name}")
+                    except Exception as e:
+                        log_error(f"Failed to delete {name} from vector index: {e}")
             except Exception as e:
                 stats["failed"] += 1
                 stats["errors"].append(f"{name}: {str(e)}")
@@ -260,6 +271,23 @@ class SyncService:
         needs_llm = any(field in changed_fields for field in ("description", "primary_language"))
 
         return "light", changed_fields, needs_llm
+
+    def _needs_vector_update(self, changed_fields: dict[str, Any]) -> bool:
+        """
+        Check if vector index should be updated based on changed fields.
+
+        Vector update is needed when semantic fields change:
+        - description
+        - primary_language
+        - topics
+
+        Args:
+            changed_fields: Dict of changed field names to new values
+
+        Returns:
+            True if vector update is needed
+        """
+        return any(field in changed_fields for field in ("description", "primary_language", "topics"))
 
     def _build_repo_data(self, github_repo: GitHubRepository, existing: dict[str, Any] | None = None) -> dict[str, Any]:
         """Build repository data dict from GitHub repo."""
@@ -315,6 +343,13 @@ class SyncService:
         repo_data = self._build_repo_data(github_repo)
         await self.db.add_repository(repo_data)
 
+        # Add to vector index if semantic search is enabled
+        if self.semantic_search:
+            try:
+                await self.semantic_search.add_repositories([repo_data])
+            except Exception as e:
+                log_error(f"Failed to add {github_repo.name_with_owner} to vector index: {e}")
+
     async def _update_repository(
         self,
         name_with_owner: str,
@@ -358,6 +393,17 @@ class SyncService:
                 })
                 await self.db.update_repository(name_with_owner, update_data)
                 log_debug(f"Light update without LLM: {name_with_owner} (fields: {list(changed_fields.keys())})")
+
+            # Update vector index if semantic fields changed
+            if self.semantic_search and self._needs_vector_update(changed_fields):
+                try:
+                    # Get updated repo data for vectorization
+                    updated_repo = await self.db.get_repository(name_with_owner)
+                    if updated_repo:
+                        await self.semantic_search.update_repository(updated_repo)
+                        log_debug(f"Updated vector index: {name_with_owner}")
+                except Exception as e:
+                    log_error(f"Failed to update vector index for {name_with_owner}: {e}")
         else:  # heavy
             # Heavy update: Full refresh including content
             existing = await self.db.get_repository(name_with_owner)
@@ -367,6 +413,16 @@ class SyncService:
             update_data = self._build_repo_data(github_repo, existing)
             await self.db.update_repository(name_with_owner, update_data)
             log_debug(f"Heavy update: {name_with_owner}")
+
+            # Always update vector index on heavy update
+            if self.semantic_search:
+                try:
+                    updated_repo = await self.db.get_repository(name_with_owner)
+                    if updated_repo:
+                        await self.semantic_search.update_repository(updated_repo)
+                        log_debug(f"Updated vector index: {name_with_owner}")
+                except Exception as e:
+                    log_error(f"Failed to update vector index for {name_with_owner}: {e}")
 
     async def _record_sync_history(self, stats: dict[str, Any]) -> None:
         """Record sync operation to history table."""

@@ -33,6 +33,85 @@ async def test_semantic_search_add_repos():
 
 
 @pytest.mark.asyncio
+async def test_semantic_search_update_repository():
+    """Test updating a single repository in vector store."""
+    with patch('src.vector.semantic.chromadb.PersistentClient'):
+        semantic = SemanticSearch()
+
+        # Mock collection
+        semantic.collection = MagicMock()
+        semantic.collection.delete = MagicMock()
+        semantic.collection.add = MagicMock()
+
+        repo = {
+            "name_with_owner": "test/repo1",
+            "name": "repo1",
+            "description": "Updated test repo",
+            "primary_language": "Python",
+            "url": "https://github.com/test/repo1",
+            "topics": ["test", "updated"]
+        }
+
+        with patch.object(semantic, 'embedder') as mock_embedder:
+            mock_embedder.embed_batch = AsyncMock(return_value=[[0.1, 0.2, 0.3]])
+
+            await semantic.update_repository(repo)
+
+            # Should have called delete and then add
+            assert semantic.collection.delete.called
+            semantic.collection.delete.assert_called_once_with(ids=["test/repo1"])
+
+
+@pytest.mark.asyncio
+async def test_semantic_search_update_repository_empty():
+    """Test updating with empty repo does nothing."""
+    with patch('src.vector.semantic.chromadb.PersistentClient'):
+        semantic = SemanticSearch()
+
+        # Mock collection
+        semantic.collection = MagicMock()
+        semantic.collection.delete = MagicMock()
+
+        await semantic.update_repository({})
+
+        # Should not have called delete
+        assert not semantic.collection.delete.called
+
+
+@pytest.mark.asyncio
+async def test_semantic_search_delete_repository():
+    """Test deleting a repository from vector store."""
+    with patch('src.vector.semantic.chromadb.PersistentClient'):
+        semantic = SemanticSearch()
+
+        # Mock collection
+        semantic.collection = MagicMock()
+        semantic.collection.delete = MagicMock()
+
+        await semantic.delete_repository("test/repo1")
+
+        # Should have called delete
+        assert semantic.collection.delete.called
+        semantic.collection.delete.assert_called_once_with(ids=["test/repo1"])
+
+
+@pytest.mark.asyncio
+async def test_semantic_search_delete_repository_empty():
+    """Test deleting with empty name does nothing."""
+    with patch('src.vector.semantic.chromadb.PersistentClient'):
+        semantic = SemanticSearch()
+
+        # Mock collection
+        semantic.collection = MagicMock()
+        semantic.collection.delete = MagicMock()
+
+        await semantic.delete_repository("")
+
+        # Should not have called delete
+        assert not semantic.collection.delete.called
+
+
+@pytest.mark.asyncio
 async def test_repo_to_text():
     semantic = SemanticSearch()
     repo = {

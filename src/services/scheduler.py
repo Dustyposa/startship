@@ -24,16 +24,17 @@ class SyncScheduler:
         Requires GitHub Token to be configured.
     """
 
-    def __init__(self, db: Database):
+    def __init__(self, db: Database, semantic_search=None):
         """
         Initialize scheduler.
 
         Args:
             db: Database instance
+            semantic_search: Optional SemanticSearch instance for vector updates
         """
         self.db = db
         self.scheduler = AsyncIOScheduler()
-        self.sync_service = SyncService(db)
+        self.sync_service = SyncService(db, semantic_search)
 
     def start(self) -> None:
         """Start the scheduler with daily and weekly jobs."""
@@ -105,28 +106,30 @@ def get_scheduler() -> Optional[SyncScheduler]:
     return _scheduler
 
 
-def create_scheduler(db: Database) -> SyncScheduler:
+def create_scheduler(db: Database, semantic_search=None) -> SyncScheduler:
     """
     Create and return a new scheduler instance.
 
     Args:
         db: Database instance
+        semantic_search: Optional SemanticSearch instance for vector updates
 
     Returns:
         SyncScheduler instance
     """
     global _scheduler
     if _scheduler is None:
-        _scheduler = SyncScheduler(db)
+        _scheduler = SyncScheduler(db, semantic_search)
     return _scheduler
 
 
-def start_scheduler(db: Database) -> SyncScheduler:
+def start_scheduler(db: Database, semantic_search=None) -> SyncScheduler:
     """
     Create and start the scheduler.
 
     Args:
         db: Database instance
+        semantic_search: Optional SemanticSearch instance for vector updates
 
     Returns:
         Started SyncScheduler instance
@@ -134,7 +137,7 @@ def start_scheduler(db: Database) -> SyncScheduler:
     Note:
         Requires GitHub Token to be configured.
     """
-    scheduler = create_scheduler(db)
+    scheduler = create_scheduler(db, semantic_search)
     scheduler.start()
     return scheduler
 

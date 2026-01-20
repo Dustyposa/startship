@@ -78,7 +78,7 @@ async def lifespan(app: FastAPI):
 
     # Initialize search service
     from src.services.search import SearchService
-    search_service = SearchService(db)
+    search_service = SearchService(db, hybrid_search)
     print("Search service initialized")
 
     # Initialize semantic search (optional)
@@ -100,7 +100,7 @@ async def lifespan(app: FastAPI):
     if settings.github_token:
         try:
             from src.services.scheduler import start_scheduler
-            scheduler = start_scheduler(db)
+            scheduler = start_scheduler(db, semantic_search)
             print("Sync scheduler started")
         except Exception as e:
             print(f"Failed to start scheduler: {e}")

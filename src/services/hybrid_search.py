@@ -87,39 +87,77 @@ class HybridSearch:
         new_results: list[dict],
         match_type: str
     ) -> None:
-        """Merge new results into seen_repos with score tracking."""
-        for i, repo in enumerate(new_results):
+        """
+        Merge new results into seen_repos with weighted score fusion.
+
+        Scoring:
+        - FTS5: BM25 score (negative, lower is better). Normalize to 0-1 using sigmoid.
+        - Semantic: similarity_score (0-1, higher is better).
+        - Fusion: final_score = fts_weight * fts_score + semantic_weight * semantic_score
+        """
+        import math
+
+        for repo in new_results:
             name = repo.get("name_with_owner")
             if not name:
                 continue
 
-            # Calculate position-based score
-            score = 1 - i / len(new_results) if new_results else 0
+            # Extract raw score based on match type
+            if match_type == "fts":
+                raw_score = repo.get("fts_score", 0)
+                # BM25 score is negative (lower is better). Convert to 0-1 using sigmoid.
+                # BM25 typically ranges from -50 to 0. Using -raw_score to flip it.
+                normalized_score = 1 / (1 + math.exp(-raw_score / 10))
+            else:  # semantic
+                # Semantic score is already 0-1
+                normalized_score = repo.get("similarity_score", 0)
 
             if name not in seen_repos:
                 seen_repos[name] = {
                     "repo": repo,
-                    "score": score,
+                    "fts_score": 0.0,
+                    "semantic_score": 0.0,
+                    "final_score": 0.0,
                     "match_type": match_type
                 }
                 all_results.append(repo)
+
+            # Update component scores
+            if match_type == "fts":
+                seen_repos[name]["fts_score"] = normalized_score
             else:
-                # Update score and match type if better
-                if score > seen_repos[name]["score"]:
-                    seen_repos[name]["score"] = score
-                if seen_repos[name]["match_type"] != match_type:
-                    seen_repos[name]["match_type"] = "hybrid"
+                seen_repos[name]["semantic_score"] = normalized_score
+
+            # Calculate weighted fusion score
+            seen_repos[name]["final_score"] = (
+                self.fts_weight * seen_repos[name]["fts_score"] +
+                self.semantic_weight * seen_repos[name]["semantic_score"]
+            )
+
+            # Update match type if both FTS and semantic found this repo
+            if seen_repos[name]["match_type"] != match_type:
+                seen_repos[name]["match_type"] = "hybrid"
 
     def _get_top_k(self, seen_repos: dict, top_k: int) -> list[dict]:
-        """Extract top-k results from scored repos."""
+        """
+        Extract top-k results from scored repos.
+
+        Returns results sorted by final_score (descending), with score details.
+        """
         sorted_items = sorted(
             seen_repos.items(),
-            key=lambda x: x[1]["score"],
+            key=lambda x: x[1]["final_score"],
             reverse=True
         )[:top_k]
 
         return [
-            {**item["repo"], "match_type": item["match_type"]}
+            {
+                **item["repo"],
+                "match_type": item["match_type"],
+                "fts_score": round(item["fts_score"], 3),
+                "semantic_score": round(item["semantic_score"], 3),
+                "final_score": round(item["final_score"], 3)
+            }
             for _, item in sorted_items
         ]
 

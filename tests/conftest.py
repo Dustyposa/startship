@@ -9,21 +9,64 @@ from unittest.mock import Mock, patch
 import asyncio
 
 
-@pytest_asyncio.fixture
-async def db():
-    """Create a test database instance."""
+@pytest_asyncio.fixture(scope="session")
+async def shared_db():
+    """Create a shared test database instance for the entire test session.
+
+    This significantly improves test performance by initializing the database
+    only once per session instead of per test.
+
+    Uses a shared cache mode so the same in-memory database is accessible
+    from all database connections in the test session.
+    """
     from src.db import create_database
 
-    # Create in-memory database for tests
-    db = create_database("sqlite", db_path=":memory:")
+    # Use file-based database for proper sharing across connections
+    # This allows session-scoped fixture to work correctly
+    temp_db = tempfile.NamedTemporaryFile(mode="w", suffix=".db", delete=False)
+    db_path = temp_db.name
+    temp_db.close()
 
-    # Initialize database schema
+    db = create_database("sqlite", db_path=db_path)
+
+    # Initialize database schema once
     await db.initialize()
 
     yield db
 
-    # Cleanup
+    # Cleanup only at end of session
     await db.close()
+    # Clean up the temp file
+    try:
+        Path(db_path).unlink()
+    except Exception:
+        pass
+
+
+@pytest_asyncio.fixture
+async def db(shared_db):
+    """Get a database instance with cleaned data for each test.
+
+    This uses the shared connection but cleans data between tests.
+    """
+    # Clean all tables before each test
+    await _clean_database(shared_db)
+
+    yield shared_db
+
+
+async def _clean_database(db):
+    """Clean all database tables without closing the connection."""
+    tables_to_clean = [
+        "repositories", "sync_history", "graph_edges",
+        "user_notes", "user_tags", "user_collections", "user_collection_repos"
+    ]
+
+    for table in tables_to_clean:
+        try:
+            await db.execute_query(f"DELETE FROM {table}")
+        except Exception:
+            pass  # Table might not exist yet
 
 
 @pytest.fixture
@@ -84,11 +127,11 @@ def hello_world():
 
 class Calculator:
     """A simple calculator class."""
-    
+
     def add(self, a, b):
         """Add two numbers."""
         return a + b
-    
+
     def subtract(self, a, b):
         """Subtract two numbers."""
         return a - b

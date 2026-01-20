@@ -113,6 +113,44 @@ class SemanticSearch:
 
         return repos
 
+    async def update_repository(self, repo: dict) -> None:
+        """
+        Update a single repository in vector store.
+
+        Deletes existing embedding and adds new one.
+
+        Args:
+            repo: Repository dict with required fields including name_with_owner
+        """
+        if not repo or not repo.get("name_with_owner"):
+            return
+
+        # Delete existing embedding
+        try:
+            self.collection.delete(ids=[repo["name_with_owner"]])
+        except Exception:
+            # Ignore if not found
+            pass
+
+        # Add new embedding
+        await self.add_repositories([repo])
+
+    async def delete_repository(self, name_with_owner: str) -> None:
+        """
+        Delete a repository from vector store.
+
+        Args:
+            name_with_owner: Repository identifier (owner/repo)
+        """
+        if not name_with_owner:
+            return
+
+        try:
+            self.collection.delete(ids=[name_with_owner])
+        except Exception:
+            # Ignore if not found
+            pass
+
     def _repo_to_text(self, repo: dict) -> str:
         """Convert repository dict to text for embedding."""
         parts = [

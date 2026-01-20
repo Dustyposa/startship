@@ -8,14 +8,16 @@ from src.db import Database
 class SearchService:
     """Service for searching and filtering repositories"""
 
-    def __init__(self, db: Database):
+    def __init__(self, db: Database, hybrid_search=None):
         """
         Initialize search service.
 
         Args:
             db: Database instance
+            hybrid_search: Optional HybridSearch instance for semantic search
         """
         self.db = db
+        self.hybrid_search = hybrid_search
 
     async def search(
         self,
@@ -55,6 +57,34 @@ class SearchService:
             If return_count is True: {"results": [...], "total": int}
             Otherwise: List of matching repositories
         """
+        # Use hybrid search if query is provided and hybrid_search is available
+        if query and query.strip() and self.hybrid_search:
+            results = await self.hybrid_search.search(query, top_k=limit)
+
+            # Apply filters if specified
+            if any([categories, languages, min_stars, max_stars, is_active is not None,
+                    is_new is not None, owner_type, exclude_archived]):
+                results = self._apply_filters(
+                    results,
+                    categories=categories,
+                    languages=languages,
+                    min_stars=min_stars,
+                    max_stars=max_stars,
+                    is_active=is_active,
+                    is_new=is_new,
+                    owner_type=owner_type,
+                    exclude_archived=exclude_archived
+                )
+
+            # Apply offset
+            if offset > 0:
+                results = results[offset:]
+
+            if return_count:
+                return {"results": results[:limit], "total": len(results)}
+            return results[:limit]
+
+        # Fall back to FTS5 or regular search
         if query and query.strip():
             return await self.db.search_repositories_fulltext(
                 query=query,
@@ -77,6 +107,87 @@ class SearchService:
             sort_by=sort_by,
             return_count=return_count
         )
+
+    def _apply_filters(
+        self,
+        results: List[Dict[str, Any]],
+        categories: Optional[List[str]] = None,
+        languages: Optional[List[str]] = None,
+        min_stars: Optional[int] = None,
+        max_stars: Optional[int] = None,
+        is_active: Optional[bool] = None,
+        is_new: Optional[bool] = None,
+        owner_type: Optional[str] = None,
+        exclude_archived: bool = True
+    ) -> List[Dict[str, Any]]:
+        """Apply filters to search results.
+
+        Args:
+            results: Search results to filter
+            categories: Filter by categories
+            languages: Filter by programming languages
+            min_stars: Minimum star count
+            max_stars: Maximum star count
+            is_active: Filter by active maintenance
+            is_new: Filter by new projects
+            owner_type: Filter by owner type
+            exclude_archived: Exclude archived repos
+
+        Returns:
+            Filtered results
+        """
+        from datetime import datetime, timedelta
+
+        filtered = []
+        for repo in results:
+            # Exclude archived
+            if exclude_archived and repo.get("archived"):
+                continue
+
+            # Filter by owner type
+            if owner_type and repo.get("owner_type") != owner_type:
+                continue
+
+            # Filter by language
+            if languages and repo.get("primary_language") not in languages:
+                continue
+
+            # Filter by stars
+            stars = repo.get("stargazer_count", 0)
+            if min_stars is not None and stars < min_stars:
+                continue
+            if max_stars is not None and stars > max_stars:
+                continue
+
+            # Filter by active status
+            if is_active is not None:
+                pushed_at = repo.get("pushed_at")
+                if is_active and not pushed_at:
+                    continue
+                if is_active:
+                    try:
+                        pushed_date = datetime.fromisoformat(pushed_at.replace("Z", "+00:00"))
+                        if pushed_date < datetime.now() - timedelta(days=7):
+                            continue
+                    except (ValueError, AttributeError):
+                        continue
+
+            # Filter by new status
+            if is_new is not None:
+                created_at = repo.get("created_at")
+                if is_new and not created_at:
+                    continue
+                if is_new:
+                    try:
+                        created_date = datetime.fromisoformat(created_at.replace("Z", "+00:00"))
+                        if created_date < datetime.now() - timedelta(days=180):
+                            continue
+                    except (ValueError, AttributeError):
+                        continue
+
+            filtered.append(repo)
+
+        return filtered
 
     async def search_fulltext(
         self,

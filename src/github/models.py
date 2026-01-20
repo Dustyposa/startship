@@ -68,6 +68,21 @@ class GitHubRepository(BaseModel):
                 # Store organization if owner type is Organization
                 if 'organization' not in data and owner_data.get('type') == 'Organization':
                     data['organization'] = owner_data.get('login')
+
+            # Map GitHub API field names to internal field names
+            if 'full_name' in data and 'name_with_owner' not in data:
+                data['name_with_owner'] = data['full_name']
+            if 'stargazers_count' in data and 'stargazer_count' not in data:
+                data['stargazer_count'] = data['stargazers_count']
+            if 'forks_count' in data and 'fork_count' not in data:
+                data['fork_count'] = data['forks_count']
+            if 'html_url' in data and 'url' not in data:
+                data['url'] = data['html_url']
+            if 'language' in data and 'primary_language' not in data:
+                data['primary_language'] = data['language']
+            if 'homepage' in data and 'homepage_url' not in data:
+                data['homepage_url'] = data['homepage']
+
         return data
 
     @field_validator("owner", mode="before")

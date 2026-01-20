@@ -444,12 +444,12 @@ class SQLiteDatabase(Database):
                 count_row = await cursor.fetchone()
                 total = count_row[0] if count_row else 0
 
-        # Get paginated results
+        # Get paginated results with BM25 scores
         async with self._connection.execute(
-            """SELECT r.* FROM repositories r
+            """SELECT r.*, bm25(repositories_fts) as fts_score FROM repositories r
                INNER JOIN repositories_fts fts ON r.rowid = fts.rowid
                WHERE repositories_fts MATCH ?
-               ORDER BY rank
+               ORDER BY fts_score
                LIMIT ? OFFSET ?""",
             (query, limit, offset)
         ) as cursor:

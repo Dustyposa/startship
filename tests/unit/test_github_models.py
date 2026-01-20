@@ -9,7 +9,7 @@ def test_repository_model_from_github_api():
         "id": 123456,
         "full_name": "owner/repo",
         "name": "repo",
-        "owner": {"login": "owner"},
+        "owner": {"login": "owner", "type": "User"},
         "description": "Test repo",
         "language": "Python",
         "topics": ["web", "api"],
@@ -36,12 +36,12 @@ def test_repository_owner_login_extraction():
     """Test owner login extraction from full_name"""
     repo = GitHubRepository(
         id=1,
-        full_name="test/repo",
+        name_with_owner="test/repo",
         name="repo",
         owner="test",
-        stargazers_count=0,
-        forks_count=0,
-        html_url="https://github.com/test/repo",
+        stargazer_count=0,
+        fork_count=0,
+        url="https://github.com/test/repo",
         created_at="2024-01-01T00:00:00Z",
         updated_at="2024-01-01T00:00:00Z"
     )

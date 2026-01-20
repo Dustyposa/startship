@@ -31,14 +31,14 @@ async def test_initialization_saves_starred_at():
         from datetime import datetime
         mock_repo = GitHubRepository(
             id=1,
-            full_name="owner/repo",  # alias for name_with_owner
+            name_with_owner="owner/repo",  # alias for name_with_owner
             name="repo",
             owner="owner",
             description="Test",
             language="Python",  # alias for primary_language
-            stargazers_count=100,  # alias for stargazer_count
-            forks_count=10,  # alias for fork_count
-            html_url="https://github.com/owner/repo",  # alias for url
+            stargazer_count=100,  # alias for stargazer_count
+            fork_count=10,  # alias for fork_count
+            url="https://github.com/owner/repo",  # alias for url
             homepage=None,  # alias for homepage_url
             created_at=datetime.now(),
             updated_at=datetime.now(),
@@ -92,14 +92,14 @@ async def test_initialization_handles_missing_starred_at():
         from datetime import datetime
         mock_repo = GitHubRepository(
             id=1,
-            full_name="owner/repo",
+            name_with_owner="owner/repo",
             name="repo",
             owner="owner",
             description="Test",
             language="Python",
-            stargazers_count=100,
-            forks_count=10,
-            html_url="https://github.com/owner/repo",
+            stargazer_count=100,
+            fork_count=10,
+            url="https://github.com/owner/repo",
             homepage=None,
             created_at=datetime.now(),
             updated_at=datetime.now(),
@@ -152,14 +152,14 @@ async def test_initialization_with_none_starred_at():
         from datetime import datetime
         mock_repo = GitHubRepository(
             id=1,
-            full_name="owner/repo",
+            name_with_owner="owner/repo",
             name="repo",
             owner="owner",
             description="Test",
             language="Python",
-            stargazers_count=100,
-            forks_count=10,
-            html_url="https://github.com/owner/repo",
+            stargazer_count=100,
+            fork_count=10,
+            url="https://github.com/owner/repo",
             homepage=None,
             created_at=datetime.now(),
             updated_at=datetime.now(),

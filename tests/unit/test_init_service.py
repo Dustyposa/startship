@@ -61,14 +61,14 @@ async def test_initialize_with_data(db, mocker):
     # Note: Use aliases (original field names) for Pydantic model with alias priority
     mock_repo = GitHubRepository(
         id=1,
-        full_name="test/repo",  # alias for name_with_owner
+        name_with_owner="test/repo",  # alias for name_with_owner
         name="repo",
         owner="test",
         description="Test repo",
         language="Python",  # alias for primary_language
-        stargazers_count=100,  # alias for stargazer_count
-        forks_count=10,  # alias for fork_count
-        html_url="https://github.com/test/repo",  # alias for url
+        stargazer_count=100,  # alias for stargazer_count
+        fork_count=10,  # alias for fork_count
+        url="https://github.com/test/repo",  # alias for url
         homepage=None,  # alias for homepage_url
         created_at=datetime.now(),
         updated_at=datetime.now(),

@@ -3,6 +3,7 @@ Data synchronization service for GitHub starred repositories.
 
 Handles sync, change detection, and deletion of repositories.
 """
+import asyncio
 from datetime import datetime
 from typing import Any
 
@@ -12,34 +13,26 @@ from src.utils import log_info, log_error, log_debug
 
 
 class SyncService:
-    """
-    Service for synchronizing GitHub starred repositories with local database.
+    """Service for synchronizing GitHub starred repositories with local database."""
 
-    Supports:
-    - Sync: Fetch all stars and compare with local
-    - Change detection: Detect updates based on pushed_at, stargazer_count, etc.
-    - Deletion: Remove repositories that are no longer starred
-    - Vectorization: Update ChromaDB embeddings when semantic fields change
-    """
-
-    def __init__(self, db: Database, semantic_search=None):
-        """
-        Initialize sync service.
+    def __init__(self, db: Database, semantic_search=None, semantic_edge_discovery=None):
+        """Initialize sync service.
 
         Args:
             db: Database instance
             semantic_search: Optional SemanticSearch instance for vector updates
+            semantic_edge_discovery: Optional SemanticEdgeDiscovery instance for graph updates
         """
         self.db = db
         self.semantic_search = semantic_search
+        self.semantic_edge_discovery = semantic_edge_discovery
 
     async def sync(
         self,
         skip_llm: bool = True,
         force_update: bool = False
     ) -> dict[str, Any]:
-        """
-        Synchronize all starred repositories from GitHub.
+        """Synchronize all starred repositories from GitHub.
 
         This will:
         1. Fetch all starred repositories from GitHub
@@ -47,6 +40,7 @@ class SyncService:
         3. Add new repositories
         4. Update existing repositories with changes
         5. Delete repositories that are no longer starred
+        6. Rebuild semantic edges if full_sync
 
         Args:
             skip_llm: Skip LLM analysis (faster)
@@ -54,9 +48,6 @@ class SyncService:
 
         Returns:
             Statistics about the sync operation
-
-        Note:
-            Requires GitHub Token to be configured.
         """
         stats = self._init_stats("full")
 
@@ -67,10 +58,8 @@ class SyncService:
             async with GitHubGraphQLClient() as github:
                 log_info("Starting sync")
 
-                # Get username from environment or GraphQL
                 username = os.getenv("GITHUB_USER")
                 if not username:
-                    # Get authenticated user from GraphQL
                     user = await github.get_authenticated_user()
                     username = user.get("login")
                     if not username:
@@ -79,14 +68,8 @@ class SyncService:
                 github_repos = await github.get_starred_repositories(username)
                 github_repo_map = {repo.name_with_owner: repo for repo in github_repos}
 
-                local_repos = await self.db.search_repositories(
-                    is_deleted=False,
-                    limit=1000
-                )
-                local_repo_map = {
-                    repo['name_with_owner']: repo
-                    for repo in local_repos
-                }
+                local_repos = await self.db.search_repositories(is_deleted=False, limit=1000)
+                local_repo_map = {repo['name_with_owner']: repo for repo in local_repos}
 
                 github_names = set(github_repo_map.keys())
                 local_names = set(local_repo_map.keys())
@@ -98,6 +81,11 @@ class SyncService:
                 await self._process_new_repos(github_repo_map, new_names, stats, skip_llm)
                 await self._process_updates(github_repo_map, local_repo_map, common_names, stats, skip_llm, force_update)
                 await self._process_deletions(deleted_names, stats)
+
+            # Full sync: rebuild semantic edges
+            if force_update and self.semantic_edge_discovery:
+                log_info("Full sync: rebuilding semantic edges...")
+                await self.semantic_edge_discovery.discover_and_store_edges(top_k=10, min_similarity=0.6)
 
             stats["completed_at"] = datetime.now().isoformat()
             log_info(f"Sync completed: +{stats['added']} ~{stats['updated']} -{stats['deleted']}")
@@ -176,7 +164,6 @@ class SyncService:
             github_repo = github_repo_map[name]
             local_repo = local_repo_map[name]
 
-            # Force update: skip change detection
             if force_update:
                 change_type = "heavy"
                 changed_fields = {}
@@ -213,7 +200,6 @@ class SyncService:
                 stats["deleted"] += 1
                 log_debug(f"Deleted repo: {name}")
 
-                # Delete from vector index
                 if self.semantic_search:
                     try:
                         await self.semantic_search.delete_repository(name)
@@ -230,8 +216,7 @@ class SyncService:
         local_repo: dict[str, Any],
         github_repo: GitHubRepository
     ) -> tuple[str, dict[str, Any], bool]:
-        """
-        Detect what changed between local and GitHub repository.
+        """Detect what changed between local and GitHub repository.
 
         Returns:
             Tuple of (change_type, changed_fields, needs_llm):
@@ -239,15 +224,12 @@ class SyncService:
             - changed_fields: Dict of field names to new values
             - needs_llm: Whether LLM re-analysis is needed
         """
-        # Priority 1: Check if pushed_at changed (content refresh needed)
         if local_repo.get("pushed_at") != (github_repo.pushed_at.isoformat() if github_repo.pushed_at else None):
             return "heavy", {}, True
 
-        # Data completeness check
         if not local_repo.get("languages"):
             return "heavy", {}, True
 
-        # Priority 2: Check all other fields for light updates
         field_map = {
             "stargazer_count": github_repo.stargazer_count,
             "fork_count": github_repo.fork_count,
@@ -267,26 +249,12 @@ class SyncService:
         if not changed_fields:
             return "none", {}, False
 
-        # LLM re-analysis needed for description or primary_language changes
         needs_llm = any(field in changed_fields for field in ("description", "primary_language"))
 
         return "light", changed_fields, needs_llm
 
     def _needs_vector_update(self, changed_fields: dict[str, Any]) -> bool:
-        """
-        Check if vector index should be updated based on changed fields.
-
-        Vector update is needed when semantic fields change:
-        - description
-        - primary_language
-        - topics
-
-        Args:
-            changed_fields: Dict of changed field names to new values
-
-        Returns:
-            True if vector update is needed
-        """
+        """Check if vector index should be updated based on changed fields."""
         return any(field in changed_fields for field in ("description", "primary_language", "topics"))
 
     def _build_repo_data(self, github_repo: GitHubRepository, existing: dict[str, Any] | None = None) -> dict[str, Any]:
@@ -312,7 +280,6 @@ class SyncService:
         }
 
         if existing:
-            # Preserve analysis fields when updating
             base_data.update({
                 "summary": existing.get("summary"),
                 "categories": existing.get("categories", []),
@@ -320,7 +287,6 @@ class SyncService:
                 "use_cases": existing.get("use_cases", [])
             })
         else:
-            # Default values for new repos
             base_data.update({
                 "name_with_owner": github_repo.name_with_owner,
                 "name": github_repo.name,
@@ -334,6 +300,29 @@ class SyncService:
 
         return base_data
 
+    async def _trigger_semantic_edge_update(self, name_with_owner: str) -> None:
+        """Trigger semantic edge update asynchronously."""
+        if self.semantic_edge_discovery:
+            asyncio.create_task(
+                self.semantic_edge_discovery.update_edges_for_repo(name_with_owner)
+            )
+
+    async def _update_vector_index(self, name_with_owner: str) -> bool:
+        """Update vector index for a repository."""
+        if not self.semantic_search:
+            return False
+
+        try:
+            updated_repo = await self.db.get_repository(name_with_owner)
+            if updated_repo:
+                await self.semantic_search.update_repository(updated_repo)
+                log_debug(f"Updated vector index: {name_with_owner}")
+                return True
+        except Exception as e:
+            log_error(f"Failed to update vector index for {name_with_owner}: {e}")
+
+        return False
+
     async def _add_repository(
         self,
         github_repo: GitHubRepository,
@@ -343,7 +332,6 @@ class SyncService:
         repo_data = self._build_repo_data(github_repo)
         await self.db.add_repository(repo_data)
 
-        # Add to vector index if semantic search is enabled
         if self.semantic_search:
             try:
                 await self.semantic_search.add_repositories([repo_data])
@@ -359,32 +347,19 @@ class SyncService:
         needs_llm: bool,
         skip_llm: bool = True
     ) -> None:
-        """
-        Update an existing repository in the database.
+        """Update an existing repository in the database."""
+        existing = await self.db.get_repository(name_with_owner)
+        if not existing:
+            await self._add_repository(github_repo, skip_llm)
+            return
 
-        Args:
-            name_with_owner: Repository name
-            github_repo: GitHub repository object
-            change_type: "light" | "heavy"
-            changed_fields: Dict of changed fields
-            needs_llm: Whether LLM re-analysis is needed
-            skip_llm: Skip LLM analysis
-        """
         if change_type == "light":
-            # Light update: Only update changed fields
-            existing = await self.db.get_repository(name_with_owner)
-            if not existing:
-                return await self._add_repository(github_repo, skip_llm)
-
             if needs_llm and not skip_llm:
-                # Re-analyze with LLM
                 update_data = self._build_repo_data(github_repo, existing)
-                # This triggers LLM analysis (in init service)
                 await self.db.update_repository(name_with_owner, update_data)
                 log_debug(f"Light update with LLM: {name_with_owner} (fields: {list(changed_fields.keys())})")
             else:
-                # Only update changed fields, preserve analysis
-                update_data = changed_fields
+                update_data = changed_fields.copy()
                 update_data.update({
                     "summary": existing.get("summary"),
                     "categories": existing.get("categories", []),
@@ -394,35 +369,17 @@ class SyncService:
                 await self.db.update_repository(name_with_owner, update_data)
                 log_debug(f"Light update without LLM: {name_with_owner} (fields: {list(changed_fields.keys())})")
 
-            # Update vector index if semantic fields changed
             if self.semantic_search and self._needs_vector_update(changed_fields):
-                try:
-                    # Get updated repo data for vectorization
-                    updated_repo = await self.db.get_repository(name_with_owner)
-                    if updated_repo:
-                        await self.semantic_search.update_repository(updated_repo)
-                        log_debug(f"Updated vector index: {name_with_owner}")
-                except Exception as e:
-                    log_error(f"Failed to update vector index for {name_with_owner}: {e}")
+                await self._update_vector_index(name_with_owner)
+                await self._trigger_semantic_edge_update(name_with_owner)
         else:  # heavy
-            # Heavy update: Full refresh including content
-            existing = await self.db.get_repository(name_with_owner)
-            if not existing:
-                return await self._add_repository(github_repo, skip_llm)
-
             update_data = self._build_repo_data(github_repo, existing)
             await self.db.update_repository(name_with_owner, update_data)
             log_debug(f"Heavy update: {name_with_owner}")
 
-            # Always update vector index on heavy update
             if self.semantic_search:
-                try:
-                    updated_repo = await self.db.get_repository(name_with_owner)
-                    if updated_repo:
-                        await self.semantic_search.update_repository(updated_repo)
-                        log_debug(f"Updated vector index: {name_with_owner}")
-                except Exception as e:
-                    log_error(f"Failed to update vector index for {name_with_owner}: {e}")
+                await self._update_vector_index(name_with_owner)
+                await self._trigger_semantic_edge_update(name_with_owner)
 
     async def _record_sync_history(self, stats: dict[str, Any]) -> None:
         """Record sync operation to history table."""

@@ -141,3 +141,52 @@ async def test_get_statistics(db):
     assert stats["total_repositories"] == 1
     assert "工具" in stats["categories"]
     assert stats["categories"]["工具"] == 1
+
+
+@pytest.mark.asyncio
+async def test_batch_insert_graph_edges(db):
+    """Test batch insertion of graph edges."""
+    # First create the repositories to satisfy foreign key constraints
+    await db.add_repository({
+        "name_with_owner": "repo1",
+        "name": "repo1",
+        "owner": "owner1",
+        "primary_language": "Python",
+    })
+    await db.add_repository({
+        "name_with_owner": "repo2",
+        "name": "repo2",
+        "owner": "owner2",
+        "primary_language": "Python",
+    })
+    await db.add_repository({
+        "name_with_owner": "repo3",
+        "name": "repo3",
+        "owner": "owner3",
+        "primary_language": "Python",
+    })
+
+    edges = [
+        {
+            "source_repo": "repo1",
+            "target_repo": "repo2",
+            "edge_type": "semantic",
+            "weight": 0.85,
+            "metadata": '{"similarity": 0.85}'
+        },
+        {
+            "source_repo": "repo1",
+            "target_repo": "repo3",
+            "edge_type": "author",
+            "weight": 1.0,
+            "metadata": '{"author": "test"}'
+        }
+    ]
+
+    await db.batch_insert_graph_edges(edges)
+
+    # Verify edges were inserted
+    result = await db.fetch_all(
+        "SELECT * FROM graph_edges WHERE source_repo = 'repo1'"
+    )
+    assert len(result) == 2

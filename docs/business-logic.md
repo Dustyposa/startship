@@ -16,6 +16,7 @@
    - [2.6 用户数据管理 (User Data)](#26-用户数据管理-user-data)
    - [2.7 网络可视化 (Network Visualization)](#27-网络可视化-network-visualization)
    - [2.8 AI 对话 (AI Chat)](#28-ai-对话-ai-chat)
+   - [2.9 混合推荐系统 (Hybrid Recommendation)](#29-混合推荐系统-hybrid-recommendation)
 3. [数据模型](#数据模型)
 4. [API 端点总览](#api-端点总览)
 
@@ -33,6 +34,7 @@
 | 用户数据管理 | 收藏夹、标签、笔记管理 | `src/api/routes/user_data.py` |
 | 网络可视化 | 交互式关系图谱展示 | `src/services/network.py` |
 | AI 对话 | 自然语言查询仓库信息 | `src/services/chat.py` |
+| 混合推荐 | 融合图谱关系和语义相似度的智能推荐 | `src/services/hybrid_recommendation.py` |
 
 ---
 
@@ -515,6 +517,41 @@ POST /api/graph/rebuild
 
 ---
 
+### 2.9 混合推荐系统 (Hybrid Recommendation)
+
+**功能定位**: 融合图谱关系和语义相似度，提供高质量项目推荐
+
+**推荐流程**:
+```
+1. 多源召回:
+   - 图谱边召回 (权重 65%): author (1.0), ecosystem (0.5), collection (0.5)
+   - 语义相似召回 (权重 35%): ChromaDB 向量余弦相似度
+
+2. 加权融合:
+   final_score = 0.65 * graph_score + 0.35 * semantic_score
+
+3. 多样性优化:
+   - 去重
+   - 排除已搜索/已查看仓库
+   - 同一作者最多 2 个
+```
+
+**语义边更新策略**:
+- **增量更新**: 同步时只更新变化仓库的语义边（异步，不阻塞）
+- **全量重建**: 手动全量同步时重建所有语义边
+- **定时任务**: 每周全量同步时重建
+
+**API 端点**:
+- `GET /api/recommendations/{repo}` - 获取混合推荐
+- `POST /api/graph/semantic-edges/rebuild` - 重建语义边
+
+**引用**:
+- 服务: `src/services/hybrid_recommendation.py` → `HybridRecommendationService`
+- 语义边: `src/services/graph/semantic_edges.py` → `SemanticEdgeDiscovery`
+- API: `src/api/routes/recommendation.py`
+
+---
+
 ## 数据模型
 
 ### 核心表
@@ -553,12 +590,18 @@ POST /api/graph/rebuild
 
 ### 图谱
 - `POST /api/graph/rebuild` - 重建知识图谱（发现所有关系）
+- `POST /api/graph/semantic-edges/rebuild` - 重建语义边
 - `GET /api/graph/status` - 获取图谱计算状态
 - `GET /api/graph/nodes/{repo}/edges` - 获取指定仓库的关系边
   - 参数: `edge_types` - 过滤边类型（author,ecosystem,collection）
   - 参数: `limit` - 返回边数量限制
 - `GET /api/graph/nodes/{repo}/related` - 获取相关仓库推荐
   - 参数: `limit` - 返回相关仓库数量限制
+
+### 推荐
+- `GET /api/recommendations/{repo}` - 获取混合推荐（图谱关系 + 语义相似度）
+  - 参数: `limit` - 返回推荐数量限制
+  - 参数: `exclude_viewed` - 排除已查看仓库
 
 ### 趋势
 - `GET /api/trends/timeline` - 星标时间线
@@ -591,7 +634,9 @@ POST /api/graph/rebuild
 
 ## 版本历史
 
-- **v1.1.0** (2025-01-20) - 语义搜索完全集成：搜索、同步、初始化一体化
+- **v1.2.1** (2026-01-21) - 代码重构优化和测试完善：简化代码、添加测试、改进用户体验
+- **v1.2.0** (2026-01-20) - 混合推荐系统：融合图谱关系和语义相似度的智能推荐
+- **v1.1.0** (2026-01-19) - 语义搜索完全集成：搜索、同步、初始化一体化
 - **v1.0.3** (2025-01-18) - 文档结构优化：拆分搜索章节，添加 FTS5/Jaccard 原理解释
 - **v1.0.2** (2025-01-16) - 知识图谱系统：关联推荐、关系发现、图谱可视化
 - **v1.0.1** (2025-01-10) - 笔记标签系统：个人笔记、自定义标签、收藏夹管理

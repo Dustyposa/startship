@@ -21,6 +21,8 @@ db = None
 search_service = None
 scheduler = None
 hybrid_search = None
+hybrid_recommendation_service = None
+semantic_edge_discovery = None
 
 
 def _init_semantic_search():
@@ -63,7 +65,7 @@ def _init_semantic_search():
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     """Application lifespan manager"""
-    global db, search_service, scheduler, hybrid_search
+    global db, search_service, scheduler, hybrid_search, hybrid_recommendation_service, semantic_edge_discovery
 
     # Startup
     print(f"Starting {settings.api_title} v{settings.api_version}")
@@ -75,11 +77,6 @@ async def lifespan(app: FastAPI):
     )
     await db.initialize()
     print(f"Database initialized: {settings.db_type}")
-
-    # Initialize search service
-    from src.services.search import SearchService
-    search_service = SearchService(db, hybrid_search)
-    print("Search service initialized")
 
     # Initialize semantic search (optional)
     semantic_search = _init_semantic_search()
@@ -96,11 +93,31 @@ async def lifespan(app: FastAPI):
     else:
         hybrid_search = None
 
+    # Initialize semantic edge discovery if semantic search is available
+    if semantic_search:
+        from src.services.graph.semantic_edges import SemanticEdgeDiscovery
+        semantic_edge_discovery = SemanticEdgeDiscovery(semantic_search, db)
+        logger.info("Semantic edge discovery initialized")
+        print("Semantic edge discovery initialized")
+
+    # Initialize search service
+    from src.services.search import SearchService
+    search_service = SearchService(db, hybrid_search)
+    print("Search service initialized")
+
+    # Initialize hybrid recommendation service
+    if semantic_search:
+        from src.services.hybrid_recommendation import HybridRecommendationService
+        hybrid_recommendation_service = HybridRecommendationService(db, semantic_search)
+        print("Hybrid recommendation service initialized")
+    else:
+        hybrid_recommendation_service = None
+
     # Initialize scheduler if GitHub token is configured
     if settings.github_token:
         try:
             from src.services.scheduler import start_scheduler
-            scheduler = start_scheduler(db, semantic_search)
+            scheduler = start_scheduler(db, semantic_search, semantic_edge_discovery)
             print("Sync scheduler started")
         except Exception as e:
             print(f"Failed to start scheduler: {e}")

@@ -3,14 +3,26 @@ Graph knowledge API routes.
 
 Provides endpoints for accessing repository relationship data from the graph database.
 """
+import asyncio
 import json
 from typing import List, Optional
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Query
+from loguru import logger
 from pydantic import BaseModel
 
 from .utils import get_db
 from ...services.graph.edges import EdgeDiscoveryService
+
+
+def run_async_task(coro):
+    """Run an async task in a background thread with its own event loop."""
+    loop = asyncio.new_event_loop()
+    asyncio.set_event_loop(loop)
+    try:
+        loop.run_until_complete(coro)
+    finally:
+        loop.close()
 
 
 router = APIRouter(prefix="/api/graph", tags=["graph"])
@@ -25,13 +37,6 @@ class EdgeResponse(BaseModel):
     type: str
     weight: float
     metadata: Optional[str] = None
-
-
-class GraphStatusResponse(BaseModel):
-    """Response model for graph computation status."""
-    repo_id: str
-    edges_computed_at: Optional[str] = None
-    dependencies_parsed_at: Optional[str] = None
 
 
 class RebuildResponse(BaseModel):
@@ -57,6 +62,33 @@ class RelatedReposResponse(BaseModel):
     data: List[RelatedRepoResponse]
 
 
+# ==================== Helper Functions ====================
+
+def edge_to_response(edge: dict) -> EdgeResponse:
+    """Convert database edge dict to EdgeResponse."""
+    return EdgeResponse(
+        source=edge['source_repo'],
+        target=edge['target_repo'],
+        type=edge['edge_type'],
+        weight=edge['weight'],
+        metadata=edge.get('metadata')
+    )
+
+
+def repo_to_related_response(repo: dict, edge_type: str, weight: float) -> RelatedRepoResponse:
+    """Convert repository dict to RelatedRepoResponse."""
+    return RelatedRepoResponse(
+        name_with_owner=repo.get('name_with_owner'),
+        name=repo.get('name'),
+        owner=repo.get('owner'),
+        description=repo.get('description'),
+        primary_language=repo.get('primary_language'),
+        stargazer_count=repo.get('stargazer_count', 0),
+        relation_type=edge_type,
+        relation_weight=weight
+    )
+
+
 # ==================== Endpoints ====================
 
 @router.get("/nodes/{repo:path}/edges", response_model=List[EdgeResponse])
@@ -66,41 +98,11 @@ async def get_repo_edges(
     limit: int = 50,
     db = Depends(get_db)
 ):
-    """
-    Get all edges for a repository, sorted by weight.
-
-    Args:
-        repo: Repository name_with_owner (e.g., "owner/repo")
-        edge_types: Optional comma-separated list of edge types to filter
-                   (e.g., "author,ecosystem,collection")
-        limit: Maximum number of edges to return (default: 50)
-
-    Returns:
-        List of edges connected to the specified repository
-
-    Raises:
-        HTTPException: If database query fails
-    """
+    """Get all edges for a repository, sorted by weight."""
     try:
-        # Parse edge types from comma-separated string
         types = edge_types.split(',') if edge_types else None
-
-        # Get edges from database
         edges = await db.get_graph_edges(repo, edge_types=types, limit=limit)
-
-        # Convert database results to response models
-        # Note: metadata is stored as JSON string in database
-        return [
-            EdgeResponse(
-                source=e['source_repo'],
-                target=e['target_repo'],
-                type=e['edge_type'],
-                weight=e['weight'],
-                metadata=e.get('metadata')
-            )
-            for e in edges
-        ]
-
+        return [edge_to_response(e) for e in edges]
     except Exception as e:
         raise HTTPException(
             status_code=500,
@@ -110,25 +112,9 @@ async def get_repo_edges(
 
 @router.post("/rebuild", response_model=RebuildResponse)
 async def rebuild_graph(db = Depends(get_db)):
-    """
-    Manually trigger full graph rebuild.
-
-    This endpoint:
-    1. Fetches all repositories from the database
-    2. Discovers all edge types (author, ecosystem, collection)
-    3. Clears existing graph edges
-    4. Inserts newly computed edges
-
-    Returns:
-        Status message with count of edges created
-
-    Raises:
-        HTTPException: If rebuild process fails
-    """
+    """Manually trigger full graph rebuild."""
     try:
         service = EdgeDiscoveryService()
-
-        # Get all repos (limit to 1000 to prevent memory issues)
         repos = await db.search_repositories(limit=1000, is_deleted=False)
 
         # Discover all edge types
@@ -138,10 +124,8 @@ async def rebuild_graph(db = Depends(get_db)):
 
         all_edges = author_edges + ecosystem_edges + collection_edges
 
-        # Clear existing edges
+        # Clear and insert new edges
         await db.execute("DELETE FROM graph_edges")
-
-        # Insert new edges
         for edge in all_edges:
             metadata_str = json.dumps(edge['metadata']) if edge.get('metadata') else None
             await db.add_graph_edge(
@@ -152,15 +136,12 @@ async def rebuild_graph(db = Depends(get_db)):
                 metadata=metadata_str
             )
 
-        # Update graph_status for all repositories
+        # Update graph status
         for repo in repos:
             if repo.get('id'):
                 await db.update_graph_status(repo['id'], edges_computed=True)
 
-        return RebuildResponse(
-            status="success",
-            edges_count=len(all_edges)
-        )
+        return RebuildResponse(status="success", edges_count=len(all_edges))
 
     except Exception as e:
         raise HTTPException(
@@ -171,38 +152,51 @@ async def rebuild_graph(db = Depends(get_db)):
 
 @router.get("/status")
 async def get_graph_status(db = Depends(get_db)):
-    """
-    Get graph computation status.
-
-    Returns a list of repositories with their edge computation timestamps.
-    Limited to 10 most recently updated repositories.
-
-    Returns:
-        Dictionary containing list of status entries
-
-    Raises:
-        HTTPException: If status query fails
-    """
+    """Get graph computation status."""
     try:
-        # Query graph status table
         status = await db.fetch_all(
             """SELECT repo_id, edges_computed_at, dependencies_parsed_at
                FROM graph_status
                ORDER BY edges_computed_at DESC
                LIMIT 10"""
         )
-
         return {"data": status}
-
     except Exception as e:
-        # If table doesn't exist yet, return empty data
         if "no such table" in str(e).lower():
             return {"data": []}
-
         raise HTTPException(
             status_code=500,
             detail=f"Failed to retrieve graph status: {str(e)}"
         )
+
+
+@router.post("/semantic-edges/rebuild")
+async def rebuild_semantic_edges(
+    background_tasks: BackgroundTasks,
+    top_k: int = Query(10, ge=1, le=50, description="Number of similar repos per repo"),
+    min_similarity: float = Query(0.6, ge=0.0, le=1.0, description="Minimum similarity score")
+):
+    """Trigger full rebuild of semantic edges."""
+    from src.api.app import semantic_edge_discovery
+
+    if not semantic_edge_discovery:
+        raise HTTPException(
+            status_code=503,
+            detail="Semantic edge discovery not available (semantic search not configured)"
+        )
+
+    logger.info(f"Starting semantic edge rebuild with top_k={top_k}, min_similarity={min_similarity}")
+
+    background_tasks.add_task(
+        run_async_task,
+        semantic_edge_discovery.discover_and_store_edges(top_k=top_k, min_similarity=min_similarity)
+    )
+
+    return {
+        "status": "background_task_started",
+        "message": "Semantic edge rebuild has been started in the background",
+        "parameters": {"top_k": top_k, "min_similarity": min_similarity}
+    }
 
 
 @router.get("/nodes/{repo:path}/related", response_model=RelatedReposResponse)
@@ -211,46 +205,21 @@ async def get_related_repos(
     limit: int = 5,
     db = Depends(get_db)
 ):
-    """
-    Get repositories related to the given repository.
-
-    Uses graph edges to find related repositories and returns
-    full repository data with relationship information.
-
-    Args:
-        repo: Repository name_with_owner (e.g., "owner/repo")
-        limit: Maximum number of related repos to return (default: 5)
-
-    Returns:
-        List of related repositories with their relationship type and weight
-
-    Raises:
-        HTTPException: If database query fails
-    """
+    """Get repositories related to the given repository."""
     try:
-        # Get graph edges for this repo
         edges = await db.get_graph_edges(repo, limit=limit)
 
-        # Fetch full repo data for each edge target
         repos = []
         for edge in edges:
             target_repo = edge['target_repo']
-
-            # Get full repository data
             repo_data = await db.get_repository(target_repo)
 
             if repo_data:
-                # Add relationship information
-                repos.append({
-                    "name_with_owner": repo_data.get('name_with_owner'),
-                    "name": repo_data.get('name'),
-                    "owner": repo_data.get('owner'),
-                    "description": repo_data.get('description'),
-                    "primary_language": repo_data.get('primary_language'),
-                    "stargazer_count": repo_data.get('stargazer_count', 0),
-                    "relation_type": edge['edge_type'],
-                    "relation_weight": edge['weight']
-                })
+                repos.append(repo_to_related_response(
+                    repo_data,
+                    edge['edge_type'],
+                    edge['weight']
+                ))
 
         return RelatedReposResponse(data=repos)
 

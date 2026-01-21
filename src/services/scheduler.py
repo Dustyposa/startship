@@ -24,17 +24,18 @@ class SyncScheduler:
         Requires GitHub Token to be configured.
     """
 
-    def __init__(self, db: Database, semantic_search=None):
+    def __init__(self, db: Database, semantic_search=None, semantic_edge_discovery=None):
         """
         Initialize scheduler.
 
         Args:
             db: Database instance
             semantic_search: Optional SemanticSearch instance for vector updates
+            semantic_edge_discovery: Optional SemanticEdgeDiscovery instance for graph updates
         """
         self.db = db
         self.scheduler = AsyncIOScheduler()
-        self.sync_service = SyncService(db, semantic_search)
+        self.sync_service = SyncService(db, semantic_search, semantic_edge_discovery)
 
     def start(self) -> None:
         """Start the scheduler with daily and weekly jobs."""
@@ -106,30 +107,32 @@ def get_scheduler() -> Optional[SyncScheduler]:
     return _scheduler
 
 
-def create_scheduler(db: Database, semantic_search=None) -> SyncScheduler:
+def create_scheduler(db: Database, semantic_search=None, semantic_edge_discovery=None) -> SyncScheduler:
     """
     Create and return a new scheduler instance.
 
     Args:
         db: Database instance
         semantic_search: Optional SemanticSearch instance for vector updates
+        semantic_edge_discovery: Optional SemanticEdgeDiscovery instance for graph updates
 
     Returns:
         SyncScheduler instance
     """
     global _scheduler
     if _scheduler is None:
-        _scheduler = SyncScheduler(db, semantic_search)
+        _scheduler = SyncScheduler(db, semantic_search, semantic_edge_discovery)
     return _scheduler
 
 
-def start_scheduler(db: Database, semantic_search=None) -> SyncScheduler:
+def start_scheduler(db: Database, semantic_search=None, semantic_edge_discovery=None) -> SyncScheduler:
     """
     Create and start the scheduler.
 
     Args:
         db: Database instance
         semantic_search: Optional SemanticSearch instance for vector updates
+        semantic_edge_discovery: Optional SemanticEdgeDiscovery instance for graph updates
 
     Returns:
         Started SyncScheduler instance
@@ -137,7 +140,7 @@ def start_scheduler(db: Database, semantic_search=None) -> SyncScheduler:
     Note:
         Requires GitHub Token to be configured.
     """
-    scheduler = create_scheduler(db, semantic_search)
+    scheduler = create_scheduler(db, semantic_search, semantic_edge_discovery)
     scheduler.start()
     return scheduler
 

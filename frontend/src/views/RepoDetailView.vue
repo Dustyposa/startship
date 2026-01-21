@@ -34,6 +34,7 @@
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19c-5 1.5-5-2.5-7-3m14 6v-3.87a3.37 3.37 0 0 0-.94-2.61c3.14-.35 6.44-1.54 6.44-7A5.44 5.44 0 0 0 20 4.77 5.07 5.07 0 0 0 19.91 1S18.73.65 16 2.48a13.38 13.38 0 0 0-7 0C6.27.65 5.09 1 5.09 1A5.07 5.07 0 0 0 5 4.77a5.44 5.44 0 0 0-1.5 3.78c0 5.42 3.3 6.61 6.44 7A3.37 3.37 0 0 0 9 18.13V22"/>
               </svg>
             </a>
+            </div>
           </div>
         </div>
 
@@ -131,8 +132,54 @@
       </div>
 
     <!-- Sidebar -->
-    <div class="w-80 flex-shrink-0">
+    <div class="w-80 flex-shrink-0 space-y-6">
+        <!-- Recommendations Section -->
         <div class="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg shadow-sm p-4 sticky top-4">
+          <h2 class="text-lg font-bold text-gray-900 dark:text-white mb-4">相似项目</h2>
+
+          <div v-if="isLoadingRecommendations" class="text-center py-8">
+            <div class="text-gray-600 dark:text-gray-400 text-sm">加载中...</div>
+          </div>
+
+          <div v-else-if="recommendations.length > 0" class="space-y-3">
+            <div
+              v-for="repo in recommendations.slice(0, 5)"
+              :key="repo.name_with_owner"
+              class="recommendation-item cursor-pointer"
+              @click="navigateToRepo(repo.name_with_owner)"
+            >
+              <div class="p-3 bg-gray-50 dark:bg-gray-700 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-600 transition">
+                <div class="rec-name font-semibold text-gray-900 dark:text-white text-sm truncate">
+                  {{ repo.name }}
+                </div>
+                <div class="rec-owner text-xs text-gray-600 dark:text-gray-400 mt-1">
+                  {{ repo.owner }}
+                </div>
+                <div v-if="repo.description" class="text-xs text-gray-600 dark:text-gray-400 mt-1 line-clamp-2">
+                  {{ repo.description }}
+                </div>
+                <div class="rec-sources mt-2">
+                  <span
+                    v-for="source in repo.sources"
+                    :key="source"
+                    :class="['source-tag', `source-${source}`]"
+                  >
+                    {{ SOURCE_LABELS[source] }}
+                  </span>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div v-else class="text-center py-8">
+            <div class="text-gray-600 dark:text-gray-400 text-sm">
+              暂无相似项目
+            </div>
+          </div>
+        </div>
+
+        <!-- Related Stars Section (Graph-based) -->
+        <div class="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg shadow-sm p-4">
           <h2 class="text-lg font-bold text-gray-900 dark:text-white mb-4">相关星标</h2>
 
           <div v-if="isLoadingRelated" class="text-center py-8">
@@ -211,9 +258,11 @@
 
 <script setup lang="ts">
 import { ref, onMounted, computed } from 'vue'
-import { useRoute } from 'vue-router'
+import { useRoute, useRouter } from 'vue-router'
 import { useReposStore } from '../stores/repos'
 import type { Repository } from '../types'
+import type { Recommendation } from '@/types/recommendation'
+import { SOURCE_LABELS } from '@/types/recommendation'
 import CollectionManager from '../components/CollectionManager.vue'
 import NoteEditor from '../components/NoteEditor.vue'
 import TagManager from '../components/TagManager.vue'
@@ -222,14 +271,14 @@ import { getRelatedRepos, type RelatedRepo } from '@/api/graph'
 import { formatStarCount, formatRelativeTime } from '@/utils/format'
 
 const route = useRoute()
+const router = useRouter()
 const reposStore = useReposStore()
 
+// Repository state
 const repo = ref<Repository | null>(null)
 const isLoading = ref(true)
 const isReanalyzing = ref(false)
 const reanalyzeMessage = ref<{ type: 'success' | 'error'; text: string } | null>(null)
-const relatedRepos = ref<RelatedRepo[]>([])
-const isLoadingRelated = ref(false)
 
 const nameWithOwner = computed(() => repo.value?.name_with_owner || '')
 
@@ -237,6 +286,16 @@ const lastAnalyzedTime = computed(() => {
   if (!repo.value?.last_analyzed_at) return null
   return formatRelativeTime(repo.value.last_analyzed_at)
 })
+
+// Related repos state
+const relatedRepos = ref<RelatedRepo[]>([])
+const isLoadingRelated = ref(false)
+
+// Recommendations state
+const recommendations = ref<Recommendation[]>([])
+const isLoadingRecommendations = ref(false)
+
+// ==================== Data Loading Functions ====================
 
 async function handleReanalyze() {
   if (!nameWithOwner.value) return
@@ -251,7 +310,6 @@ async function handleReanalyze() {
       text: result.message || '重新分析已加入队列，请稍后刷新查看结果'
     }
 
-    // Reload repo data after a delay to get updated analysis
     setTimeout(async () => {
       const data = await reposStore.loadRepo(nameWithOwner.value)
       repo.value = data
@@ -267,14 +325,6 @@ async function handleReanalyze() {
   }
 }
 
-function handleNoteUpdate() {
-  // Notes updated - could trigger refresh if needed
-}
-
-function handleTagUpdate() {
-  // Tags updated - could trigger refresh if needed
-}
-
 async function loadRelatedRepos() {
   if (!nameWithOwner.value) return
 
@@ -288,6 +338,45 @@ async function loadRelatedRepos() {
   } finally {
     isLoadingRelated.value = false
   }
+}
+
+async function fetchRecommendations() {
+  if (!nameWithOwner.value) return
+
+  isLoadingRecommendations.value = true
+  try {
+    const response = await fetch(
+      `/api/recommendations/${encodeURIComponent(nameWithOwner.value)}?limit=10&include_semantic=true`
+    )
+    if (response.ok) {
+      recommendations.value = await response.json()
+    }
+  } catch (error) {
+    console.error('Failed to fetch recommendations:', error)
+    recommendations.value = []
+  } finally {
+    isLoadingRecommendations.value = false
+  }
+}
+
+function loadRelatedData() {
+  return Promise.all([
+    fetchRecommendations(),
+    loadRelatedRepos()
+  ])
+}
+
+function handleNoteUpdate() {
+  // Notes updated - could trigger refresh if needed
+}
+
+function handleTagUpdate() {
+  // Tags updated - could trigger refresh if needed
+}
+
+function navigateToRepo(nameWithOwner: string) {
+  const [owner, name] = nameWithOwner.split('/')
+  router.push(`/repo/${owner}/${name}`)
 }
 
 function getRelationTypeLabel(type: string): string {
@@ -308,7 +397,37 @@ onMounted(async () => {
   repo.value = data
   isLoading.value = false
 
-  // Load related repos after main repo is loaded
-  await loadRelatedRepos()
+  await loadRelatedData()
 })
 </script>
+
+<style scoped>
+.source-tag {
+  display: inline-block;
+  padding: 2px 8px;
+  border-radius: 4px;
+  font-size: 12px;
+  margin-right: 4px;
+  margin-bottom: 4px;
+}
+
+.source-semantic {
+  background: #e3f2fd;
+  color: #1976d2;
+}
+
+.source-author {
+  background: #f3e5f5;
+  color: #7b1fa2;
+}
+
+.source-ecosystem {
+  background: #e8f5e9;
+  color: #388e3c;
+}
+
+.source-collection {
+  background: #fff3e0;
+  color: #f57c00;
+}
+</style>

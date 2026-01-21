@@ -14,9 +14,14 @@
           />
           <button
             @click="handleSearch"
-            class="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition font-medium"
+            :disabled="isLoadingPage"
+            class="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition font-medium disabled:bg-gray-400 disabled:cursor-not-allowed flex items-center gap-2"
           >
-            搜索
+            <svg v-if="isLoadingPage" class="animate-spin h-4 w-4" fill="none" viewBox="0 0 24 24">
+              <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+              <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+            </svg>
+            <span>{{ isLoadingPage ? '搜索中...' : '搜索' }}</span>
           </button>
         </div>
 
@@ -110,12 +115,12 @@
     </div>
 
     <!-- Loading State -->
-    <div v-if="isLoading" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+    <div v-if="isLoading || isLoadingPage" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
       <RepoCardSkeleton v-for="i in 6" :key="i" />
     </div>
 
     <!-- Search Results Section -->
-    <div v-if="repos.length > 0">
+    <div v-if="repos.length > 0 && !isLoading && !isLoadingPage">
       <h3 class="text-base font-semibold text-gray-900 dark:text-white mb-3 flex items-center gap-2">
         <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
           <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
@@ -125,7 +130,7 @@
     </div>
 
     <!-- Results Grid -->
-    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+    <div v-if="!isLoading && !isLoadingPage" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
       <div
         v-for="repo in repos"
         :key="repo.name_with_owner"
@@ -168,7 +173,9 @@
 
         <div @click="goToRepo(repo.name_with_owner)" class="flex-1 flex flex-col">
           <h3 class="font-bold text-gray-900 dark:text-white mb-2 pr-24 truncate" :title="repo.name_with_owner">{{ repo.name_with_owner }}</h3>
-          <p class="text-sm text-gray-600 dark:text-gray-400 line-clamp-2 mb-3 flex-1">{{ repo.description || repo.summary }}</p>
+          <p class="text-sm text-gray-600 dark:text-gray-400 line-clamp-2 mb-3 flex-1">
+            {{ repo.description || repo.summary || '暂无描述' }}
+          </p>
 
           <div class="flex items-center justify-between gap-2">
             <div class="flex gap-2 flex-wrap">
@@ -187,31 +194,38 @@
       </div>
     </div>
 
-    <!-- Related Recommendations (Graph-based) - Moved below search results -->
-    <div v-if="relatedRepos.length > 0" class="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg p-4">
+    <!-- Related Recommendations (Hybrid: Graph + Semantic) -->
+    <div v-if="recommendations.length > 0" class="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg p-4">
       <h3 class="text-lg font-bold text-gray-900 dark:text-white mb-3 flex items-center gap-2">
         <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
           <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1" />
         </svg>
         关联推荐
-        <span class="text-sm font-normal text-gray-500 dark:text-gray-400">基于知识图谱</span>
+        <span class="text-sm font-normal text-gray-500 dark:text-gray-400">基于知识图谱 + 语义搜索</span>
       </h3>
       <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3">
         <div
-          v-for="repo in relatedRepos"
+          v-for="repo in recommendations"
           :key="repo.name_with_owner"
           @click="goToRepo(repo.name_with_owner)"
           class="flex flex-col p-3 rounded-lg bg-gray-50 dark:bg-gray-700 hover:bg-gray-100 dark:hover:bg-gray-600 cursor-pointer transition border border-gray-200 dark:border-gray-600"
         >
-          <h4 class="font-medium text-sm text-gray-900 dark:text-white mb-1 truncate" :title="repo.name_with_owner">{{ repo.name_with_owner }}</h4>
-          <p class="text-xs text-gray-600 dark:text-gray-400 line-clamp-2 mb-2 flex-1">{{ repo.description || repo.summary }}</p>
-          <div class="flex items-center gap-2">
-            <span class="text-xs px-2 py-0.5 bg-gray-200 dark:bg-gray-600 text-gray-700 dark:text-gray-300 rounded">
-              ⭐ {{ formatStarCount(repo.stargazer_count) }}
+          <h4 class="font-medium text-sm text-gray-900 dark:text-white mb-1 truncate" :title="repo.name_with_owner">{{ repo.name }}</h4>
+          <p class="text-xs text-gray-600 dark:text-gray-400 mb-1">{{ repo.owner }}</p>
+          <p class="text-xs text-gray-600 dark:text-gray-400 line-clamp-2 mb-2 flex-1" v-if="repo.description">
+            {{ (repo.description || '').substring(0, 80) }}...
+          </p>
+          <div class="repo-sources mb-2">
+            <span
+              v-for="source in repo.sources"
+              :key="source"
+              :class="['source-tag', `source-${source}`]"
+            >
+              {{ SOURCE_LABELS[source as RecommendationSource] || source }}
             </span>
-            <span v-if="repo.primary_language" class="text-xs px-2 py-0.5 bg-blue-100 dark:bg-blue-900 text-blue-700 dark:text-blue-300 rounded">
-              {{ repo.primary_language }}
-            </span>
+          </div>
+          <div class="repo-score">
+            匹配度: {{ (repo.final_score * 100).toFixed(0) }}%
           </div>
         </div>
       </div>
@@ -348,7 +362,7 @@
 
     <!-- Empty State -->
     <EmptyState
-      v-if="!isLoading && repos.length === 0"
+      v-if="!isLoading && !isLoadingPage && repos.length === 0"
       icon="🔍"
       title="没有找到匹配的仓库"
       message="尝试调整搜索条件或筛选器"
@@ -367,6 +381,8 @@ import { useNotes } from '@/composables/useNotes'
 import { useToast } from '@/composables/useToast'
 import { collectionsApi } from '@/api/user'
 import type { Collection, Tag } from '@/api/user'
+import type { Recommendation, RecommendationSource } from '@/types/recommendation'
+import { SOURCE_LABELS } from '@/types/recommendation'
 import NoteEditor from '@/components/NoteEditor.vue'
 import TagManager from '@/components/TagManager.vue'
 import BaseModal from '@/components/BaseModal.vue'
@@ -392,10 +408,14 @@ const isActive = ref(false)
 const isNew = ref(false)
 const excludeArchived = ref(true)
 
-const modals = ref({
-  quickNote: null as string | null,
-  quickTag: null as string | null,
-  collection: { show: false, repoId: null as string | null }
+const modals = ref<{
+  quickNote: string | null
+  quickTag: string | null
+  collection: { show: boolean; repoId: string | null }
+}>({
+  quickNote: null,
+  quickTag: null,
+  collection: { show: false, repoId: null }
 })
 
 const showExportMenu = ref(false)
@@ -420,8 +440,21 @@ const isLoading = computed(() => reposStore.isLoading)
 // Total count for pagination display
 const totalCount = ref(0)
 
-// Related repos from graph-based recommendations
-const relatedRepos = ref<any[]>([])
+// Hybrid recommendations (graph + semantic)
+const recommendations = ref<Recommendation[]>([])
+
+async function fetchRecommendations(repoName: string) {
+  try {
+    const response = await fetch(
+      `/api/recommendations/${encodeURIComponent(repoName)}?limit=5&include_semantic=true`
+    )
+    if (response.ok) {
+      recommendations.value = await response.json()
+    }
+  } catch (error) {
+    console.error('Failed to fetch recommendations:', error)
+  }
+}
 
 // Dark mode detection
 const isDark = computed(() => {
@@ -535,12 +568,8 @@ async function loadPage(page: number) {
     // Update store with new page data
     reposStore.repos = newRepos
 
-    // Load related repos (only on first page)
-    if (page === 1 && data.related) {
-      relatedRepos.value = data.related
-    } else if (page > 1) {
-      relatedRepos.value = []
-    }
+    // Clear recommendations on page load (they're only for individual repo views)
+    recommendations.value = []
 
     // Load metadata for repos
     await loadRepoMetadata(newRepos)
@@ -567,6 +596,8 @@ function prevPage() {
 }
 
 function goToRepo(nameWithOwner: string) {
+  // Fetch recommendations for this repo
+  fetchRecommendations(nameWithOwner)
   const [owner, name] = nameWithOwner.split('/')
   router.push(`/repo/${owner}/${name}`)
 }
@@ -610,7 +641,7 @@ function getExportFilename() {
   return `repos-${searchQuery.value || 'all'}-${new Date().toISOString().slice(0, 10)}`
 }
 
-const exportToJSON = () => {
+function exportToJSON() {
   try {
     exportJSON(repos.value, getExportFilename())
     showExportMenu.value = false
@@ -620,7 +651,7 @@ const exportToJSON = () => {
   }
 }
 
-const exportToCSV = () => {
+function exportToCSV() {
   try {
     exportCSV(repos.value, getExportFilename())
     showExportMenu.value = false
@@ -632,6 +663,46 @@ const exportToCSV = () => {
 </script>
 
 <style scoped>
+/* Source Tags */
+.source-tag {
+  display: inline-block;
+  padding: 2px 8px;
+  border-radius: 4px;
+  font-size: 12px;
+  margin-right: 4px;
+  margin-bottom: 4px;
+}
+
+.source-semantic {
+  background: #e3f2fd;
+  color: #1976d2;
+}
+
+.source-author {
+  background: #f3e5f5;
+  color: #7b1fa2;
+}
+
+.source-ecosystem {
+  background: #e8f5e9;
+  color: #388e3c;
+}
+
+.source-collection {
+  background: #fff3e0;
+  color: #f57c00;
+}
+
+.repo-score {
+  margin-top: 8px;
+  font-size: 12px;
+  color: #666;
+}
+
+.dark .repo-score {
+  color: #9ca3af;
+}
+
 /* Repository Card Actions */
 .repo-action-icon {
   display: flex;

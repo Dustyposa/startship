@@ -2,9 +2,13 @@ import { createApp } from 'vue'
 import { createPinia } from 'pinia'
 import Toast from 'vue-toastification'
 import 'vue-toastification/dist/index.css'
+import axios from 'axios'
 import App from './App.vue'
 import router from './router'
 import './style.css'
+
+// Configure axios defaults
+axios.defaults.timeout = 10000 // 10 second timeout
 
 const app = createApp(App)
 app.use(createPinia())

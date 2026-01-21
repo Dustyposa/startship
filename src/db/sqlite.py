@@ -286,10 +286,31 @@ class SQLiteDatabase(Database):
                 return self._row_to_dict(row)
         return None
 
-    async def execute_query(self, sql: str, params: Tuple = ()) -> None:
-        """Execute a raw SQL query (for inserts, updates, etc.)."""
-        await self._connection.execute(sql, params)
-        await self._connection.commit()
+    async def execute_query(self, query: str, params=(), many=False):
+        """Execute a database query.
+
+        Args:
+            query: SQL query string
+            params: Query parameters (tuple or list of tuples for many=True)
+            many: If True, execute with executemany for batch operations
+
+        Returns:
+            Query results for SELECT, None for other queries
+        """
+        cursor = await self._connection.cursor()
+
+        if many:
+            await cursor.executemany(query, params)
+            await self._connection.commit()
+            return None
+        else:
+            await cursor.execute(query, params)
+            await self._connection.commit()
+
+            if query.strip().upper().startswith("SELECT"):
+                rows = await cursor.fetchall()
+                return [dict(row) for row in rows]
+            return None
 
     async def search_repositories(
         self,
@@ -1029,6 +1050,49 @@ class SQLiteDatabase(Database):
             (source_repo, target_repo, edge_type, weight, metadata)
         )
 
+    async def batch_insert_graph_edges(self, edges: List[Dict[str, Any]]) -> None:
+        """Batch insert graph edges into the database.
+
+        Args:
+            edges: List of edge dictionaries with keys:
+                - source_repo: str
+                - target_repo: str
+                - edge_type: str
+                - weight: float
+                - metadata: str (JSON)
+        """
+        if not edges:
+            return
+
+        data = [
+            (
+                edge["source_repo"],
+                edge["target_repo"],
+                edge["edge_type"],
+                edge.get("weight", 1.0),
+                edge.get("metadata", "{}")
+            )
+            for edge in edges
+        ]
+
+        await self.execute_query(
+            """INSERT OR REPLACE INTO graph_edges
+               (source_repo, target_repo, edge_type, weight, metadata)
+               VALUES (?, ?, ?, ?, ?)""",
+            data,
+            many=True
+        )
+
+    async def get_all_repositories(self) -> List[Dict[str, Any]]:
+        """Get all repositories from the database.
+
+        Returns:
+            List of repository dictionaries with at least name_with_owner field
+        """
+        return await self.fetch_all(
+            "SELECT name_with_owner FROM repositories WHERE is_deleted = 0"
+        )
+
     async def get_graph_edges(
         self,
         repo: str,
@@ -1036,25 +1100,20 @@ class SQLiteDatabase(Database):
         limit: int = 50
     ) -> List[Dict[str, Any]]:
         """Get all edges for a repository."""
+        query = """
+            SELECT source_repo, target_repo, edge_type, weight, metadata
+            FROM graph_edges
+            WHERE source_repo = ?
+        """
+        params = [repo]
+
         if edge_types:
             placeholders = ','.join('?' * len(edge_types))
-            query = f"""
-                SELECT source_repo, target_repo, edge_type, weight, metadata
-                FROM graph_edges
-                WHERE source_repo = ? AND edge_type IN ({placeholders})
-                ORDER BY weight DESC
-                LIMIT ?
-            """
-            params = [repo] + edge_types + [limit]
-        else:
-            query = """
-                SELECT source_repo, target_repo, edge_type, weight, metadata
-                FROM graph_edges
-                WHERE source_repo = ?
-                ORDER BY weight DESC
-                LIMIT ?
-            """
-            params = [repo, limit]
+            query += f" AND edge_type IN ({placeholders})"
+            params.extend(edge_types)
+
+        query += " ORDER BY weight DESC LIMIT ?"
+        params.append(limit)
 
         return await self.fetch_all(query, tuple(params))
 
@@ -1082,22 +1141,21 @@ class SQLiteDatabase(Database):
             return
 
         timestamp = datetime.now().isoformat()
-        updates = ["repo_id"]
-        params = [repo]
+        columns = ["repo_id"]
+        values = [repo]
+        placeholders = ["?"]
 
         if edges_computed:
-            updates.append("edges_computed_at")
-            params.append(timestamp)
+            columns.extend(["edges_computed_at"])
+            values.extend([timestamp])
+            placeholders.extend(["?"])
 
         if dependencies_parsed:
-            updates.append("dependencies_parsed_at")
-            params.append(timestamp)
-
-        placeholders = ", ".join("?" for _ in params)
-        columns = ", ".join(updates)
+            columns.extend(["dependencies_parsed_at"])
+            values.extend([timestamp])
+            placeholders.extend(["?"])
 
         await self.execute(
-            f"""INSERT OR REPLACE INTO graph_status ({columns})
-               VALUES ({placeholders})""",
-            tuple(params)
+            f"INSERT OR REPLACE INTO graph_status ({', '.join(columns)}) VALUES ({', '.join(placeholders)})",
+            tuple(values)
         )

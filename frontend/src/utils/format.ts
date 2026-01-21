@@ -1,7 +1,11 @@
 /**
  * Format star count like GitHub (1k, 2.5k, etc.)
  */
-export function formatStarCount(count: number): string {
+export function formatStarCount(count: number | null | undefined): string {
+  if (count === null || count === undefined || isNaN(count)) {
+    return 'N/A'
+  }
+
   if (count < 1000) {
     return count.toString()
   }
@@ -20,12 +24,13 @@ export function formatStarCount(count: number): string {
 /**
  * Format date to relative time (e.g., "2 days ago", "3 months ago")
  */
-export function formatRelativeTime(dateString: string | null): string {
-  if (!dateString) return ''
+export function formatRelativeTime(dateString: string | null | undefined): string {
+  if (!dateString) return 'N/A'
 
   const date = new Date(dateString)
-  const seconds = Math.floor((Date.now() - date.getTime()) / 1000)
+  if (isNaN(date.getTime())) return 'N/A'
 
+  const seconds = Math.floor((Date.now() - date.getTime()) / 1000)
   if (seconds < 60) return 'just now'
 
   const intervals = [
@@ -50,9 +55,12 @@ export function formatRelativeTime(dateString: string | null): string {
 /**
  * Format date to locale string
  */
-export function formatDate(dateString: string | null): string {
-  if (!dateString) return ''
+export function formatDate(dateString: string | null | undefined): string {
+  if (!dateString) return 'N/A'
+
   const date = new Date(dateString)
+  if (isNaN(date.getTime())) return 'N/A'
+
   return date.toLocaleDateString('en-US', {
     year: 'numeric',
     month: 'short',

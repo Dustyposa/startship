@@ -12,6 +12,8 @@ async def test_hybrid_search_merge():
     db.search_repositories = AsyncMock(return_value=[
         {"name_with_owner": "ft/repo1", "name": "repo1", "fts_score": -5.0}
     ])
+    # Mock enrichment query (returns empty since data already has stargazer_count in real use)
+    db.execute_query = AsyncMock(return_value=[])
 
     # Mock semantic search with similarity scores
     semantic = MagicMock()
@@ -48,6 +50,7 @@ async def test_hybrid_search_fts_fallback():
     # FTS fails
     db = MagicMock()
     db.search_repositories = AsyncMock(side_effect=Exception("FTS error"))
+    db.execute_query = AsyncMock(return_value=[])
 
     # Semantic works
     semantic = MagicMock()
@@ -72,6 +75,7 @@ async def test_hybrid_search_no_semantic():
     db.search_repositories = AsyncMock(return_value=[
         {"name_with_owner": "ft/repo1", "name": "repo1", "fts_score": -3.5}
     ])
+    db.execute_query = AsyncMock(return_value=[])
 
     hybrid = HybridSearch(db, semantic=None)
     results = await hybrid.search("test query")
@@ -88,6 +92,7 @@ async def test_hybrid_search_both_fail():
     """Test hybrid search when both FTS and semantic fail."""
     db = MagicMock()
     db.search_repositories = AsyncMock(side_effect=Exception("DB error"))
+    db.execute_query = AsyncMock(return_value=[])
 
     hybrid = HybridSearch(db, semantic=None)
     results = await hybrid.search("test query")
@@ -103,6 +108,7 @@ async def test_weighted_fusion_calculation():
     db.search_repositories = AsyncMock(return_value=[
         {"name_with_owner": "both/repo1", "name": "repo1", "fts_score": -10.0}
     ])
+    db.execute_query = AsyncMock(return_value=[])
 
     semantic = MagicMock()
     semantic.search = AsyncMock(return_value=[
@@ -137,6 +143,7 @@ async def test_results_sorted_by_final_score():
         {"name_with_owner": "ft/repo1", "name": "repo1", "fts_score": -20.0},  # Lower BM25
         {"name_with_owner": "ft/repo2", "name": "repo2", "fts_score": -5.0},   # Higher BM25
     ])
+    db.execute_query = AsyncMock(return_value=[])
 
     semantic = MagicMock()
     semantic.search = AsyncMock(return_value=[
@@ -164,6 +171,7 @@ async def test_bm25_score_normalization():
         {"name_with_owner": "repo1", "name": "repo1", "fts_score": -1.0},   # Good match
         {"name_with_owner": "repo2", "name": "repo2", "fts_score": -50.0},  # Poor match
     ])
+    db.execute_query = AsyncMock(return_value=[])
 
     hybrid = HybridSearch(db, semantic=None)
     results = await hybrid.search("test query")

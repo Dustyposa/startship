@@ -267,3 +267,4 @@ grafana_data/.worktrees/
 # Git worktrees
 .worktrees/
 .obsidian/
+.env.bak

@@ -3,7 +3,7 @@
 ![Python](https://img.shields.io/badge/Python-3.13+-blue.svg)
 ![Vue](https://img.shields.io/badge/Vue-3.0+-green.svg)
 ![License](https://img.shields.io/badge/License-MIT-yellow.svg)
-![Version](https://img.shields.io/badge/version-v1.2.0-orange.svg)
+![Version](https://img.shields.io/badge/version-v1.2.1-orange.svg)
 
 **智能的 GitHub 星标仓库管理和分析助手。**
 
@@ -13,23 +13,22 @@
 
 ## 最近更新
 
-**v1.2.0** (2026-01-21)
+**v1.2.1** (2026-01-21)
+- 🔧 代码重构：简化代码逻辑，删除冗余方法
+- 🎨 用户体验：搜索加载动画、结果数据补全、空值处理
+- ⚡ 性能优化：Axios 超时配置（10秒）
+- 🧪 测试完善：单元测试、集成测试、端到端测试
+
+**v1.2.0** (2026-01-20)
 - 🎯 混合推荐系统：融合图谱关系 (65%) 和语义相似度 (35%)
 - 🔗 语义边发现：基于向量相似度自动发现项目关联
 - 📊 推荐展示：搜索页和仓库详情页集成推荐功能
 - 🔄 智能更新：同步时增量更新语义边
-- 🧪 测试完善：单元测试、集成测试、端到端测试
-- 🔧 代码优化：简化代码逻辑，提升可维护性
 
 **v1.1.0** (2026-01-19)
 - 🚀 语义搜索完全集成：搜索、同步、初始化一体化
 - 🔍 搜索服务集成混合搜索（FTS5 + 语义向量）
 - 🔄 同步时自动更新向量索引
-- 🎯 初始化时自动向量化
-
-**v1.0.3** (2025-01-18)
-- 📝 文档结构优化：拆分搜索章节，添加 FTS5/Jaccard 原理解释
-- 🎨 UI 视觉改进：搜索结果优化
 
 📖 **完整更新日志** → [CHANGELOG.md](CHANGELOG.md)
 
